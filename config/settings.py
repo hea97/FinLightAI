@@ -1,0 +1,36 @@
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    app_env: str = "local"
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/finlightai"
+    news_api_key: str | None = None
+    discord_webhook_url: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    alert_email_to: str | None = None
+    log_level: str = "INFO"
+
+    min_reliability_score: float = Field(default=0.65, ge=0, le=1)
+    min_source_score: float = Field(default=0.8, ge=0, le=1)
+    min_keyword_score: int = Field(default=2, ge=0)
+    min_content_length: int = Field(default=200, ge=0)
+    red_volume_ratio: float = 2.0
+    red_sentiment_score: float = -0.3
+    volatility_multiplier: float = 2.0
+
+    project_root: Path = Path(__file__).resolve().parents[1]
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

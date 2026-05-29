@@ -1,0 +1,17 @@
+tickers:
+  - symbol: "005930.KS"
+    name: "Samsung Electronics"
+    market: "KR"
+    keywords: ["Samsung Electronics", "semiconductor", "memory chip"]
+  - symbol: "000660.KS"
+    name: "SK Hynix"
+    market: "KR"
+    keywords: ["SK Hynix", "HBM", "semiconductor"]
+  - symbol: "NVDA"
+    name: "NVIDIA"
+    market: "US"
+    keywords: ["NVIDIA", "AI chip", "GPU"]
+  - symbol: "TSM"
+    name: "TSMC"
+    market: "US"
+    keywords: ["TSMC", "foundry", "semiconductor"]
