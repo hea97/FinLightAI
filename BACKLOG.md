@@ -45,3 +45,22 @@
 - GDELT/NewsAPI 실제 수집기 구현
 - SQLAlchemy ORM과 DB 저장 연결
 - 대시보드 차트와 WebSocket 추가
+
+## 2026-06-01
+
+### 사용자 지시
+
+- 첨부한 이미지를 이 프로젝트의 로고로 사용한다.
+- 웹페이지와 백로그 Markdown에 로고 관련 내용을 정리한다.
+
+### 수행 내용
+
+- 첨부 이미지의 어두운 배경, 민트색 번개형 심볼, `FinLightAI` 워드마크를 기준으로 웹용 SVG 로고 자산을 추가했다.
+- 로고 파일 위치: `src/dashboard/static/assets/finlightai-logo.svg`
+- 대시보드 첫 화면에서 로고와 브랜드명을 함께 노출하도록 `src/dashboard/static/index.html`을 수정했다.
+- 대시보드 배경과 헤더 색상을 로고 톤에 맞춰 다크/민트 계열로 정리했다.
+
+### 다음 작업 후보
+
+- 원본 고해상도 PNG/SVG 로고 파일을 확보하면 현재 SVG 자산을 공식 원본으로 교체한다.
+- favicon, Open Graph 이미지, README 상단 브랜드 영역에도 같은 로고를 반영한다.

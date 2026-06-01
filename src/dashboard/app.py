@@ -16,6 +16,11 @@ def index() -> FileResponse:
     return FileResponse("src/dashboard/static/index.html")
 
 
+@app.get("/login")
+def login() -> FileResponse:
+    return FileResponse("src/dashboard/static/login.html")
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
