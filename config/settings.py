@@ -8,7 +8,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_env: str = "local"
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/finlightai"
+    gdelt_base_url: str = "https://api.gdeltproject.org/api/v2/doc/doc"
     news_api_key: str | None = None
+    guardian_api_key: str | None = None
+    finnhub_api_key: str | None = None
+    bbc_rss_url: str = "https://feeds.bbci.co.uk/news/world/rss.xml"
     discord_webhook_url: str | None = None
     smtp_host: str | None = None
     smtp_port: int = 587

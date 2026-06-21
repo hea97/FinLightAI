@@ -1,7 +1,7 @@
 # FinLightAI 전체 기획서
 
 작성일: 2026-05-29  
-문서 목적: FinLightAI의 서비스 방향, 핵심 기능, 웹사이트 구성, 자산 포트폴리오 기능, Discord 연동 계획을 한국어로 정리한다.
+문서 목적: FinLightAI의 서비스 방향, 핵심 기능, 웹사이트 구성, 자산 포트폴리오 기능, 카카오 채널 챗봇 연동 계획을 한국어로 정리한다.
 
 ## 1. 프로젝트 한 줄 설명
 
@@ -12,14 +12,14 @@ FinLightAI는 AI, 반도체, 정책, 금융 뉴스와 시장 데이터를 결합
 - 이 서비스는 투자 추천 서비스가 아니다.
 - `매수`, `매도`, `수익 보장` 표현을 사용하지 않는다.
 - 모든 결과는 참고용 시장 상태, 뉴스 리스크, 포트폴리오 현황 정보로 제공한다.
-- Discord 알림도 투자 지시가 아니라 상태 요약과 리스크 알림으로 제한한다.
+- 카카오 채널 챗봇 알림도 투자 지시가 아니라 상태 요약과 리스크 알림으로 제한한다.
 
 ## 3. 핵심 사용자
 
 - AI/반도체/정책 뉴스가 주식시장에 주는 영향을 빠르게 보고 싶은 사용자
 - 삼성전자, SK하이닉스, NVIDIA, TSMC 등 반도체 관련 종목을 추적하는 사용자
 - 여러 종목을 보유하고 있고, 뉴스 리스크와 자산 비중을 함께 보고 싶은 사용자
-- 웹사이트보다 Discord에서 빠르게 상태를 확인하고 싶은 사용자
+- 웹사이트보다 카카오톡 채널에서 빠르게 상태를 확인하고 싶은 사용자
 
 ## 4. 핵심 기능
 
@@ -88,22 +88,35 @@ FinLightAI는 AI, 반도체, 정책, 금융 뉴스와 시장 데이터를 결합
 - MVP에서는 사용자가 직접 입력한 포트폴리오로 시작한다.
 - 계좌 연동은 보안, 인증, 개인정보 처리 정책이 준비된 뒤 진행한다.
 
-### 4-5. Discord 연동
+### 4-5. 카카오 채널 챗봇 연동
 
-Discord는 빠른 조회와 알림 채널로 사용한다.
+카카오 채널 챗봇은 빠른 조회와 알림 채널로 사용한다. 기존 Discord Bot 중심 계획은 카카오 채널 챗봇 중심으로 변경한다.
 
-명령어 후보:
+MVP에서는 n8n을 카카오 챗봇과 FinLightAI API 사이의 자동화/연결 계층으로 사용한다. n8n은 카카오 챗봇 요청을 Webhook으로 받고, FinLightAI API에서 시장 신호와 뉴스 데이터를 조회한 뒤 챗봇 응답 형태로 가공한다.
+
+연동 구조:
 
 ```text
-!상태
-!뉴스
-!신호
-!자산
-!자산 삼성전자
-!리스크
+사용자 카카오 채널 메시지
+-> 카카오 채널 챗봇
+-> n8n Webhook
+-> FinLightAI API
+-> n8n 응답 가공
+-> 카카오 채널 챗봇 응답
 ```
 
-`!자산` 응답 예시:
+사용자 질문 후보:
+
+```text
+오늘 시장 신호 알려줘
+주의 뉴스 있어?
+반도체 영향도 보여줘
+내 포트폴리오 리스크 알려줘
+삼성전자 관련 뉴스 알려줘
+RED 신호 이유가 뭐야?
+```
+
+`내 포트폴리오 리스크 알려줘` 응답 예시:
 
 ```text
 FinLightAI 자산 요약
@@ -130,6 +143,12 @@ FinLightAI 자산 요약
 - 포트폴리오 전체 평가금액 일간 변동률이 임계값 초과
 - 특정 종목 뉴스 신뢰도 0.85 이상이며 YELLOW/RED 발생
 - 단일 섹터 비중이 60% 이상이고 해당 섹터에 RED 뉴스 발생
+
+MVP 구현 기준:
+
+- 카카오 채널 챗봇의 전체 운영 심사가 완료되지 않아도 발표용 흐름은 n8n Webhook 기반으로 시연한다.
+- 실제 운영 단계에서는 카카오 비즈니스 채널, 챗봇 설정, 앱/채널 연결, 필요한 심사 절차를 완료한 뒤 정식 배포한다.
+- 사용자별 포트폴리오 저장과 인증은 후순위로 두고, 발표용 MVP에서는 예시 포트폴리오와 예시 질문 흐름을 우선 제공한다.
 
 ## 5. 화면 기획
 
@@ -158,12 +177,13 @@ FinLightAI 자산 요약
 - 출처별 점수
 - 교차 보도 여부
 
-### Discord 설정 페이지
+### 카카오 채널 챗봇 설정 페이지
 
-- Webhook URL 설정 상태
-- 알림 채널 테스트
+- 카카오 채널 연결 상태
+- n8n Webhook 연결 상태
+- 챗봇 응답 테스트
 - 알림 조건 설정
-- 명령어 사용 안내
+- 사용자 질문 예시 안내
 
 ## 6. 개발 단계
 
@@ -174,7 +194,8 @@ FinLightAI 자산 요약
 - Finnhub news collector 구현
 - BBC RSS collector 구현
 - 가짜뉴스 필터와 신호 생성 연결
-- Discord RED/YELLOW 알림 검증
+- 카카오 채널 챗봇 RED/YELLOW 알림 흐름 검증
+- n8n Webhook 수신 및 FinLightAI API 호출 검증
 
 ### Phase 2: 포트폴리오 MVP
 
@@ -184,12 +205,13 @@ FinLightAI 자산 요약
 - 포트폴리오 평가금액 계산
 - 웹 대시보드에 포트폴리오 카드 추가
 
-### Phase 3: Discord 자산 명령
+### Phase 3: 카카오 채널 챗봇 조회 기능
 
-- Discord bot command handler 추가
-- `!자산` 명령 구현
-- `!자산 종목명` 상세 조회 구현
-- Discord 응답 텍스트 formatter 구현
+- n8n Webhook workflow 구성
+- 카카오 챗봇 질문 intent 설계
+- "내 포트폴리오 리스크 알려줘" 응답 구현
+- "오늘 시장 신호 알려줘" 응답 구현
+- 카카오 챗봇 응답 텍스트 formatter 구현
 
 ### Phase 4: 리스크 알림 고도화
 
@@ -215,8 +237,9 @@ market_prices
 news_articles
 news_filter_results
 market_signals
-discord_channels
-discord_commands
+kakao_channels
+kakao_chatbot_sessions
+n8n_workflow_logs
 asset_alert_rules
 ```
 
@@ -231,8 +254,9 @@ POST   /api/portfolio/positions
 PATCH  /api/portfolio/positions/{id}
 DELETE /api/portfolio/positions/{id}
 GET    /api/portfolio/risk
-POST   /api/discord/test
-POST   /api/discord/commands/asset-summary
+POST   /api/kakao/test
+POST   /api/kakao/chatbot/market-summary
+POST   /api/kakao/chatbot/asset-summary
 ```
 
 ## 9. 당장 추가할 TODO
@@ -244,6 +268,8 @@ POST   /api/discord/commands/asset-summary
 - [ ] BBC RSS collector 구현
 - [ ] 포트폴리오 position schema 설계
 - [ ] 포트폴리오 CRUD API 설계
-- [ ] `!자산` Discord 응답 formatter 구현
+- [ ] n8n Webhook workflow 초안 작성
+- [ ] 카카오 채널 챗봇 질문/응답 시나리오 작성
+- [ ] 카카오 챗봇 자산 요약 응답 formatter 구현
 - [ ] 웹 대시보드에 포트폴리오 요약 카드 추가
-- [ ] 투자 추천이 아님을 모든 화면과 Discord 응답에 표시
+- [ ] 투자 추천이 아님을 모든 화면과 카카오 챗봇 응답에 표시
