@@ -964,6 +964,124 @@ td {
   text-align: center;
 }
 
+.auth-product {
+  background:
+    radial-gradient(circle at 24% 10%, rgba(0, 212, 170, 0.1), transparent 28rem),
+    radial-gradient(circle at 82% 18%, rgba(88, 166, 255, 0.12), transparent 24rem),
+    #080c12;
+}
+
+.auth-shell {
+  width: min(1120px, 100%);
+  grid-template-columns: minmax(0, 1fr) 430px;
+  border-color: #2b3545;
+  background: #0d1117;
+}
+
+.auth-visual {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(0, 212, 170, 0.18), transparent 20rem),
+    radial-gradient(circle at 82% 78%, rgba(88, 166, 255, 0.16), transparent 22rem),
+    linear-gradient(180deg, #101a25, #0b1017);
+}
+
+.auth-card {
+  gap: 16px;
+  border-left-color: #2b3545;
+  background: rgba(17, 24, 35, 0.92);
+}
+
+.auth-card h2 {
+  margin-bottom: 8px;
+  font-size: 1.9rem;
+}
+
+.auth-note {
+  margin-bottom: 0;
+  color: #b7c0cc;
+  line-height: 1.6;
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-form .field-row {
+  margin-top: 0;
+  color: #b7c0cc;
+}
+
+.auth-form .field-row input {
+  border-color: #2b3545;
+  background: #141c27;
+}
+
+.auth-submit {
+  width: 100%;
+  border-radius: 8px;
+  padding: 13px 14px;
+}
+
+.kakao-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 8px;
+  background: #fee500;
+  color: #3c1e1e;
+  font-weight: 900;
+  padding: 14px;
+}
+
+.kakao-login-btn span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(60, 30, 30, 0.12);
+}
+
+.auth-links {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  color: #b7c0cc;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.auth-state-box {
+  display: grid;
+  gap: 7px;
+  border: 1px solid #2b3545;
+  border-radius: 8px;
+  background: #141c27;
+  color: #b7c0cc;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  padding: 13px;
+}
+
+.auth-state-box strong {
+  color: #eaf0f7;
+}
+
+.auth-steps {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.auth-steps span {
+  border-color: #2b3545;
+  background: rgba(20, 28, 39, 0.72);
+}
+
+.auth-steps strong {
+  color: #00d4aa;
+}
+
 @media (max-width: 1280px) {
   .metric-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -983,7 +1101,8 @@ td {
   .kakao-layout,
   .portfolio-layout,
   .briefing-layout,
-  .login-shell {
+  .login-shell,
+  .auth-shell {
     grid-template-columns: 1fr;
   }
 
@@ -1014,7 +1133,8 @@ td {
   .metric-grid,
   .kakao-preview-grid,
   .guide-grid,
-  .login-metrics {
+  .login-metrics,
+  .auth-steps {
     display: grid;
     grid-template-columns: 1fr;
   }
