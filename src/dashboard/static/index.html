@@ -34,7 +34,7 @@
   --radius-md:16px;
   --radius-sm:12px;
   --sidebar-w:260px;
-  --header-h:76px;
+  --header-h:132px;
   font-synthesis-weight:none;
 }
 *{box-sizing:border-box}
@@ -142,12 +142,40 @@ button,input,select{font-family:inherit}
   flex:1;height:100vh;overflow:hidden;position:relative;
 }
 .header{
-  height:var(--header-h);
-  display:flex;align-items:center;gap:14px;
-  padding:0 30px;
+  min-height:var(--header-h);
+  display:flex;flex-direction:column;gap:14px;
+  padding:16px 30px;
   border-bottom:1px solid var(--line);
   background:rgba(8,12,18,.72);
   backdrop-filter:blur(16px);
+}
+.header-main{
+  width:100%;
+  display:flex;align-items:center;gap:14px;
+}
+.header-brand{padding:0 14px 0 0;border-right:1px solid var(--line)}
+.product-nav{
+  width:100%;
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  padding-bottom:2px;
+}
+.product-nav .nav-item{
+  width:auto;
+  height:38px;
+  flex:0 0 auto;
+  border-color:var(--line);
+  background:rgba(20,28,39,.72);
+  margin:0;
+  padding:0 13px;
+  border-radius:14px;
+  white-space:nowrap;
+}
+.product-nav .nav-item span{display:none}
+.product-nav .nav-item.active{
+  border-color:rgba(0,212,170,.36);
+  background:linear-gradient(90deg,rgba(0,212,170,.16),rgba(88,166,255,.10));
 }
 .page-title{font-size:21px;font-weight:950;letter-spacing:-.03em}
 .page-sub{font-size:12px;color:var(--muted);margin-top:4px;font-weight:700}
@@ -210,6 +238,10 @@ button,input,select{font-family:inherit}
   color:var(--text-2);
   display:flex;align-items:center;font-size:12px;font-weight:900;
   cursor:pointer;
+}
+.tab:focus-visible,.top-btn:focus-visible,.nav-item:focus-visible{
+  outline:2px solid var(--teal);
+  outline-offset:2px;
 }
 .tab.active{color:var(--teal);background:var(--teal-soft);border-color:rgba(0,212,170,.32)}
 .hero-signal{
@@ -450,8 +482,10 @@ button,input,select{font-family:inherit}
 @media (max-width: 980px){
   .sidebar{display:none}
   .header{height:auto;min-height:86px;flex-wrap:wrap;padding:16px}
+  .header-main{align-items:flex-start;flex-wrap:wrap}
+  .header-brand{border-right:0}
   .shell{width:100vw}
-  .content{height:calc(100vh - 86px);padding:18px}
+  .content{height:calc(100vh - 150px);padding:18px}
   .grid-12,.my-grid,.auth-bg{display:block}
   .hero-signal,.brief-card,.heatmap-card,.news-card,.alert-summary-card{grid-column:auto;margin-bottom:16px}
   .metric-card{grid-column:auto}
@@ -462,63 +496,46 @@ button,input,select{font-family:inherit}
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-logo">FL</div>
-      <div>
-        <div class="brand-title">FinLightAI</div>
-        <div class="brand-sub">AI 금융 상황판</div>
-      </div>
-    </div>
-
-    <div class="nav-label">서비스</div>
-    <div class="nav-item active" data-screen="overview"><span class="nav-ico">01</span>개요</div>
-    <div class="nav-item" data-screen="market"><span class="nav-ico">02</span>시장 신호</div>
-    <div class="nav-item" data-screen="industry"><span class="nav-ico">03</span>산업 영향도</div>
-    <div class="nav-item" data-screen="news"><span class="nav-ico">04</span>뉴스 가드</div>
-    <div class="nav-item" data-screen="portfolio"><span class="nav-ico">05</span>포트폴리오</div>
-    <div class="nav-item" data-screen="kakao"><span class="nav-ico">06</span>카카오 알림</div>
-    <div class="nav-item" data-screen="briefing"><span class="nav-ico">07</span>AI 브리핑</div>
-
-    <div class="nav-label">계정</div>
-    <div class="nav-item" data-screen="mypage"><span class="nav-ico">08</span>마이페이지</div>
-    <div class="nav-item" data-screen="auth"><span class="nav-ico">09</span>로그인/회원가입</div>
-    <div class="nav-item" data-screen="settings"><span class="nav-ico">10</span>설정</div>
-
-    <div class="sidebar-card">
-      <div class="title">주의: 투자 추천 아님</div>
-      <div class="desc">FinLightAI는 시장 신호와 근거를 정리하는 도구입니다. 매수·매도 지시를 제공하지 않습니다.</div>
-    </div>
-    <div class="sidebar-user">
-      <div class="avatar">TH</div>
-      <div>
-        <div class="user-name">허태희</div>
-        <div class="user-meta">카카오 연결됨</div>
-      </div>
-    </div>
-  </aside>
-
   <main class="shell">
     <header class="header">
-      <div>
-        <div class="page-title" id="pageTitle">개요</div>
-        <div class="page-sub" id="pageSub">오늘의 시장 신호와 뉴스 근거를 한눈에 확인합니다.</div>
+      <div class="header-main">
+        <div class="brand header-brand">
+          <div class="brand-logo">FL</div>
+          <div>
+            <div class="brand-title">FinLightAI</div>
+            <div class="brand-sub">AI 금융 상황판</div>
+          </div>
+        </div>
+        <div>
+          <div class="page-title" id="pageTitle">개요</div>
+          <div class="page-sub" id="pageSub">오늘의 시장 신호와 뉴스 근거를 한눈에 확인합니다.</div>
+        </div>
+        <div class="spacer"></div>
+        <div class="search">⌘K · 뉴스, 산업, 종목 검색</div>
+        <button class="top-btn" id="languageToggle" type="button" aria-pressed="false">🌐 EN</button>
+        <button class="top-btn kakao" type="button" data-screen-shortcut="kakao">카카오 연결됨</button>
+        <div class="status-chip">YELLOW · 주의</div>
       </div>
-      <div class="spacer"></div>
-      <div class="search">⌘K · 뉴스, 산업, 종목 검색</div>
-      <button class="top-btn">🌐 EN</button>
-      <button class="top-btn kakao">카카오 연결됨</button>
-      <div class="status-chip">YELLOW · 주의</div>
+      <nav class="product-nav" aria-label="주요 화면">
+        <button class="nav-item active" type="button" data-screen="overview"><span>01</span>개요</button>
+        <button class="nav-item" type="button" data-screen="news"><span>02</span>뉴스 가드</button>
+        <button class="nav-item" type="button" data-screen="industry"><span>03</span>산업 영향도</button>
+        <button class="nav-item" type="button" data-screen="kakao"><span>04</span>카카오 알림</button>
+        <button class="nav-item" type="button" data-screen="portfolio"><span>05</span>포트폴리오</button>
+        <button class="nav-item" type="button" data-screen="mypage"><span>06</span>마이페이지</button>
+        <button class="nav-item" type="button" data-screen="briefing"><span>07</span>AI 브리핑</button>
+        <button class="nav-item" type="button" data-screen="auth"><span>08</span>로그인</button>
+      </nav>
     </header>
 
     <section class="content">
       <div class="screen active" id="overview">
-        <div class="market-tabs">
-          <div class="tab">국내 시장</div>
-          <div class="tab active">미국 시장</div>
-          <div class="tab">글로벌</div>
-          <div class="tab">관심 산업</div>
-          <div class="tab">내 포트폴리오</div>
+        <div class="market-tabs" data-market-tabs>
+          <button class="tab" type="button" data-market="domestic">국내 시장</button>
+          <button class="tab active" type="button" data-market="us">미국 시장</button>
+          <button class="tab" type="button" data-market="global">글로벌</button>
+          <button class="tab" type="button" data-market="industry">관심 산업</button>
+          <button class="tab" type="button" data-market="portfolio">내 포트폴리오</button>
         </div>
 
         <div class="grid-12">
@@ -533,8 +550,8 @@ button,input,select{font-family:inherit}
                 <div class="word">YELLOW</div>
               </div>
               <div class="signal-copy">
-                <h1>단기 변동성 주의.<br>뉴스 신뢰도 확인이 필요한 구간입니다.</h1>
-                <p>금리 발언 불확실성, 환율 변동성, VIX 상승이 시장 위험도를 높였습니다. 반도체 산업은 긍정 신호가 감지되지만, 일부 저신뢰 뉴스가 함께 확산되어 근거 확인이 필요합니다.</p>
+                <h1 id="marketHeadline">단기 변동성 주의.<br>뉴스 신뢰도 확인이 필요한 구간입니다.</h1>
+                <p id="marketSummary">금리 발언 불확실성, 환율 변동성, VIX 상승이 시장 위험도를 높였습니다. 반도체 산업은 긍정 신호가 감지되지만, 일부 저신뢰 뉴스가 함께 확산되어 근거 확인이 필요합니다.</p>
                 <div class="score-wrap">
                   <div class="score-bar"><span></span></div>
                   <div class="score-text">위험도 68 / 100</div>
@@ -668,12 +685,12 @@ button,input,select{font-family:inherit}
       </div>
 
       <div class="screen" id="news">
-        <div class="market-tabs">
-          <div class="tab active">전체</div>
-          <div class="tab">영향도 높음</div>
-          <div class="tab">신뢰도 낮음</div>
-          <div class="tab">주의 필요</div>
-          <div class="tab">반도체</div>
+        <div class="market-tabs" data-filter-tabs>
+          <button class="tab active" type="button">전체</button>
+          <button class="tab" type="button">영향도 높음</button>
+          <button class="tab" type="button">신뢰도 낮음</button>
+          <button class="tab" type="button">주의 필요</button>
+          <button class="tab" type="button">반도체</button>
         </div>
         <div class="grid-12">
           <div class="card" style="grid-column:span 8">
@@ -893,6 +910,9 @@ const navItems = document.querySelectorAll('.nav-item');
 const screens = document.querySelectorAll('.screen');
 const pageTitle = document.getElementById('pageTitle');
 const pageSub = document.getElementById('pageSub');
+const languageToggle = document.getElementById('languageToggle');
+const marketHeadline = document.getElementById('marketHeadline');
+const marketSummary = document.getElementById('marketSummary');
 const meta = {
   overview:['개요','오늘의 시장 신호와 뉴스 근거를 한눈에 확인합니다.'],
   market:['시장 신호','시장 위험도와 핵심 지표의 맥락을 확인합니다.'],
@@ -905,13 +925,121 @@ const meta = {
   auth:['로그인 / 회원가입','카카오 Auth와 이메일 로그인을 제공합니다.'],
   settings:['설정','계정, 언어, 알림, 개인화 기준을 관리합니다.']
 };
+const metaEn = {
+  overview:['Overview','Review today’s market signal and the evidence behind it.'],
+  market:['Market Signal','Check market risk and the context behind core indicators.'],
+  industry:['Industry Impact','Review industry-level news impact and related assets.'],
+  news:['News Guard','Separate news impact from source reliability.'],
+  portfolio:['Portfolio','Connect watchlist assets with market signals.'],
+  kakao:['Kakao Alerts','Manage channel alert rules and delivery history.'],
+  briefing:['AI Briefing','Read today’s interpretation and decision guide.'],
+  mypage:['My Page','Manage account, watchlist assets, and personalization.'],
+  auth:['Login / Sign Up','Use Kakao Auth or email login.'],
+  settings:['Settings','Manage account, language, alerts, and personalization.']
+};
+const navLabels = {
+  ko: {
+    overview:'개요',
+    news:'뉴스 가드',
+    industry:'산업 영향도',
+    kakao:'카카오 알림',
+    portfolio:'포트폴리오',
+    mypage:'마이페이지',
+    briefing:'AI 브리핑',
+    auth:'로그인'
+  },
+  en: {
+    overview:'Overview',
+    news:'News Guard',
+    industry:'Industry Impact',
+    kakao:'Kakao Alerts',
+    portfolio:'Portfolio',
+    mypage:'My Page',
+    briefing:'AI Briefing',
+    auth:'Login'
+  }
+};
+const marketCopy = {
+  domestic: {
+    ko:['국내 시장은 환율 부담 속에서도 대형주 수급을 확인할 구간입니다.','환율 상승과 수출주 민감도가 커졌습니다. 국내 시장은 반도체와 자동차의 뉴스 신뢰도를 함께 보며 추가 확인이 필요합니다.'],
+    en:['Korean market needs watchful review of FX pressure and large-cap flows.','FX pressure and exporter sensitivity are elevated. Review semiconductor and auto news reliability before drawing conclusions.']
+  },
+  us: {
+    ko:['단기 변동성 주의.<br>뉴스 신뢰도 확인이 필요한 구간입니다.','금리 발언 불확실성, 환율 변동성, VIX 상승이 시장 위험도를 높였습니다. 반도체 산업은 긍정 신호가 감지되지만, 일부 저신뢰 뉴스가 함께 확산되어 근거 확인이 필요합니다.'],
+    en:['Short-term volatility caution.<br>News reliability needs review.','Rate-comment uncertainty, FX volatility, and higher VIX lifted market risk. Semiconductors show positive signals, but low-trust news requires evidence checks.']
+  },
+  global: {
+    ko:['글로벌 시장은 지역별 신호가 엇갈립니다.','미국 기술주는 변동성이 크고, 아시아 수출주는 환율 영향을 받고 있습니다. 단일 뉴스보다 지역별 근거를 함께 확인해야 합니다.'],
+    en:['Global markets show mixed regional signals.','US tech remains volatile while Asian exporters react to FX. Compare regional evidence rather than relying on one headline.']
+  },
+  industry: {
+    ko:['관심 산업은 반도체가 강하고 항공은 주의가 필요합니다.','AI 데이터센터와 HBM 수요는 긍정 신호를 만들지만, 항공과 금융은 환율·금리 뉴스의 영향을 더 크게 받습니다.'],
+    en:['Watched industries favor semiconductors while airlines need caution.','AI data center and HBM demand support positive signals, while airlines and financials remain sensitive to FX and rates.']
+  },
+  portfolio: {
+    ko:['내 포트폴리오는 관심 자산 기준으로 리스크를 확인합니다.','실제 매매 기능이 아니라 관심 자산과 관련된 시장 신호, 뉴스 영향도, 저신뢰 뉴스 노출을 확인하는 화면입니다.'],
+    en:['Portfolio view checks risk by watchlist assets.','This is not a trading tool. It reviews market signals, news impact, and low-trust exposure for watched assets.']
+  }
+};
+let currentScreen = 'overview';
+let currentLang = 'ko';
 function showScreen(id){
+  currentScreen = id;
   screens.forEach(s=>s.classList.toggle('active',s.id===id));
   navItems.forEach(n=>n.classList.toggle('active',n.dataset.screen===id));
-  pageTitle.textContent = meta[id]?.[0] || '개요';
-  pageSub.textContent = meta[id]?.[1] || '';
+  const source = currentLang === 'en' ? metaEn : meta;
+  pageTitle.textContent = source[id]?.[0] || source.overview[0];
+  pageSub.textContent = source[id]?.[1] || '';
+}
+function applyLanguage(){
+  const labels = navLabels[currentLang];
+  navItems.forEach(item=>{
+    const screen = item.dataset.screen;
+    item.lastChild.textContent = labels[screen] || item.lastChild.textContent;
+  });
+  const marketLabels = currentLang === 'en'
+    ? ['Korea','US Market','Global','Watched Industries','My Portfolio']
+    : ['국내 시장','미국 시장','글로벌','관심 산업','내 포트폴리오'];
+  document.querySelectorAll('[data-market-tabs] .tab').forEach((tab,index)=>{
+    tab.textContent = marketLabels[index] || tab.textContent;
+  });
+  document.querySelector('.search').textContent = currentLang === 'en'
+    ? '⌘K · Search news, industries, assets'
+    : '⌘K · 뉴스, 산업, 종목 검색';
+  document.querySelector('.top-btn.kakao').textContent = currentLang === 'en' ? 'Kakao connected' : '카카오 연결됨';
+  languageToggle.textContent = currentLang === 'en' ? '🌐 KO' : '🌐 EN';
+  languageToggle.setAttribute('aria-pressed', currentLang === 'en' ? 'true' : 'false');
+  showScreen(currentScreen);
+  const activeMarket = document.querySelector('[data-market-tabs] .tab.active')?.dataset.market || 'us';
+  updateMarketCopy(activeMarket);
+}
+function updateMarketCopy(market){
+  const copy = marketCopy[market]?.[currentLang];
+  if (!copy) return;
+  marketHeadline.innerHTML = copy[0];
+  marketSummary.textContent = copy[1];
+}
+function initTabs(selector, onChange){
+  document.querySelectorAll(selector).forEach(group=>{
+    group.querySelectorAll('.tab').forEach(tab=>{
+      tab.addEventListener('click',()=>{
+        group.querySelectorAll('.tab').forEach(item=>item.classList.remove('active'));
+        tab.classList.add('active');
+        if (onChange) onChange(tab);
+      });
+    });
+  });
 }
 navItems.forEach(item=>item.addEventListener('click',()=>showScreen(item.dataset.screen)));
+document.querySelectorAll('[data-screen-shortcut]').forEach(item=>{
+  item.addEventListener('click',()=>showScreen(item.dataset.screenShortcut));
+});
+languageToggle.addEventListener('click',()=>{
+  currentLang = currentLang === 'ko' ? 'en' : 'ko';
+  applyLanguage();
+});
+initTabs('[data-market-tabs]', tab=>updateMarketCopy(tab.dataset.market));
+initTabs('[data-filter-tabs]');
 </script>
 </body>
 </html>

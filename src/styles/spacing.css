@@ -1,0 +1,34 @@
+:root {
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+
+  --card-padding: 24px;
+  --section-gap: 32px;
+  --card-gap: 20px;
+  --page-padding-x: 32px;
+  --page-padding-y: 32px;
+}
+
+.dashboard-layout {
+  padding: var(--page-padding-y) var(--page-padding-x);
+}
+
+.dashboard-section {
+  margin-bottom: var(--section-gap);
+}
+
+.card-grid {
+  display: grid;
+  gap: var(--card-gap);
+}
+
+.base-card {
+  padding: var(--card-padding);
+}
