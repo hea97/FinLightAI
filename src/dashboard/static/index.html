@@ -1,455 +1,917 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>FinLightAI 개요</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
-    <link rel="stylesheet" href="/static/css/styles.css?v=20260622-final-ko" />
-  </head>
-  <body>
-    <a class="skip-link" href="#main">본문으로 건너뛰기</a>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <a class="brand-row" href="/" aria-label="FinLightAI 홈">
-          <span class="brand-mark">FL</span>
-          <span>
-            <strong class="brand-name">FinLightAI</strong>
-            <small class="brand-sub">AI 금융 상황판</small>
-          </span>
-        </a>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FinLightAI 고도화 UI Prototype</title>
+<style>
+:root{
+  --bg:#080C12;
+  --surface:#0D1117;
+  --sidebar:#111823;
+  --panel:#141C27;
+  --panel-2:#182232;
+  --panel-3:#1D2938;
+  --line:#2B3545;
+  --line-soft:#222B38;
+  --text:#EAF0F7;
+  --text-2:#B7C0CC;
+  --muted:#66707E;
+  --teal:#00D4AA;
+  --teal-soft:rgba(0,212,170,.12);
+  --blue:#58A6FF;
+  --blue-soft:rgba(88,166,255,.12);
+  --green:#3FB950;
+  --yellow:#FFCC00;
+  --amber:#FFA657;
+  --red:#F85149;
+  --red-soft:rgba(248,81,73,.12);
+  --kakao:#FEE500;
+  --kakao-brown:#3C1E1E;
+  --shadow:0 24px 80px rgba(0,0,0,.38);
+  --radius-xl:28px;
+  --radius-lg:22px;
+  --radius-md:16px;
+  --radius-sm:12px;
+  --sidebar-w:260px;
+  --header-h:76px;
+  font-synthesis-weight:none;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:radial-gradient(circle at 30% 0%, rgba(0,212,170,.10), transparent 36%),
+             radial-gradient(circle at 80% 10%, rgba(88,166,255,.10), transparent 28%),
+             var(--bg);
+  color:var(--text);
+  font-family:Pretendard, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  min-height:100vh;
+}
+button,input,select{font-family:inherit}
+.app{
+  width:100vw;
+  height:100vh;
+  display:flex;
+  overflow:hidden;
+}
+.sidebar{
+  width:var(--sidebar-w);
+  height:100vh;
+  background:linear-gradient(180deg,#121A25,#0F151E);
+  border-right:1px solid var(--line);
+  padding:22px 16px;
+  display:flex;
+  flex-direction:column;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:8px 8px 20px;
+}
+.brand-logo{
+  width:42px;height:42px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--teal),var(--blue));
+  color:#061017;font-weight:950;font-size:15px;
+  box-shadow:0 0 0 4px rgba(0,212,170,.08);
+}
+.brand-title{font-size:18px;font-weight:900;letter-spacing:-.02em}
+.brand-sub{font-size:11px;color:var(--muted);font-weight:700;margin-top:2px}
+.nav-label{
+  margin:16px 12px 8px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.12em;
+}
+.nav-item{
+  height:44px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:0 12px;
+  border-radius:14px;
+  color:var(--text-2);
+  font-size:14px;
+  font-weight:750;
+  cursor:pointer;
+  border:1px solid transparent;
+  transition:.18s ease;
+  margin-bottom:4px;
+}
+.nav-item:hover{background:rgba(255,255,255,.04);color:var(--text)}
+.nav-item.active{
+  background:linear-gradient(90deg,rgba(0,212,170,.16),rgba(88,166,255,.08));
+  border-color:rgba(0,212,170,.32);
+  color:#fff;
+}
+.nav-ico{
+  width:26px;height:26px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.04);
+  font-size:13px;
+}
+.nav-item.active .nav-ico{background:rgba(0,212,170,.18);color:var(--teal)}
+.sidebar-card{
+  margin-top:auto;
+  background:linear-gradient(180deg,rgba(0,212,170,.10),rgba(88,166,255,.06));
+  border:1px solid rgba(0,212,170,.24);
+  border-radius:20px;
+  padding:16px;
+}
+.sidebar-card .title{font-size:13px;font-weight:900;margin-bottom:6px}
+.sidebar-card .desc{font-size:12px;color:var(--text-2);line-height:1.5}
+.sidebar-user{
+  margin-top:14px;
+  display:flex;align-items:center;gap:10px;
+  padding:12px;
+  border-radius:16px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--line-soft);
+}
+.avatar{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,#7C3AED,var(--blue));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:950;font-size:12px;
+}
+.user-name{font-size:13px;font-weight:900}
+.user-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.shell{
+  flex:1;height:100vh;overflow:hidden;position:relative;
+}
+.header{
+  height:var(--header-h);
+  display:flex;align-items:center;gap:14px;
+  padding:0 30px;
+  border-bottom:1px solid var(--line);
+  background:rgba(8,12,18,.72);
+  backdrop-filter:blur(16px);
+}
+.page-title{font-size:21px;font-weight:950;letter-spacing:-.03em}
+.page-sub{font-size:12px;color:var(--muted);margin-top:4px;font-weight:700}
+.spacer{flex:1}
+.search{
+  width:250px;height:38px;border-radius:14px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  color:var(--muted);
+  display:flex;align-items:center;gap:8px;
+  padding:0 14px;font-size:12px;font-weight:700;
+}
+.top-btn{
+  height:38px;border-radius:14px;
+  border:1px solid var(--line);
+  background:var(--panel);
+  color:var(--text-2);
+  display:flex;align-items:center;gap:8px;
+  padding:0 14px;font-size:12px;font-weight:850;
+}
+.top-btn.kakao{background:rgba(254,229,0,.10);border-color:rgba(254,229,0,.26);color:#FCEB57}
+.status-chip{
+  height:38px;border-radius:999px;padding:0 14px;
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,204,0,.10);
+  border:1px solid rgba(255,204,0,.28);
+  color:var(--yellow);
+  font-size:12px;font-weight:900;
+}
+.content{
+  height:calc(100vh - var(--header-h));
+  overflow:auto;
+  padding:28px 30px 50px;
+}
+.content::-webkit-scrollbar{width:6px}
+.content::-webkit-scrollbar-thumb{background:#2B3545;border-radius:99px}
+.screen{display:none}
+.screen.active{display:block}
+.grid{display:grid;gap:18px}
+.grid-12{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
+.card{
+  background:linear-gradient(180deg,var(--panel),#111924);
+  border:1px solid var(--line);
+  border-radius:var(--radius-lg);
+  padding:22px;
+  box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
+}
+.card.compact{padding:18px;border-radius:18px}
+.section-title{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:18px;
+}
+.section-title h3{margin:0;font-size:14px;font-weight:950;color:var(--text-2);letter-spacing:.02em}
+.section-title .hint{font-size:12px;color:var(--muted);font-weight:750}
+.market-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.tab{
+  height:36px;border-radius:999px;
+  padding:0 16px;border:1px solid var(--line);
+  background:var(--panel);
+  color:var(--text-2);
+  display:flex;align-items:center;font-size:12px;font-weight:900;
+  cursor:pointer;
+}
+.tab.active{color:var(--teal);background:var(--teal-soft);border-color:rgba(0,212,170,.32)}
+.hero-signal{
+  grid-column:span 8;
+  min-height:250px;
+  position:relative;
+  overflow:hidden;
+}
+.hero-signal:after{
+  content:"";
+  position:absolute;right:-80px;top:-80px;width:260px;height:260px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,204,0,.18),transparent 68%);
+}
+.signal-top{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
+.signal-label{font-size:14px;color:var(--text-2);font-weight:950}
+.signal-time{font-size:12px;color:var(--muted);font-weight:800}
+.signal-main{position:relative;z-index:1;margin-top:34px;display:flex;gap:34px;align-items:flex-start}
+.signal-badge-xl{
+  width:148px;height:148px;border-radius:36px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(255,204,0,.12);
+  border:1px solid rgba(255,204,0,.35);
+  color:var(--yellow);
+  box-shadow:0 0 50px rgba(255,204,0,.12);
+}
+.signal-badge-xl .mark{font-size:36px;font-weight:950}
+.signal-badge-xl .word{font-size:18px;font-weight:950;margin-top:6px}
+.signal-copy{flex:1}
+.signal-copy h1{font-size:32px;line-height:1.2;margin:0 0 14px;letter-spacing:-.04em}
+.signal-copy p{font-size:14px;color:var(--text-2);line-height:1.7;margin:0;max-width:660px}
+.score-wrap{margin-top:18px;display:flex;align-items:center;gap:14px}
+.score-bar{width:330px;height:10px;border-radius:99px;background:#0A0F16;overflow:hidden;border:1px solid var(--line-soft)}
+.score-bar span{display:block;height:100%;width:68%;background:linear-gradient(90deg,var(--green),var(--yellow));border-radius:99px}
+.score-text{font-size:13px;font-weight:950;color:var(--yellow)}
+.brief-card{grid-column:span 4;min-height:250px}
+.brief-list{display:flex;flex-direction:column;gap:12px}
+.brief-item{
+  display:flex;gap:12px;
+  padding:13px;
+  border-radius:16px;
+  background:var(--panel-2);
+  border:1px solid var(--line-soft);
+}
+.brief-item .dot{
+  width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--teal);
+}
+.brief-item p{margin:0;font-size:13px;color:var(--text-2);line-height:1.55;font-weight:700}
+.metric-card{grid-column:span 2.4;min-height:116px}
+.kpi-label{font-size:12px;color:var(--muted);font-weight:900;letter-spacing:.06em}
+.kpi-value{font-size:25px;font-weight:950;margin-top:10px;letter-spacing:-.03em}
+.kpi-desc{font-size:12px;color:var(--text-2);margin-top:7px;font-weight:750}
+.up{color:var(--green)}.down{color:var(--red)}.neutral{color:var(--yellow)}.teal{color:var(--teal)}.blue{color:var(--blue)}
+.heatmap-card{grid-column:span 6}
+.news-card{grid-column:span 4}
+.alert-summary-card{grid-column:span 2}
+.heatmap{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+}
+.hm{
+  min-height:92px;border-radius:18px;padding:14px;text-align:left;
+  position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.08);
+  cursor:pointer;
+}
+.hm:hover{transform:translateY(-2px);transition:.18s ease}
+.hm .name{font-size:13px;font-weight:950}
+.hm .score{font-size:24px;font-weight:950;margin-top:10px}
+.hm .state{font-size:11px;font-weight:850;margin-top:5px;opacity:.86}
+.hm.good{background:linear-gradient(135deg,#13684F,#1B3A35)}
+.hm.ok{background:linear-gradient(135deg,#305445,#253744)}
+.hm.neutral{background:linear-gradient(135deg,#323B48,#1B2430)}
+.hm.warn{background:linear-gradient(135deg,#755038,#292733)}
+.hm.bad{background:linear-gradient(135deg,#813B3F,#2C1F2B)}
+.news-list{display:flex;flex-direction:column;gap:10px}
+.news-item{
+  padding:14px;border-radius:16px;background:var(--panel-2);
+  border:1px solid var(--line-soft);
+}
+.news-head{display:flex;align-items:start;justify-content:space-between;gap:10px}
+.news-head strong{font-size:13px;line-height:1.45}
+.news-meta{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
+.badge{
+  min-height:24px;border-radius:999px;padding:4px 9px;
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;font-weight:900;border:1px solid var(--line);
+}
+.badge.impact{color:var(--blue);background:var(--blue-soft);border-color:rgba(88,166,255,.28)}
+.badge.trust-hi{color:var(--green);background:rgba(63,185,80,.10);border-color:rgba(63,185,80,.24)}
+.badge.trust-lo{color:var(--red);background:var(--red-soft);border-color:rgba(248,81,73,.28)}
+.badge.warn{color:var(--yellow);background:rgba(255,204,0,.10);border-color:rgba(255,204,0,.24)}
+.warning-panel{
+  border-radius:18px;
+  background:linear-gradient(180deg,rgba(248,81,73,.14),rgba(248,81,73,.05));
+  border:1px solid rgba(248,81,73,.30);
+  padding:16px;
+  color:#FFD5D2;
+  font-size:13px;
+  line-height:1.6;
+  font-weight:750;
+}
+.kakao-mini{
+  border-radius:18px;
+  background:linear-gradient(180deg,rgba(254,229,0,.14),rgba(254,229,0,.05));
+  border:1px solid rgba(254,229,0,.28);
+  padding:16px;
+  margin-top:12px;
+}
+.kakao-mini strong{color:#FCEB57}
+.auth-bg{
+  display:grid;
+  grid-template-columns:1fr 500px;
+  min-height:720px;
+  overflow:hidden;
+  border-radius:28px;
+  border:1px solid var(--line);
+  background:var(--surface);
+}
+.auth-hero{
+  padding:58px;
+  background:radial-gradient(circle at 20% 15%,rgba(0,212,170,.16),transparent 36%),
+             radial-gradient(circle at 80% 80%,rgba(88,166,255,.16),transparent 32%),
+             linear-gradient(180deg,#101A25,#0B1017);
+  position:relative;
+}
+.auth-hero h1{font-size:44px;line-height:1.18;margin:100px 0 22px;letter-spacing:-.05em}
+.auth-hero p{font-size:16px;color:var(--text-2);line-height:1.75;width:560px}
+.auth-panel{
+  padding:58px 46px;
+  background:rgba(17,24,35,.88);
+  border-left:1px solid var(--line);
+}
+.form-title{font-size:28px;font-weight:950;letter-spacing:-.04em;margin-bottom:10px}
+.form-sub{font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:30px}
+.input-group{margin-bottom:16px}
+.input-group label{display:block;font-size:12px;color:var(--muted);font-weight:900;margin-bottom:8px}
+.input{
+  width:100%;height:48px;border-radius:15px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  color:var(--text);
+  padding:0 14px;
+  font-size:14px;font-weight:700;
+}
+.primary-btn{
+  width:100%;height:50px;border-radius:16px;border:0;
+  background:linear-gradient(135deg,var(--teal),var(--blue));
+  color:#061017;font-size:14px;font-weight:950;cursor:pointer;margin-top:8px;
+}
+.kakao-btn{
+  width:100%;height:50px;border-radius:16px;border:0;
+  background:var(--kakao);color:var(--kakao-brown);
+  font-size:14px;font-weight:950;cursor:pointer;margin-top:12px;
+}
+.form-note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:20px}
+.my-grid{display:grid;grid-template-columns:360px 1fr;gap:18px}
+.profile-card{min-height:700px}
+.profile-avatar{
+  width:82px;height:82px;border-radius:28px;
+  background:linear-gradient(135deg,#7C3AED,var(--blue));
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:950;margin-bottom:20px;
+}
+.profile-name{font-size:26px;font-weight:950}
+.profile-email{font-size:13px;color:var(--muted);margin-top:6px;font-weight:750}
+.profile-stat{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:26px;
+}
+.profile-stat div{
+  background:var(--panel-2);border:1px solid var(--line-soft);
+  border-radius:16px;padding:15px;
+}
+.profile-stat strong{font-size:22px}.profile-stat span{display:block;color:var(--muted);font-size:12px;margin-top:6px;font-weight:800}
+.asset-table{
+  width:100%;border-collapse:separate;border-spacing:0 10px;
+}
+.asset-table th{
+  text-align:left;color:var(--muted);font-size:12px;font-weight:900;padding:0 14px 4px;
+}
+.asset-table td{
+  background:var(--panel-2);
+  border-top:1px solid var(--line-soft);
+  border-bottom:1px solid var(--line-soft);
+  padding:15px 14px;
+  font-size:13px;font-weight:750;
+}
+.asset-table td:first-child{border-left:1px solid var(--line-soft);border-radius:14px 0 0 14px;font-weight:950}
+.asset-table td:last-child{border-right:1px solid var(--line-soft);border-radius:0 14px 14px 0}
+.portfolio-summary{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;
+}
+.donut{
+  width:220px;height:220px;border-radius:50%;
+  margin:24px auto;
+  background:conic-gradient(var(--teal) 0 42%, var(--blue) 42% 68%, var(--amber) 68% 84%, var(--red) 84% 100%);
+  position:relative;
+}
+.donut:after{
+  content:"산업 비중";
+  position:absolute;inset:42px;border-radius:50%;
+  background:var(--panel);display:flex;align-items:center;justify-content:center;
+  color:var(--text-2);font-weight:950;font-size:15px;
+}
+.kakao-phone{
+  width:330px;height:524px;border-radius:38px;
+  background:#0A0A0A;border:1px solid #2D333D;
+  padding:16px;margin:0 auto;box-shadow:var(--shadow);
+}
+.kakao-screen{
+  width:100%;height:100%;border-radius:28px;overflow:hidden;
+  background:#B9C6D3;color:#111;
+}
+.kakao-top{
+  height:58px;background:#AAB8C7;
+  display:flex;align-items:center;justify-content:center;font-weight:950;font-size:14px;
+}
+.kakao-chat{padding:18px}
+.kakao-profile{display:flex;gap:8px;align-items:center;margin-bottom:10px;color:#222;font-size:12px;font-weight:900}
+.kakao-bubble{
+  background:#fff;border-radius:18px 18px 18px 6px;
+  padding:16px;width:250px;box-shadow:0 4px 16px rgba(0,0,0,.08);
+  font-size:12px;line-height:1.55;font-weight:750;
+}
+.kakao-bubble .k-title{font-size:15px;font-weight:950;margin-bottom:10px}
+.kakao-action{background:var(--kakao);border-radius:10px;padding:9px;text-align:center;font-weight:950;margin-top:12px}
+.settings-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px;border-radius:16px;background:var(--panel-2);border:1px solid var(--line-soft);margin-bottom:10px;
+}
+.switch{width:44px;height:24px;background:rgba(0,212,170,.22);border:1px solid rgba(0,212,170,.42);border-radius:99px;position:relative}
+.switch:after{content:"";position:absolute;right:3px;top:3px;width:16px;height:16px;background:var(--teal);border-radius:50%}
+.route-label{
+  position:fixed;
+  bottom:14px;right:20px;
+  color:var(--muted);font-size:11px;font-weight:800;
+  background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:999px;padding:7px 12px;
+}
+@media (max-width: 980px){
+  .sidebar{display:none}
+  .header{height:auto;min-height:86px;flex-wrap:wrap;padding:16px}
+  .shell{width:100vw}
+  .content{height:calc(100vh - 86px);padding:18px}
+  .grid-12,.my-grid,.auth-bg{display:block}
+  .hero-signal,.brief-card,.heatmap-card,.news-card,.alert-summary-card{grid-column:auto;margin-bottom:16px}
+  .metric-card{grid-column:auto}
+  .metric-row{display:grid;grid-template-columns:repeat(2,1fr)}
+  .search{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">FL</div>
+      <div>
+        <div class="brand-title">FinLightAI</div>
+        <div class="brand-sub">AI 금융 상황판</div>
+      </div>
+    </div>
 
-        <section class="sidebar-card">
-          <p class="eyebrow">현재 상태</p>
-          <div class="signal-chip yellow">YELLOW · 주의 신호</div>
-          <p class="hint">시장 신호, 뉴스 근거, 신뢰도, 카카오 알림을 한 흐름으로 확인합니다.</p>
-        </section>
+    <div class="nav-label">서비스</div>
+    <div class="nav-item active" data-screen="overview"><span class="nav-ico">01</span>개요</div>
+    <div class="nav-item" data-screen="market"><span class="nav-ico">02</span>시장 신호</div>
+    <div class="nav-item" data-screen="industry"><span class="nav-ico">03</span>산업 영향도</div>
+    <div class="nav-item" data-screen="news"><span class="nav-ico">04</span>뉴스 가드</div>
+    <div class="nav-item" data-screen="portfolio"><span class="nav-ico">05</span>포트폴리오</div>
+    <div class="nav-item" data-screen="kakao"><span class="nav-ico">06</span>카카오 알림</div>
+    <div class="nav-item" data-screen="briefing"><span class="nav-ico">07</span>AI 브리핑</div>
 
-        <nav class="nav" aria-label="주요 메뉴">
-          <button class="nav-item active" type="button" data-view="overview"><span>01</span>개요</button>
-          <button class="nav-item" type="button" data-view="market"><span>02</span>시장 신호</button>
-          <button class="nav-item" type="button" data-view="industry"><span>03</span>산업 영향도</button>
-          <button class="nav-item" type="button" data-view="guard"><span>04</span>뉴스 가드</button>
-          <button class="nav-item" type="button" data-view="portfolio"><span>05</span>포트폴리오</button>
-          <button class="nav-item" type="button" data-view="kakao"><span>06</span>카카오 알림</button>
-          <button class="nav-item" type="button" data-view="briefing"><span>07</span>AI 브리핑</button>
-          <button class="nav-item" type="button" data-view="settings"><span>08</span>설정</button>
-        </nav>
+    <div class="nav-label">계정</div>
+    <div class="nav-item" data-screen="mypage"><span class="nav-ico">08</span>마이페이지</div>
+    <div class="nav-item" data-screen="auth"><span class="nav-ico">09</span>로그인/회원가입</div>
+    <div class="nav-item" data-screen="settings"><span class="nav-ico">10</span>설정</div>
 
-        <a class="auth-link" href="/login">로그인 / 계정 연결</a>
-      </aside>
+    <div class="sidebar-card">
+      <div class="title">주의: 투자 추천 아님</div>
+      <div class="desc">FinLightAI는 시장 신호와 근거를 정리하는 도구입니다. 매수·매도 지시를 제공하지 않습니다.</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar">TH</div>
+      <div>
+        <div class="user-name">허태희</div>
+        <div class="user-meta">카카오 연결됨</div>
+      </div>
+    </div>
+  </aside>
 
-      <div class="main-shell" id="main">
-        <header class="topbar">
-          <div>
-            <h1 id="pageTitle">개요</h1>
-            <p class="page-desc" id="pageDesc">오늘의 시장 신호와 주요 뉴스를 한눈에 확인합니다.</p>
-          </div>
-          <div class="topbar-tools">
-            <label class="search-ghost">
-              <span>검색</span>
-              <input type="search" placeholder="종목, 산업, 뉴스 검색" />
-            </label>
-            <button class="icon-chip" type="button" aria-label="영어로 전환">🌐 EN</button>
-            <button class="icon-chip" type="button" aria-label="알림">알림</button>
-            <button class="profile-chip" type="button">사용자</button>
-          </div>
-        </header>
+  <main class="shell">
+    <header class="header">
+      <div>
+        <div class="page-title" id="pageTitle">개요</div>
+        <div class="page-sub" id="pageSub">오늘의 시장 신호와 뉴스 근거를 한눈에 확인합니다.</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="search">⌘K · 뉴스, 산업, 종목 검색</div>
+      <button class="top-btn">🌐 EN</button>
+      <button class="top-btn kakao">카카오 연결됨</button>
+      <div class="status-chip">YELLOW · 주의</div>
+    </header>
 
-        <main class="content">
-          <section class="view active" id="view-overview">
-            <section class="market-filter" aria-label="시장 선택">
-              <button class="filter active" type="button">국내 시장</button>
-              <button class="filter" type="button">미국 시장</button>
-              <button class="filter" type="button">글로벌</button>
-              <button class="filter" type="button">내 포트폴리오</button>
-            </section>
+    <section class="content">
+      <div class="screen active" id="overview">
+        <div class="market-tabs">
+          <div class="tab">국내 시장</div>
+          <div class="tab active">미국 시장</div>
+          <div class="tab">글로벌</div>
+          <div class="tab">관심 산업</div>
+          <div class="tab">내 포트폴리오</div>
+        </div>
 
-            <section class="panel market-signal-card">
-              <div class="signal-main">
-                <p class="eyebrow">오늘의 시장 신호</p>
-                <h2>🟡 주의 신호</h2>
-                <div class="risk-score"><span>위험도</span><strong>68 / 100</strong></div>
-                <div class="signal-meta">
-                  <span>선택 시장: 미국 시장</span>
-                  <span>업데이트: 2026.06.04 09:30</span>
-                </div>
+        <div class="grid-12">
+          <div class="card hero-signal">
+            <div class="signal-top">
+              <div class="signal-label">오늘의 시장 신호</div>
+              <div class="signal-time">업데이트 2026.06.22 09:30 KST</div>
+            </div>
+            <div class="signal-main">
+              <div class="signal-badge-xl">
+                <div class="mark">!</div>
+                <div class="word">YELLOW</div>
               </div>
               <div class="signal-copy">
-                <h3>핵심 요약</h3>
-                <p>금리 발언 불확실성과 환율 변동성 증가로 단기 시장 주의가 필요합니다. 반도체 산업은 긍정 신호가 있으나, 저신뢰 뉴스 확산 여부를 함께 확인해야 합니다.</p>
-                <h3>확인 포인트</h3>
-                <ul class="reason-list">
-                  <li>환율 추가 상승 여부</li>
-                  <li>반도체 관련 뉴스 신뢰도</li>
-                  <li>VIX 변동성 지표</li>
-                </ul>
-              </div>
-            </section>
-
-            <section class="metric-grid" aria-label="핵심 지표">
-              <article class="panel kpi"><span>KOSPI</span><strong>2,671.45</strong><em>+0.34% · 국내 수급 확인</em></article>
-              <article class="panel kpi"><span>NASDAQ</span><strong>16,432.80</strong><em>-2.07% · 기술주 변동성</em></article>
-              <article class="panel kpi warn"><span>USD/KRW</span><strong>1,382.50</strong><em>+1.2% · 환율 부담 증가</em></article>
-              <article class="panel kpi"><span>금리</span><strong>4.32%</strong><em>발언 불확실성 확대</em></article>
-              <article class="panel kpi warn"><span>VIX</span><strong>18.6</strong><em>+2.1p · 경계 구간</em></article>
-              <article class="panel kpi"><span>원유</span><strong>78.4</strong><em>-0.6% · 에너지 영향 제한</em></article>
-            </section>
-
-            <div class="two-column">
-              <section class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">산업 영향도</p>
-                    <h3>산업별 영향도 히트맵</h3>
-                  </div>
-                  <span class="mono">-100 ~ +100</span>
+                <h1>단기 변동성 주의.<br>뉴스 신뢰도 확인이 필요한 구간입니다.</h1>
+                <p>금리 발언 불확실성, 환율 변동성, VIX 상승이 시장 위험도를 높였습니다. 반도체 산업은 긍정 신호가 감지되지만, 일부 저신뢰 뉴스가 함께 확산되어 근거 확인이 필요합니다.</p>
+                <div class="score-wrap">
+                  <div class="score-bar"><span></span></div>
+                  <div class="score-text">위험도 68 / 100</div>
                 </div>
-                <div class="heat-grid">
-                  <button class="heat positive" type="button"><span>반도체</span><strong>+78</strong><em>긍정 · 뉴스 12건</em></button>
-                  <button class="heat weak" type="button"><span>금융</span><strong>+21</strong><em>약한 긍정 · 뉴스 6건</em></button>
-                  <button class="heat neutral" type="button"><span>자동차</span><strong>+4</strong><em>중립 · 뉴스 5건</em></button>
-                  <button class="heat caution" type="button"><span>2차전지</span><strong>-28</strong><em>주의 · 뉴스 9건</em></button>
-                  <button class="heat negative" type="button"><span>게임</span><strong>-46</strong><em>부정 · 뉴스 4건</em></button>
-                  <button class="heat positive" type="button"><span>클라우드</span><strong>+52</strong><em>긍정 · 뉴스 7건</em></button>
-                </div>
-              </section>
-
-              <section class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">뉴스 영향도</p>
-                    <h3>뉴스 영향도 TOP 5</h3>
-                  </div>
-                  <span class="mono">impact</span>
-                </div>
-                <div class="rank-list">
-                  <article><strong>AI 반도체 공급 확대 기대</strong><span>영향도 82 · 신뢰도 88 · 반도체</span></article>
-                  <article><strong>원화 약세 장기화 우려</strong><span>영향도 74 · 신뢰도 81 · 수출주</span></article>
-                  <article><strong>2차전지 실적 전망 하향</strong><span>영향도 67 · 신뢰도 76 · 2차전지</span></article>
-                  <article><strong>클라우드 투자 계획 발표</strong><span>영향도 55 · 신뢰도 90 · 클라우드</span></article>
-                  <article><strong>게임 규제 루머 확산</strong><span>영향도 51 · 신뢰도 42 · 게임</span></article>
-                </div>
-              </section>
-            </div>
-
-            <div class="two-column bottom-overview">
-              <section class="panel guard-alert">
-                <p class="eyebrow">뉴스 가드 경고</p>
-                <h3>주의 필요 뉴스 3건</h3>
-                <p class="muted">영향도는 높지만 신뢰도가 낮은 뉴스가 감지되었습니다.</p>
-                <ul class="reason-list">
-                  <li>자극적인 표현 사용</li>
-                  <li>명확한 근거 부족</li>
-                  <li>동일 문장 반복 확산</li>
-                </ul>
-              </section>
-
-              <section class="panel">
-                <p class="eyebrow">최근 카카오 알림</p>
-                <div class="rank-list">
-                  <article><strong>오늘 09:30 · YELLOW 알림</strong><span>반도체 산업 영향도 +78 · 주의 뉴스 1건 포함 · 발송 완료</span></article>
-                  <article><strong>오늘 08:10 · RED 알림</strong><span>미국 시장 위험도 72 · 저신뢰 뉴스 확산 · 발송 완료</span></article>
-                </div>
-              </section>
-            </div>
-          </section>
-
-          <section class="view" id="view-market">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">시장 신호</p>
-                <h2>시장 위험도와 핵심 지표를 함께 해석합니다</h2>
-              </div>
-              <span class="signal-chip yellow">YELLOW · 주의</span>
-            </div>
-            <div class="grid market-grid">
-              <article class="panel">
-                <div class="panel-head"><h3>위험도 점수</h3><span class="mono">68/100</span></div>
-                <div class="risk-meter"><span style="--risk: 68%"></span></div>
-                <p class="muted">환율 상승, VIX 반등, 기술주 변동성이 동시에 감지되었습니다.</p>
-              </article>
-              <article class="panel chart">
-                <div class="panel-head"><h3>감성·위험 추이</h3><span class="mono">30D</span></div>
-                <div class="chart-box"><canvas id="signalChart" aria-label="시장 감성 차트"></canvas></div>
-              </article>
-              <article class="panel wide">
-                <div class="memo-grid">
-                  <p><strong>RED</strong> 투자 지시가 아니라 위험 신호입니다. 추가 확인이 필요합니다.</p>
-                  <p><strong>YELLOW</strong> 지표와 뉴스가 엇갈리는 관찰 구간입니다.</p>
-                  <p><strong>GREEN</strong> 현재 신호가 안정적이라는 의미이며 수익 보장은 아닙니다.</p>
-                </div>
-              </article>
-            </div>
-          </section>
-
-          <section class="view" id="view-industry">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">산업 영향도</p>
-                <h2>등락률이 아니라 산업별 영향 점수와 근거 뉴스를 봅니다</h2>
               </div>
             </div>
-            <div class="industry-layout">
-              <section class="panel">
-                <div class="heat-grid large">
-                  <button class="heat positive active" type="button"><span>반도체</span><strong>+78</strong><em>긍정 · 뉴스 12건</em></button>
-                  <button class="heat weak" type="button"><span>금융</span><strong>+21</strong><em>약한 긍정 · 뉴스 6건</em></button>
-                  <button class="heat neutral" type="button"><span>자동차</span><strong>+4</strong><em>중립 · 뉴스 5건</em></button>
-                  <button class="heat caution" type="button"><span>2차전지</span><strong>-28</strong><em>주의 · 뉴스 9건</em></button>
-                  <button class="heat negative" type="button"><span>게임</span><strong>-46</strong><em>부정 · 뉴스 4건</em></button>
-                  <button class="heat positive" type="button"><span>클라우드</span><strong>+52</strong><em>긍정 · 뉴스 7건</em></button>
-                  <button class="heat neutral" type="button"><span>바이오</span><strong>-3</strong><em>중립 · 뉴스 3건</em></button>
-                  <button class="heat weak" type="button"><span>에너지</span><strong>+17</strong><em>약한 긍정 · 뉴스 4건</em></button>
-                </div>
-              </section>
-              <aside class="panel detail-panel">
-                <p class="eyebrow">선택 산업 상세</p>
-                <h3>반도체 · 영향 점수 +78</h3>
-                <p class="muted">주요 원인 뉴스: AI 반도체 공급 확대, HBM 수요 증가, 수출 규제 완화 기대</p>
-                <div class="tag-row"><span>삼성전자</span><span>SK하이닉스</span><span>NVIDIA</span></div>
-                <p>AI 해석: 긍정 신호가 우세하지만, 일부 급등 전망 뉴스는 신뢰도 확인이 필요합니다.</p>
-                <span class="mono">최근 변화 방향: +12p 상승</span>
-              </aside>
-            </div>
-          </section>
+          </div>
 
-          <section class="view" id="view-guard">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">뉴스 가드</p>
-                <h2>뉴스 영향도와 신뢰도를 분리해 검증합니다</h2>
-              </div>
-              <div class="filter-row">
-                <button class="filter active" type="button">전체</button>
-                <button class="filter" type="button">주의 필요</button>
-                <button class="filter" type="button">낮은 신뢰</button>
-              </div>
+          <div class="card brief-card">
+            <div class="section-title"><h3>AI 브리핑 요약</h3><span class="hint">3개 포인트</span></div>
+            <div class="brief-list">
+              <div class="brief-item"><span class="dot"></span><p>시장은 주의 구간이지만 산업별 영향은 혼재되어 있습니다.</p></div>
+              <div class="brief-item"><span class="dot" style="background:var(--yellow)"></span><p>뉴스 영향도는 높으나 일부 출처 신뢰도는 낮습니다.</p></div>
+              <div class="brief-item"><span class="dot" style="background:var(--blue)"></span><p>오늘은 숫자보다 원인 뉴스와 신뢰도 분리가 중요합니다.</p></div>
             </div>
-            <div class="news-grid">
-              <article class="news-card caution">
-                <div class="news-top"><span class="badge yellow">주의 필요 뉴스</span><span class="mono">09:30</span></div>
-                <h3>○○기업 급등 확정 전망</h3>
-                <p class="meta">출처: 출처불명 · 관련 산업: 반도체 · 감성: 혼합</p>
-                <div class="score-row"><span>영향도 <strong>76</strong></span><span>신뢰도 <strong>낮음</strong></span></div>
-                <p class="meta">상태: 과장 가능성 있음</p>
-                <ul class="reason-list">
-                  <li>자극적인 표현 사용</li>
-                  <li>명확한 근거 부족</li>
-                  <li>동일 문장 반복 확산</li>
-                </ul>
-                <div class="card-actions"><button class="chip" type="button">원문 확인</button><button class="chip" type="button">관련 산업 보기</button></div>
-              </article>
-              <article class="news-card">
-                <div class="news-top"><span class="badge green">정상 범위</span><span class="mono">08:40</span></div>
-                <h3>AI 반도체 공급 계약 확대</h3>
-                <p class="meta">출처: Reuters · 관련 산업: 반도체 · 감성: 긍정</p>
-                <div class="score-row"><span>영향도 <strong>82</strong></span><span>신뢰도 <strong>88</strong></span></div>
-                <ul class="reason-list"><li>복수 출처 확인</li><li>수치와 기관명이 명확함</li></ul>
-                <div class="card-actions"><button class="chip" type="button">원문 확인</button><button class="chip" type="button">관련 산업 보기</button></div>
-              </article>
-              <article class="news-card caution">
-                <div class="news-top"><span class="badge red">낮은 신뢰</span><span class="mono">08:05</span></div>
-                <h3>게임 규제 전면 확대 루머</h3>
-                <p class="meta">출처: 커뮤니티 확산 · 관련 산업: 게임 · 감성: 부정</p>
-                <div class="score-row"><span>영향도 <strong>51</strong></span><span>신뢰도 <strong>42</strong></span></div>
-                <ul class="reason-list"><li>공식 발표 없음</li><li>원문 출처가 불명확함</li></ul>
-                <div class="card-actions"><button class="chip" type="button">원문 확인</button><button class="chip" type="button">관련 산업 보기</button></div>
-              </article>
-            </div>
-          </section>
+          </div>
 
-          <section class="view" id="view-portfolio">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">포트폴리오</p>
-                <h2>관심 자산과 연결된 시장 신호를 요약합니다</h2>
-              </div>
-              <button class="chip primary" type="button" id="addAssetBtn">관심 자산 추가</button>
-            </div>
-            <div class="grid three-up">
-              <article class="panel kpi"><span>관심 자산</span><strong id="assetCount">3</strong><em>주식 · ETF</em></article>
-              <article class="panel kpi"><span>주요 산업 비중</span><strong>42%</strong><em>반도체 노출</em></article>
-              <article class="panel kpi warn"><span>위험 신호</span><strong>YELLOW</strong><em>추가 확인 필요</em></article>
-            </div>
-            <div class="grid portfolio-layout">
-              <article class="panel">
-                <div class="panel-head"><h3>내 관심 자산</h3><span class="mono">Watchlist</span></div>
-                <div class="table-wrap">
-                  <table>
-                    <thead><tr><th>자산</th><th>산업</th><th>상태 신호</th><th>연결 뉴스</th></tr></thead>
-                    <tbody id="portfolioTable">
-                      <tr><td>삼성전자</td><td>반도체</td><td>긍정 신호 감지</td><td>12건</td></tr>
-                      <tr><td>NVIDIA</td><td>반도체</td><td>추가 확인 필요</td><td>9건</td></tr>
-                      <tr><td>KODEX AI</td><td>AI/클라우드</td><td>관심 신호</td><td>5건</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </article>
-              <article class="panel">
-                <div class="panel-head"><h3>자산 관련 뉴스</h3><span class="mono">Linked</span></div>
-                <div class="rank-list">
-                  <article><strong>HBM 수요 증가</strong><span>삼성전자, SK하이닉스와 연결</span></article>
-                  <article><strong>AI 칩 공급 루머</strong><span>영향도 높음, 신뢰도 낮음</span></article>
-                  <article><strong>클라우드 투자 확대</strong><span>KODEX AI와 연결</span></article>
-                </div>
-              </article>
-            </div>
-          </section>
+          <div class="card compact metric-card"><div class="kpi-label">KOSPI</div><div class="kpi-value up">2,671.45</div><div class="kpi-desc">+0.34% · 안정</div></div>
+          <div class="card compact metric-card"><div class="kpi-label">NASDAQ</div><div class="kpi-value down">16,432</div><div class="kpi-desc">-2.07% · 주의</div></div>
+          <div class="card compact metric-card"><div class="kpi-label">USD/KRW</div><div class="kpi-value neutral">1,382</div><div class="kpi-desc">환율 상승 부담</div></div>
+          <div class="card compact metric-card"><div class="kpi-label">VIX</div><div class="kpi-value neutral">18.2</div><div class="kpi-desc">변동성 증가</div></div>
+          <div class="card compact metric-card"><div class="kpi-label">WTI</div><div class="kpi-value blue">78.4</div><div class="kpi-desc">에너지 비용 확인</div></div>
 
-          <section class="view" id="view-kakao">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">카카오 알림</p>
-                <h2>카카오 채널 봇으로 사용자에게 금융 신호를 전달합니다</h2>
-              </div>
-              <button class="chip primary" type="button">테스트 알림 보내기</button>
+          <div class="card heatmap-card">
+            <div class="section-title"><h3>산업별 영향도 히트맵</h3><span class="hint">-100 ~ +100</span></div>
+            <div class="heatmap">
+              <div class="hm good"><div class="name">반도체</div><div class="score">+78</div><div class="state">긍정 · 뉴스 12건</div></div>
+              <div class="hm warn"><div class="name">금융</div><div class="score">-45</div><div class="state">주의 · 뉴스 9건</div></div>
+              <div class="hm good"><div class="name">IT</div><div class="score">+51</div><div class="state">긍정 · 뉴스 8건</div></div>
+              <div class="hm ok"><div class="name">자동차</div><div class="score">+12</div><div class="state">약한 긍정</div></div>
+              <div class="hm warn"><div class="name">에너지</div><div class="score">-30</div><div class="state">주의</div></div>
+              <div class="hm ok"><div class="name">바이오</div><div class="score">+21</div><div class="state">약한 긍정</div></div>
+              <div class="hm bad"><div class="name">항공</div><div class="score">-58</div><div class="state">부정</div></div>
+              <div class="hm neutral"><div class="name">소비재</div><div class="score">+4</div><div class="state">중립</div></div>
             </div>
-            <div class="kakao-layout">
-              <section class="panel">
-                <div class="panel-head"><h3>카카오 채널 연결 상태</h3><span class="badge green">연결됨</span></div>
-                <div class="status-list">
-                  <p><strong>채널명</strong><span>FinLightAI</span></p>
-                  <p><strong>봇 상태</strong><span>정상</span></p>
-                  <p><strong>마지막 테스트</strong><span>09:30</span></p>
-                  <p><strong>실패/차단</strong><span>0건</span></p>
-                </div>
-              </section>
-              <section class="panel">
-                <h3>알림 조건 설정</h3>
-                <div class="condition-list">
-                  <label><input type="checkbox" checked /> 시장 위험도 70 이상</label>
-                  <label><input type="checkbox" checked /> 관심 산업 영향도 ±60 이상</label>
-                  <label><input type="checkbox" checked /> 신뢰도 낮은 뉴스 감지</label>
-                  <label><input type="checkbox" /> 내 포트폴리오 관련 부정 뉴스 발생</label>
-                  <label><input type="checkbox" checked /> RED 신호 발생</label>
-                </div>
-              </section>
-              <section class="panel wide">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">메시지 미리보기</p>
-                    <h3>카카오톡 말풍선 형태</h3>
-                  </div>
-                  <span class="mono">mobile</span>
-                </div>
-                <div class="kakao-preview-grid">
-                  <article class="phone-preview">
-                    <div class="phone-head">FinLightAI</div>
-                    <div class="chat-bubble yellow">
-                      <strong>🟡 주의 신호 감지</strong>
-                      <p>미국 시장 위험도 68<br />반도체 산업 영향도 +78<br />주의 뉴스 2건 감지</p>
-                      <p>확인 포인트<br />- 금리 발언 불확실성<br />- 저신뢰 뉴스 확산 여부<br />- VIX 변동성 상승</p>
-                      <button type="button">대시보드에서 자세히 보기</button>
-                    </div>
-                  </article>
-                  <article class="phone-preview">
-                    <div class="phone-head">FinLightAI</div>
-                    <div class="chat-bubble red">
-                      <strong>🔴 위험 신호 증가</strong>
-                      <p>시장 위험도 78<br />신뢰도 낮은 뉴스가 확산되고 있습니다.</p>
-                      <button type="button">뉴스 가드 확인하기</button>
-                    </div>
-                  </article>
-                  <article class="phone-preview">
-                    <div class="phone-head">FinLightAI</div>
-                    <div class="chat-bubble green">
-                      <strong>🟢 시장 안정 요약</strong>
-                      <p>오늘 주요 시장 신호는 안정 구간입니다. 관심 산업에서 큰 위험 신호는 감지되지 않았습니다.</p>
-                      <button type="button">오늘의 요약 보기</button>
-                    </div>
-                  </article>
-                </div>
-              </section>
-              <section class="panel wide">
-                <h3>최근 발송 내역</h3>
-                <div class="rank-list">
-                  <article><strong>오늘 09:30 · YELLOW 알림</strong><span>반도체 산업 영향도 +78 · 주의 뉴스 2건 감지 · 발송 완료</span></article>
-                  <article><strong>오늘 08:10 · RED 알림</strong><span>미국 시장 위험도 72 · 저신뢰 뉴스 확산 · 발송 완료</span></article>
-                  <article><strong>2026.06.03 18:00 · 일일 요약</strong><span>관심 산업 큰 위험 신호 없음 · 발송 완료</span></article>
-                </div>
-              </section>
-            </div>
-          </section>
+          </div>
 
-          <section class="view" id="view-briefing">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">AI 브리핑</p>
-                <h2>오늘의 해석과 판단 기준을 한 화면에서 확인합니다</h2>
+          <div class="card news-card">
+            <div class="section-title"><h3>뉴스 영향도 TOP 5</h3><span class="hint">신뢰도 분리</span></div>
+            <div class="news-list">
+              <div class="news-item">
+                <div class="news-head"><strong>연준 발언 이후 금리 불확실성 확대</strong></div>
+                <div class="news-meta"><span class="badge impact">영향 82</span><span class="badge trust-hi">신뢰 높음</span><span class="badge warn">금융</span></div>
+              </div>
+              <div class="news-item">
+                <div class="news-head"><strong>AI 반도체 수요 증가 전망</strong></div>
+                <div class="news-meta"><span class="badge impact">영향 76</span><span class="badge trust-hi">신뢰 보통</span><span class="badge warn">반도체</span></div>
+              </div>
+              <div class="news-item">
+                <div class="news-head"><strong>출처불명 급등 확정성 기사 확산</strong></div>
+                <div class="news-meta"><span class="badge impact">영향 71</span><span class="badge trust-lo">신뢰 낮음</span><span class="badge warn">주의</span></div>
               </div>
             </div>
-            <div class="briefing-layout">
-              <section class="panel">
-                <h3>오늘의 핵심 해석</h3>
-                <p class="muted">미국 시장은 주의 구간입니다. 금리 발언 불확실성과 환율 변동성이 커졌고, 반도체 산업은 긍정 신호와 저신뢰 뉴스가 동시에 감지되었습니다.</p>
-              </section>
-              <section class="panel">
-                <h3>시장 신호 판단 근거</h3>
-                <div class="rank-list">
-                  <article><strong>위험도 68 / 100</strong><span>VIX 반등, 환율 상승, 기술주 변동성 반영</span></article>
-                  <article><strong>YELLOW 신호</strong><span>확인할 근거가 남아 있는 관찰 구간</span></article>
-                </div>
-              </section>
-              <section class="panel">
-                <h3>뉴스 가드 요약</h3>
-                <p class="muted">주의 필요 뉴스 3건. 가장 큰 의심 사유는 자극적 표현과 출처 불명확성입니다.</p>
-              </section>
-              <section class="panel">
-                <h3>산업별 주요 변화</h3>
-                <p class="muted">반도체 +78, 클라우드 +52로 긍정 신호가 강합니다. 게임 -46, 2차전지 -28은 추가 확인이 필요합니다.</p>
-              </section>
-              <section class="panel">
-                <h3>카카오 알림 발송 요약</h3>
-                <p class="muted">오늘 YELLOW 알림 1건, RED 알림 1건이 발송되었습니다. 모두 조건 충족 사유와 함께 기록되었습니다.</p>
-              </section>
-              <section class="panel guide-panel">
-                <h3>판단 기준 가이드</h3>
-                <div class="guide-grid">
-                  <article><strong>시장 신호는 어떻게 읽나요?</strong><span>RED/YELLOW/GREEN은 매수·매도 지시가 아니라 상태 신호입니다.</span></article>
-                  <article><strong>영향도 점수란?</strong><span>뉴스가 시장이나 산업에 영향을 줄 가능성입니다.</span></article>
-                  <article><strong>신뢰도 점수란?</strong><span>뉴스 자체를 조심해서 봐야 하는 정도입니다.</span></article>
-                  <article><strong>가짜 뉴스 의심 기준은?</strong><span>자극적 표현, 근거 부족, 반복 확산, 출처 불명확성을 봅니다.</span></article>
-                  <article><strong>카카오 알림은 언제 발송되나요?</strong><span>설정한 시장·산업·뉴스 조건이 충족되면 발송됩니다.</span></article>
-                </div>
-              </section>
-            </div>
-          </section>
+          </div>
 
-          <section class="view" id="view-settings">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">설정</p>
-                <h2>관심 시장과 알림 기준을 개인화합니다</h2>
-              </div>
+          <div class="alert-summary-card">
+            <div class="warning-panel">
+              <strong>뉴스 가드 경고</strong><br>
+              주의 필요 뉴스 14건<br>
+              대표 사유: 자극적 표현, 근거 부족, 반복 확산
             </div>
-            <div class="settings-grid">
-              <section class="panel"><h3>관심 시장</h3><div class="tag-row"><span>국내</span><span>미국</span><span>글로벌</span></div></section>
-              <section class="panel"><h3>관심 산업</h3><div class="tag-row"><span>반도체</span><span>AI</span><span>클라우드</span></div></section>
-              <section class="panel"><h3>카카오 채널 연결</h3><p class="muted">FinLightAI 카카오 채널 봇 연결됨 · API 상태 정상</p></section>
+            <div class="kakao-mini">
+              <strong>최근 카카오 알림</strong>
+              <p style="font-size:12px;line-height:1.6;color:var(--text-2);font-weight:750;margin:8px 0 0">09:30 · 주의 신호 발송 완료<br>08:10 · 저신뢰 뉴스 감지<br>07:30 · 일일 요약 대기</p>
             </div>
-          </section>
-        </main>
-      </div>
-    </div>
-
-    <div class="modal-backdrop asset-modal" data-modal="asset" aria-hidden="true">
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="assetModalTitle">
-        <header class="modal-head">
-          <h3 id="assetModalTitle">관심 자산 추가</h3>
-          <button class="modal-close" type="button" aria-label="닫기">×</button>
-        </header>
-        <div class="modal-body">
-          <label class="field-row">자산명<input id="assetName" type="text" placeholder="예: 삼성전자" /></label>
-          <label class="field-row">관련 산업<input id="assetSector" type="text" placeholder="예: 반도체" /></label>
+          </div>
         </div>
-        <footer class="modal-foot">
-          <button class="chip" type="button" data-modal-close>취소</button>
-          <button class="chip primary" type="button" id="saveAssetBtn">저장</button>
-        </footer>
       </div>
-    </div>
 
-    <script src="/static/js/app.js?v=20260622-final-ko" defer></script>
-  </body>
+      <div class="screen" id="market">
+        <div class="grid-12">
+          <div class="card" style="grid-column:span 7">
+            <div class="section-title"><h3>시장 위험도 분석</h3><span class="hint">Market Signal</span></div>
+            <div class="signal-copy">
+              <h1 style="font-size:30px;margin-bottom:16px">YELLOW · 주의 구간</h1>
+              <p>시장 신호는 투자 지시가 아니라 현재 정보 환경의 주의 수준입니다. 위험도 68은 변동성이 커진 상태를 의미하며, 관련 뉴스와 지표를 함께 확인해야 합니다.</p>
+            </div>
+            <div class="score-wrap"><div class="score-bar"><span></span></div><div class="score-text">68 / 100</div></div>
+            <div class="grid" style="grid-template-columns:repeat(3,1fr);margin-top:24px">
+              <div class="card compact"><div class="kpi-label">금리 불확실성</div><div class="kpi-value neutral">높음</div><div class="kpi-desc">발언성 뉴스 증가</div></div>
+              <div class="card compact"><div class="kpi-label">환율 영향</div><div class="kpi-value neutral">주의</div><div class="kpi-desc">수입 비용 부담</div></div>
+              <div class="card compact"><div class="kpi-label">뉴스 신뢰도</div><div class="kpi-value down">혼재</div><div class="kpi-desc">저신뢰 뉴스 포함</div></div>
+            </div>
+          </div>
+          <div class="card" style="grid-column:span 5">
+            <div class="section-title"><h3>확인해야 할 포인트</h3></div>
+            <div class="brief-list">
+              <div class="brief-item"><span class="dot" style="background:var(--yellow)"></span><p>VIX 변동성 지표가 추가 상승하는지 확인</p></div>
+              <div class="brief-item"><span class="dot" style="background:var(--teal)"></span><p>반도체 긍정 뉴스가 공식 발표 기반인지 확인</p></div>
+              <div class="brief-item"><span class="dot" style="background:var(--red)"></span><p>급등·확정성 표현의 뉴스는 원문과 출처를 확인</p></div>
+              <div class="brief-item"><span class="dot" style="background:var(--blue)"></span><p>내 포트폴리오 산업 비중과 연결해서 해석</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="industry">
+        <div class="grid-12">
+          <div class="card" style="grid-column:span 8">
+            <div class="section-title"><h3>산업별 영향도 히트맵</h3><span class="hint">영향도 + 관련 뉴스 수</span></div>
+            <div class="heatmap" style="grid-template-columns:repeat(4,1fr);gap:14px">
+              <div class="hm good"><div class="name">반도체</div><div class="score">+78</div><div class="state">긍정 · 뉴스 12건</div></div>
+              <div class="hm warn"><div class="name">금융</div><div class="score">-45</div><div class="state">주의 · 뉴스 9건</div></div>
+              <div class="hm good"><div class="name">IT</div><div class="score">+51</div><div class="state">긍정 · 뉴스 8건</div></div>
+              <div class="hm ok"><div class="name">자동차</div><div class="score">+12</div><div class="state">약한 긍정</div></div>
+              <div class="hm warn"><div class="name">에너지</div><div class="score">-30</div><div class="state">주의</div></div>
+              <div class="hm ok"><div class="name">바이오</div><div class="score">+21</div><div class="state">약한 긍정</div></div>
+              <div class="hm bad"><div class="name">항공</div><div class="score">-58</div><div class="state">부정</div></div>
+              <div class="hm neutral"><div class="name">소비재</div><div class="score">+4</div><div class="state">중립</div></div>
+              <div class="hm warn"><div class="name">원자재</div><div class="score">-41</div><div class="state">주의</div></div>
+              <div class="hm ok"><div class="name">방산</div><div class="score">+38</div><div class="state">약한 긍정</div></div>
+              <div class="hm warn"><div class="name">게임</div><div class="score">-12</div><div class="state">주의</div></div>
+              <div class="hm neutral"><div class="name">유틸리티</div><div class="score">+8</div><div class="state">중립</div></div>
+            </div>
+          </div>
+          <div class="card" style="grid-column:span 4">
+            <div class="section-title"><h3>선택 산업 상세</h3></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div style="font-size:28px;font-weight:950">반도체</div>
+              <div style="font-size:34px;font-weight:950;color:var(--teal)">+78</div>
+            </div>
+            <span class="badge trust-hi">긍정 신호</span>
+            <p style="font-size:13px;color:var(--text-2);line-height:1.7;margin-top:20px;font-weight:750">AI 데이터센터 투자 확대와 HBM 관련 뉴스가 긍정 신호를 만들고 있습니다. 단, 일부 급등성 표현 뉴스는 뉴스 가드 확인이 필요합니다.</p>
+            <div class="brief-list" style="margin-top:24px">
+              <div class="brief-item"><span class="dot"></span><p>주요 원인: AI 반도체 수요 증가</p></div>
+              <div class="brief-item"><span class="dot"></span><p>관련 종목: 삼성전자, SK하이닉스, NVIDIA</p></div>
+              <div class="brief-item"><span class="dot" style="background:var(--yellow)"></span><p>주의: 저신뢰 급등 기사 2건 감지</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="news">
+        <div class="market-tabs">
+          <div class="tab active">전체</div>
+          <div class="tab">영향도 높음</div>
+          <div class="tab">신뢰도 낮음</div>
+          <div class="tab">주의 필요</div>
+          <div class="tab">반도체</div>
+        </div>
+        <div class="grid-12">
+          <div class="card" style="grid-column:span 8">
+            <div class="section-title"><h3>뉴스 검증 카드</h3><span class="hint">영향도와 신뢰도 분리</span></div>
+            <div class="news-list">
+              <div class="news-item">
+                <div class="news-head"><strong>○○기업 급등 확정 전망</strong><span class="badge trust-lo">과장 가능성</span></div>
+                <div class="news-meta"><span class="badge impact">영향 76</span><span class="badge trust-lo">신뢰 낮음</span><span class="badge warn">반도체</span><span class="badge">출처불명</span></div>
+                <p style="font-size:12px;color:var(--text-2);line-height:1.6;margin:10px 0 0;font-weight:750">의심 사유: 자극적인 표현 사용, 명확한 근거 부족, 동일 문장 반복 확산</p>
+              </div>
+              <div class="news-item">
+                <div class="news-head"><strong>미 연준, 금리 동결 가능성 시사</strong><span class="badge trust-hi">정상</span></div>
+                <div class="news-meta"><span class="badge impact">영향 82</span><span class="badge trust-hi">신뢰 높음</span><span class="badge warn">금융</span><span class="badge">공식 발언 기반</span></div>
+              </div>
+              <div class="news-item">
+                <div class="news-head"><strong>NVIDIA 공급 병목 지속 보도</strong><span class="badge warn">검토</span></div>
+                <div class="news-meta"><span class="badge impact">영향 74</span><span class="badge warn">신뢰 보통</span><span class="badge warn">반도체</span><span class="badge">전망성 표현 포함</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="grid-column:span 4">
+            <div class="section-title"><h3>선택 뉴스 상세 분석</h3></div>
+            <h2 style="font-size:24px;line-height:1.3;margin:0 0 12px">○○기업 급등 확정 전망</h2>
+            <p style="font-size:13px;color:var(--text-2);line-height:1.7;font-weight:750">시장 영향도는 높지만 신뢰도는 낮습니다. 판단 근거로 사용하기 전 원문과 다른 출처를 함께 확인해야 합니다.</p>
+            <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:20px">
+              <div class="card compact"><div class="kpi-label">영향도</div><div class="kpi-value blue">76</div></div>
+              <div class="card compact"><div class="kpi-label">신뢰도</div><div class="kpi-value down">낮음</div></div>
+            </div>
+            <div class="warning-panel" style="margin-top:18px">
+              의심 사유<br>단정적 표현, 공식 자료 부족, 짧은 시간 내 반복 확산
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="portfolio">
+        <div class="grid-12">
+          <div class="card" style="grid-column:span 12">
+            <div class="section-title"><h3>포트폴리오 요약</h3><span class="hint">실제 매매 기능 없음</span></div>
+            <div class="portfolio-summary">
+              <div class="card compact"><div class="kpi-label">총 평가금액</div><div class="kpi-value">₩4,280,000</div><div class="kpi-desc">샘플 데이터</div></div>
+              <div class="card compact"><div class="kpi-label">오늘 변동</div><div class="kpi-value down">-1.2%</div><div class="kpi-desc">시장 신호 YELLOW</div></div>
+              <div class="card compact"><div class="kpi-label">위험 노출</div><div class="kpi-value neutral">중간</div><div class="kpi-desc">항공/금융 주의</div></div>
+              <div class="card compact"><div class="kpi-label">관련 뉴스</div><div class="kpi-value blue">18건</div><div class="kpi-desc">저신뢰 3건 포함</div></div>
+            </div>
+          </div>
+          <div class="card" style="grid-column:span 8">
+            <div class="section-title"><h3>관심 자산 목록</h3><span class="hint">수동 등록 기반</span></div>
+            <table class="asset-table">
+              <thead><tr><th>자산</th><th>산업</th><th>비중</th><th>오늘 신호</th><th>관련 뉴스</th></tr></thead>
+              <tbody>
+                <tr><td>삼성전자</td><td>반도체</td><td>42%</td><td class="teal">긍정</td><td>12건</td></tr>
+                <tr><td>SK하이닉스</td><td>반도체</td><td>26%</td><td class="teal">긍정</td><td>9건</td></tr>
+                <tr><td>현대차</td><td>자동차</td><td>18%</td><td class="neutral">중립</td><td>5건</td></tr>
+                <tr><td>대한항공</td><td>항공</td><td>14%</td><td class="down">주의</td><td>6건</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card" style="grid-column:span 4">
+            <div class="section-title"><h3>산업 비중</h3></div>
+            <div class="donut"></div>
+            <div class="brief-list">
+              <div class="brief-item"><span class="dot"></span><p>반도체 비중이 높아 긍정 뉴스 영향이 큽니다.</p></div>
+              <div class="brief-item"><span class="dot" style="background:var(--red)"></span><p>항공 산업은 환율·유가 뉴스 확인이 필요합니다.</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="kakao">
+        <div class="grid-12">
+          <div class="card" style="grid-column:span 5">
+            <div class="section-title"><h3>카카오 채널 연결 상태</h3><span class="badge trust-hi">연결됨</span></div>
+            <div style="display:flex;gap:14px;align-items:center;margin-bottom:20px">
+              <div style="width:58px;height:58px;border-radius:18px;background:var(--kakao);color:var(--kakao-brown);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:950">K</div>
+              <div>
+                <div style="font-size:22px;font-weight:950">FinLightAI 카카오 채널</div>
+                <div style="font-size:12px;color:var(--muted);font-weight:750;margin-top:5px">봇 상태 정상 · 테스트 완료</div>
+              </div>
+            </div>
+            <button class="primary-btn">테스트 알림 보내기</button>
+            <div class="settings-row" style="margin-top:22px"><div><strong>시장 위험도 70 이상</strong><br><span style="color:var(--muted);font-size:12px">RED/YELLOW 조건</span></div><div class="switch"></div></div>
+            <div class="settings-row"><div><strong>관심 산업 영향도 ±60 이상</strong><br><span style="color:var(--muted);font-size:12px">산업별 알림</span></div><div class="switch"></div></div>
+            <div class="settings-row"><div><strong>신뢰도 낮은 뉴스 확산</strong><br><span style="color:var(--muted);font-size:12px">News Guard 연동</span></div><div class="switch"></div></div>
+          </div>
+          <div class="card" style="grid-column:span 4">
+            <div class="section-title"><h3>메시지 미리보기</h3></div>
+            <div class="kakao-phone">
+              <div class="kakao-screen">
+                <div class="kakao-top">FinLightAI 채널</div>
+                <div class="kakao-chat">
+                  <div class="kakao-profile"><span style="width:24px;height:24px;border-radius:9px;background:var(--kakao);display:inline-flex;align-items:center;justify-content:center">F</span> FinLightAI</div>
+                  <div class="kakao-bubble">
+                    <div class="k-title">주의 신호 감지</div>
+                    미국 시장 위험도 68<br>
+                    반도체 영향도 +78<br>
+                    주의 뉴스 2건 감지<br><br>
+                    확인 포인트<br>
+                    금리 발언 불확실성<br>
+                    저신뢰 뉴스 확산 여부
+                    <div class="kakao-action">대시보드에서 자세히 보기</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="grid-column:span 3">
+            <div class="section-title"><h3>최근 발송 내역</h3></div>
+            <div class="brief-list">
+              <div class="brief-item"><span class="dot" style="background:var(--yellow)"></span><p>09:30 · 주의 신호 발송 완료</p></div>
+              <div class="brief-item"><span class="dot" style="background:var(--red)"></span><p>08:10 · 저신뢰 뉴스 감지</p></div>
+              <div class="brief-item"><span class="dot" style="background:var(--blue)"></span><p>07:30 · 일일 요약 대기</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="briefing">
+        <div class="grid-12">
+          <div class="card" style="grid-column:span 12">
+            <h1 style="font-size:34px;margin:0 0 12px">오늘의 AI 브리핑</h1>
+            <p style="font-size:14px;color:var(--text-2);line-height:1.7;font-weight:750">리포트와 가이드를 하나로 흡수한 해석 화면입니다. 사용자가 시장 신호, 뉴스 가드 기준, 카카오 알림 조건을 이해하도록 돕습니다.</p>
+          </div>
+          <div class="card" style="grid-column:span 4"><div class="section-title"><h3>핵심 해석</h3></div><p style="color:var(--text-2);line-height:1.8;font-weight:750">시장은 주의 구간입니다. 금리 발언과 환율 변동성이 리스크를 키웠고, 반도체는 긍정 신호와 저신뢰 뉴스가 동시에 관측됩니다.</p></div>
+          <div class="card" style="grid-column:span 4"><div class="section-title"><h3>뉴스 가드 요약</h3></div><p style="color:var(--text-2);line-height:1.8;font-weight:750">주의 필요 뉴스 14건, 저신뢰 뉴스 6건, 영향도 높은 뉴스 5건이 감지되었습니다. 대표 사유는 자극적 표현과 근거 부족입니다.</p></div>
+          <div class="card" style="grid-column:span 4"><div class="section-title"><h3>판단 기준 가이드</h3></div><p style="color:var(--text-2);line-height:1.8;font-weight:750">시장 신호는 투자 지시가 아니라 주의 수준입니다. 영향도는 시장에 미칠 가능성, 신뢰도는 뉴스 자체의 검증 수준입니다.</p></div>
+        </div>
+      </div>
+
+      <div class="screen" id="mypage">
+        <div class="my-grid">
+          <div class="card profile-card">
+            <div class="profile-avatar">TH</div>
+            <div class="profile-name">허태희</div>
+            <div class="profile-email">kakao_user_1027@finlight.ai</div>
+            <div class="profile-stat">
+              <div><strong>4</strong><span>관심 자산</span></div>
+              <div><strong>3</strong><span>관심 산업</span></div>
+              <div><strong>18</strong><span>관련 뉴스</span></div>
+              <div><strong>ON</strong><span>카카오 알림</span></div>
+            </div>
+            <div style="margin-top:26px">
+              <button class="kakao-btn">카카오 계정 연결됨</button>
+              <button class="primary-btn">프로필 수정</button>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="card">
+              <div class="section-title"><h3>마이페이지 포트폴리오</h3><span class="hint">관심 자산 기반</span></div>
+              <div class="portfolio-summary">
+                <div class="card compact"><div class="kpi-label">총 평가금액</div><div class="kpi-value">₩4.28M</div></div>
+                <div class="card compact"><div class="kpi-label">위험 노출</div><div class="kpi-value neutral">중간</div></div>
+                <div class="card compact"><div class="kpi-label">저신뢰 뉴스</div><div class="kpi-value down">3건</div></div>
+                <div class="card compact"><div class="kpi-label">알림 조건</div><div class="kpi-value teal">5개</div></div>
+              </div>
+              <table class="asset-table">
+                <thead><tr><th>자산</th><th>산업</th><th>비중</th><th>오늘 신호</th><th>알림</th></tr></thead>
+                <tbody>
+                  <tr><td>삼성전자</td><td>반도체</td><td>42%</td><td class="teal">긍정</td><td>ON</td></tr>
+                  <tr><td>SK하이닉스</td><td>반도체</td><td>26%</td><td class="teal">긍정</td><td>ON</td></tr>
+                  <tr><td>현대차</td><td>자동차</td><td>18%</td><td class="neutral">중립</td><td>OFF</td></tr>
+                  <tr><td>대한항공</td><td>항공</td><td>14%</td><td class="down">주의</td><td>ON</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <div class="section-title"><h3>개인화 설정</h3></div>
+              <div class="settings-row"><div><strong>관심 시장</strong><br><span style="color:var(--muted);font-size:12px">국내, 미국, 글로벌</span></div><span class="badge impact">3개</span></div>
+              <div class="settings-row"><div><strong>관심 산업</strong><br><span style="color:var(--muted);font-size:12px">반도체, IT, 항공</span></div><span class="badge impact">3개</span></div>
+              <div class="settings-row"><div><strong>카카오 알림</strong><br><span style="color:var(--muted);font-size:12px">주의 신호와 저신뢰 뉴스 알림</span></div><div class="switch"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="auth">
+        <div class="auth-bg">
+          <div class="auth-hero">
+            <div class="brand"><div class="brand-logo">FL</div><div><div class="brand-title">FinLightAI</div><div class="brand-sub">AI 금융 상황판</div></div></div>
+            <h1>시장의 소음 속에서<br>신호와 근거를 찾다</h1>
+            <p>카카오 로그인으로 간편하게 시작하고, 관심 산업·자산·카카오 채널 알림을 연결해 나만의 금융 상황판을 구성합니다.</p>
+          </div>
+          <div class="auth-panel">
+            <div class="form-title">로그인</div>
+            <div class="form-sub">카카오 Auth 기반 로그인과 자체 이메일 로그인을 함께 제공합니다.</div>
+            <div class="input-group"><label>이메일</label><input class="input" placeholder="example@finlight.ai" /></div>
+            <div class="input-group"><label>비밀번호</label><input class="input" type="password" placeholder="비밀번호 입력" /></div>
+            <button class="primary-btn">이메일로 로그인</button>
+            <button class="kakao-btn">카카오로 계속하기</button>
+            <div class="form-note">회원가입 시 관심 시장, 관심 산업, 카카오 채널 알림 동의를 선택할 수 있습니다. 카카오 채널 추가 여부는 마이페이지에서 다시 확인할 수 있습니다.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="settings">
+        <div class="grid-12">
+          <div class="card" style="grid-column:span 6">
+            <div class="section-title"><h3>계정 및 Auth 설정</h3></div>
+            <div class="settings-row"><div><strong>카카오 계정</strong><br><span style="color:var(--muted);font-size:12px">연결됨 · 프로필/이메일 동의</span></div><span class="badge trust-hi">정상</span></div>
+            <div class="settings-row"><div><strong>언어</strong><br><span style="color:var(--muted);font-size:12px">한국어 기본, 상단 EN 전환</span></div><span class="badge">KO</span></div>
+            <div class="settings-row"><div><strong>로그아웃</strong><br><span style="color:var(--muted);font-size:12px">현재 세션 종료</span></div><span class="badge warn">실행</span></div>
+          </div>
+          <div class="card" style="grid-column:span 6">
+            <div class="section-title"><h3>알림 및 개인화</h3></div>
+            <div class="settings-row"><div><strong>카카오 채널 수신</strong><br><span style="color:var(--muted);font-size:12px">채널 추가 상태 확인 필요</span></div><div class="switch"></div></div>
+            <div class="settings-row"><div><strong>시장 위험도 알림</strong><br><span style="color:var(--muted);font-size:12px">위험도 70 이상</span></div><div class="switch"></div></div>
+            <div class="settings-row"><div><strong>저신뢰 뉴스 알림</strong><br><span style="color:var(--muted);font-size:12px">뉴스 가드 연동</span></div><div class="switch"></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="route-label">FinLightAI High-Fidelity UI Prototype · v2</div>
+<script>
+const navItems = document.querySelectorAll('.nav-item');
+const screens = document.querySelectorAll('.screen');
+const pageTitle = document.getElementById('pageTitle');
+const pageSub = document.getElementById('pageSub');
+const meta = {
+  overview:['개요','오늘의 시장 신호와 뉴스 근거를 한눈에 확인합니다.'],
+  market:['시장 신호','시장 위험도와 핵심 지표의 맥락을 확인합니다.'],
+  industry:['산업 영향도','산업별 뉴스 영향과 관련 종목을 확인합니다.'],
+  news:['뉴스 가드','뉴스 영향도와 신뢰도를 분리해 검증합니다.'],
+  portfolio:['포트폴리오','관심 자산과 시장 신호의 연결을 확인합니다.'],
+  kakao:['카카오 알림','카카오 채널 봇 알림 조건과 발송 내역을 관리합니다.'],
+  briefing:['AI 브리핑','리포트와 가이드를 흡수한 오늘의 해석 화면입니다.'],
+  mypage:['마이페이지','계정, 관심 자산, 포트폴리오 설정을 관리합니다.'],
+  auth:['로그인 / 회원가입','카카오 Auth와 이메일 로그인을 제공합니다.'],
+  settings:['설정','계정, 언어, 알림, 개인화 기준을 관리합니다.']
+};
+function showScreen(id){
+  screens.forEach(s=>s.classList.toggle('active',s.id===id));
+  navItems.forEach(n=>n.classList.toggle('active',n.dataset.screen===id));
+  pageTitle.textContent = meta[id]?.[0] || '개요';
+  pageSub.textContent = meta[id]?.[1] || '';
+}
+navItems.forEach(item=>item.addEventListener('click',()=>showScreen(item.dataset.screen)));
+</script>
+</body>
 </html>
