@@ -718,40 +718,45 @@ button,input,select{font-family:inherit}
       <div class="screen" id="news">
         <div class="market-tabs" data-filter-tabs>
           <button class="tab active" type="button">전체</button>
-          <button class="tab" type="button">영향도 높음</button>
-          <button class="tab" type="button">신뢰도 낮음</button>
-          <button class="tab" type="button">주의 필요</button>
-          <button class="tab" type="button">반도체</button>
+          <button class="tab" type="button">🔴 주의 필요</button>
+          <button class="tab" type="button">🟡 검토 필요</button>
+          <button class="tab" type="button">🟢 신뢰 높음</button>
         </div>
         <div class="grid-12">
           <div class="card" style="grid-column:span 8">
             <div class="section-title"><h3>뉴스 검증 카드</h3><span class="hint">영향도와 신뢰도 분리</span></div>
             <div class="news-list">
-              <div class="news-item">
-                <div class="news-head"><strong>○○기업 급등 확정 전망</strong><span class="badge trust-lo">과장 가능성</span></div>
-                <div class="news-meta"><span class="badge impact">영향 76</span><span class="badge trust-lo">신뢰 낮음</span><span class="badge warn">반도체</span><span class="badge">출처불명</span></div>
+              <button class="news-item active" type="button" data-news-id="rumor">
+                <div class="news-source">[커뮤니티 확산]</div>
+                <div class="news-head"><strong>○○기업 급등 확정 전망</strong><span class="badge red">🔴 주의 필요</span></div>
+                <div class="news-meta"><span class="badge impact">영향 76</span><span class="badge trust-lo">신뢰 낮음</span><span class="badge">출처불명</span></div>
                 <p style="font-size:12px;color:var(--text-2);line-height:1.6;margin:10px 0 0;font-weight:750">의심 사유: 자극적인 표현 사용, 명확한 근거 부족, 동일 문장 반복 확산</p>
-              </div>
-              <div class="news-item">
-                <div class="news-head"><strong>미 연준, 금리 동결 가능성 시사</strong><span class="badge trust-hi">정상</span></div>
-                <div class="news-meta"><span class="badge impact">영향 82</span><span class="badge trust-hi">신뢰 높음</span><span class="badge warn">금융</span><span class="badge">공식 발언 기반</span></div>
-              </div>
-              <div class="news-item">
-                <div class="news-head"><strong>NVIDIA 공급 병목 지속 보도</strong><span class="badge warn">검토</span></div>
-                <div class="news-meta"><span class="badge impact">영향 74</span><span class="badge warn">신뢰 보통</span><span class="badge warn">반도체</span><span class="badge">전망성 표현 포함</span></div>
-              </div>
+              </button>
+              <button class="news-item" type="button" data-news-id="fed">
+                <div class="news-source">[Reuters]</div>
+                <div class="news-head"><strong>미 연준, 금리 동결 가능성 시사</strong><span class="badge green">🟢 신뢰 높음</span></div>
+                <div class="news-meta"><span class="badge impact">영향 82</span><span class="badge trust-hi">신뢰 높음</span><span class="badge">공식 발언 기반</span></div>
+                <p style="font-size:12px;color:var(--text-2);line-height:1.6;margin:10px 0 0;font-weight:750">핵심 내용: 공식 발언과 복수 매체 확인이 있어 시장 영향 판단 근거로 활용 가능</p>
+              </button>
+              <button class="news-item" type="button" data-news-id="nvidia">
+                <div class="news-source">[Bloomberg]</div>
+                <div class="news-head"><strong>NVIDIA 공급 병목 지속 보도</strong><span class="badge yellow">🟡 검토 필요</span></div>
+                <div class="news-meta"><span class="badge impact">영향 74</span><span class="badge warn">신뢰 보통</span><span class="badge">전망성 표현 포함</span></div>
+                <p style="font-size:12px;color:var(--text-2);line-height:1.6;margin:10px 0 0;font-weight:750">핵심 내용: 공급 지연 가능성을 다루지만 일부 수치는 전망치라 추가 확인 필요</p>
+              </button>
             </div>
           </div>
           <div class="card" style="grid-column:span 4">
             <div class="section-title"><h3>선택 뉴스 상세 분석</h3></div>
-            <h2 style="font-size:24px;line-height:1.3;margin:0 0 12px">○○기업 급등 확정 전망</h2>
-            <p style="font-size:13px;color:var(--text-2);line-height:1.7;font-weight:750">시장 영향도는 높지만 신뢰도는 낮습니다. 판단 근거로 사용하기 전 원문과 다른 출처를 함께 확인해야 합니다.</p>
+            <div id="newsDetailSource" class="news-source">[커뮤니티 확산]</div>
+            <h2 id="newsDetailTitle" style="font-size:24px;line-height:1.3;margin:0 0 12px">○○기업 급등 확정 전망</h2>
+            <p id="newsDetailBody" style="font-size:13px;color:var(--text-2);line-height:1.7;font-weight:750">본문 요약: 특정 기업의 단기 급등을 단정적으로 표현하지만, 공식 공시나 기관 리포트가 확인되지 않았습니다. 반복 확산 문구가 많아 판단 근거로 쓰기 전 원문 확인이 필요합니다.</p>
             <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:20px">
-              <div class="card compact"><div class="kpi-label">영향도</div><div class="kpi-value blue">76</div></div>
-              <div class="card compact"><div class="kpi-label">신뢰도</div><div class="kpi-value down">낮음</div></div>
+              <div class="card compact"><div class="kpi-label">영향도</div><div id="newsDetailImpact" class="kpi-value blue">76</div></div>
+              <div class="card compact"><div class="kpi-label">신뢰도</div><div id="newsDetailTrust" class="kpi-value down">낮음</div></div>
             </div>
-            <div class="warning-panel" style="margin-top:18px">
-              의심 사유<br>단정적 표현, 공식 자료 부족, 짧은 시간 내 반복 확산
+            <div id="newsDetailReason" class="warning-panel" style="margin-top:18px">
+              🔴 낮음: 단정적 표현, 공식 자료 부족, 짧은 시간 내 반복 확산
             </div>
           </div>
         </div>
@@ -1004,6 +1009,35 @@ const marketCopy = {
     en:['Watched industries favor semiconductors while airlines need caution.','AI data center and HBM demand support positive signals, while airlines and financials remain sensitive to FX and rates.']
   },
 };
+const newsDetails = {
+  rumor: {
+    source: '[커뮤니티 확산]',
+    title: '○○기업 급등 확정 전망',
+    body: '본문 요약: 특정 기업의 단기 급등을 단정적으로 표현하지만, 공식 공시나 기관 리포트가 확인되지 않았습니다. 반복 확산 문구가 많아 판단 근거로 쓰기 전 원문 확인이 필요합니다.',
+    impact: '76',
+    trust: '낮음',
+    trustClass: 'kpi-value down',
+    reason: '🔴 낮음: 단정적 표현, 공식 자료 부족, 짧은 시간 내 반복 확산'
+  },
+  fed: {
+    source: '[Reuters]',
+    title: '미 연준, 금리 동결 가능성 시사',
+    body: '본문 요약: 연준 관계자의 공식 발언과 시장 컨센서스가 함께 인용되었습니다. 금리 불확실성은 남아 있지만 출처와 맥락이 명확해 기준 자료로 활용하기 쉽습니다.',
+    impact: '82',
+    trust: '높음',
+    trustClass: 'kpi-value up',
+    reason: '🟢 높음: 공식 발언 기반, 복수 출처 확인, 수치와 발언 주체 명확'
+  },
+  nvidia: {
+    source: '[Bloomberg]',
+    title: 'NVIDIA 공급 병목 지속 보도',
+    body: '본문 요약: 공급 병목 가능성을 다루지만 일부 수요 전망과 납기 수치는 추정치입니다. 산업 영향은 크지만 확정 정보와 전망 정보를 분리해서 봐야 합니다.',
+    impact: '74',
+    trust: '보통',
+    trustClass: 'kpi-value neutral',
+    reason: '🟡 보통: 신뢰 매체 보도이나 전망성 표현과 추정 수치 포함'
+  }
+};
 let currentScreen = 'overview';
 let currentLang = 'ko';
 function showScreen(id){
@@ -1053,6 +1087,19 @@ function initTabs(selector, onChange){
     });
   });
 }
+function showNewsDetail(id){
+  const item = newsDetails[id];
+  if (!item) return;
+  document.querySelectorAll('[data-news-id]').forEach(button=>button.classList.toggle('active', button.dataset.newsId === id));
+  document.getElementById('newsDetailSource').textContent = item.source;
+  document.getElementById('newsDetailTitle').textContent = item.title;
+  document.getElementById('newsDetailBody').textContent = item.body;
+  document.getElementById('newsDetailImpact').textContent = item.impact;
+  const trust = document.getElementById('newsDetailTrust');
+  trust.textContent = item.trust;
+  trust.className = item.trustClass;
+  document.getElementById('newsDetailReason').textContent = item.reason;
+}
 navItems.forEach(item=>item.addEventListener('click',()=>showScreen(item.dataset.screen)));
 document.querySelectorAll('[data-screen-shortcut]').forEach(item=>{
   item.addEventListener('click',()=>showScreen(item.dataset.screenShortcut));
@@ -1063,6 +1110,9 @@ languageToggle.addEventListener('click',()=>{
 });
 initTabs('[data-market-tabs]', tab=>updateMarketCopy(tab.dataset.market));
 initTabs('[data-filter-tabs]');
+document.querySelectorAll('[data-news-id]').forEach(button=>{
+  button.addEventListener('click',()=>showNewsDetail(button.dataset.newsId));
+});
 </script>
 </body>
 </html>
