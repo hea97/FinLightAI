@@ -355,6 +355,7 @@ button,input,select{font-family:inherit}
   min-height:92px;border-radius:18px;padding:14px;text-align:left;
   position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.08);
   cursor:pointer;
+  color:var(--text);
   transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
 }
 .hm:hover{transform:translateY(-2px);transition:.18s ease}
@@ -741,38 +742,38 @@ button,input,select{font-family:inherit}
           <div class="card" style="grid-column:span 8">
             <div class="section-title"><h3>산업별 영향도 히트맵</h3><span class="hint">영향도 + 관련 뉴스 수</span></div>
             <div class="heatmap" style="grid-template-columns:repeat(4,1fr);gap:14px">
-              <div class="hm good"><div class="name">반도체</div><div class="score">+78</div><div class="state">긍정 · 뉴스 12건</div></div>
-              <div class="hm warn"><div class="name">금융</div><div class="score">-45</div><div class="state">주의 · 뉴스 9건</div></div>
-              <div class="hm good"><div class="name">IT</div><div class="score">+51</div><div class="state">긍정 · 뉴스 8건</div></div>
-              <div class="hm ok"><div class="name">자동차</div><div class="score">+12</div><div class="state">약한 긍정</div></div>
-              <div class="hm warn"><div class="name">에너지</div><div class="score">-30</div><div class="state">주의</div></div>
-              <div class="hm ok"><div class="name">바이오</div><div class="score">+21</div><div class="state">약한 긍정</div></div>
-              <div class="hm bad"><div class="name">항공</div><div class="score">-58</div><div class="state">부정</div></div>
-              <div class="hm neutral"><div class="name">소비재</div><div class="score">+4</div><div class="state">중립</div></div>
-              <div class="hm warn"><div class="name">원자재</div><div class="score">-41</div><div class="state">주의</div></div>
-              <div class="hm ok"><div class="name">방산</div><div class="score">+38</div><div class="state">약한 긍정</div></div>
-              <div class="hm warn"><div class="name">게임</div><div class="score">-12</div><div class="state">주의</div></div>
-              <div class="hm neutral"><div class="name">유틸리티</div><div class="score">+8</div><div class="state">중립</div></div>
+              <button class="hm good active" type="button" data-industry-id="semiconductor"><div class="name">반도체</div><div class="score">+78</div><div class="state">강한 긍정 · 뉴스 12건</div></button>
+              <button class="hm warn" type="button" data-industry-id="finance"><div class="name">금융</div><div class="score">-45</div><div class="state">주의 · 뉴스 9건</div></button>
+              <button class="hm good" type="button" data-industry-id="it"><div class="name">IT</div><div class="score">+51</div><div class="state">긍정 · 뉴스 8건</div></button>
+              <button class="hm ok" type="button" data-industry-id="auto"><div class="name">자동차</div><div class="score">+12</div><div class="state">약한 긍정 · 뉴스 5건</div></button>
+              <button class="hm warn" type="button" data-industry-id="energy"><div class="name">에너지</div><div class="score">-30</div><div class="state">주의 · 뉴스 7건</div></button>
+              <button class="hm ok" type="button" data-industry-id="bio"><div class="name">바이오</div><div class="score">+21</div><div class="state">약한 긍정 · 뉴스 3건</div></button>
+              <button class="hm bad" type="button" data-industry-id="airline"><div class="name">항공</div><div class="score">-58</div><div class="state">부정 · 뉴스 6건</div></button>
+              <button class="hm neutral" type="button" data-industry-id="consumer"><div class="name">소비재</div><div class="score">+4</div><div class="state">중립 · 뉴스 2건</div></button>
+              <button class="hm warn" type="button" data-industry-id="materials"><div class="name">원자재</div><div class="score">-41</div><div class="state">주의 · 뉴스 10건</div></button>
+              <button class="hm ok" type="button" data-industry-id="defense"><div class="name">방산</div><div class="score">+38</div><div class="state">약한 긍정 · 뉴스 4건</div></button>
+              <button class="hm warn" type="button" data-industry-id="game"><div class="name">게임</div><div class="score">-12</div><div class="state">주의 · 뉴스 1건</div></button>
+              <button class="hm neutral" type="button" data-industry-id="utility"><div class="name">유틸리티</div><div class="score">+8</div><div class="state">중립 · 뉴스 2건</div></button>
             </div>
           </div>
           <div class="card" style="grid-column:span 4">
             <div class="section-title"><h3>선택 산업 상세</h3></div>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-              <div style="font-size:28px;font-weight:950">반도체</div>
-              <div style="font-size:34px;font-weight:950;color:var(--teal)">+78</div>
+              <div id="industryDetailName" style="font-size:28px;font-weight:950">반도체</div>
+              <div id="industryDetailScore" style="font-size:34px;font-weight:950;color:var(--teal)">+78</div>
             </div>
-            <span class="badge trust-hi">긍정 신호</span>
-            <p style="font-size:13px;color:var(--text-2);line-height:1.7;margin-top:20px;font-weight:750">
+            <span id="industryDetailBadge" class="badge trust-hi">강한 긍정 신호</span>
+            <p id="industryDetailDescription" style="font-size:13px;color:var(--text-2);line-height:1.7;margin-top:20px;font-weight:750">
               반도체 산업은 메모리, 파운드리, AI 가속기, 장비/소재 밸류체인을 포함합니다. 서버 투자와 AI 데이터센터 증설 뉴스가 직접적으로 수요 기대를 만듭니다.
             </p>
-            <div class="warning-panel" style="margin-top:14px;background:rgba(0,212,170,.08);border-color:rgba(0,212,170,.28);color:var(--text-2)">
+            <div id="industryDetailReason" class="warning-panel" style="margin-top:14px;background:rgba(0,212,170,.08);border-color:rgba(0,212,170,.28);color:var(--text-2)">
               긍정 이유<br>
               HBM 수요 증가, AI 서버 투자 확대, 주요 고객사의 장기 공급 계약 기대가 동시에 감지되었습니다.
             </div>
             <div class="brief-list" style="margin-top:24px">
-              <div class="brief-item"><span class="dot"></span><p>주요 원인: AI 반도체 수요 증가</p></div>
-              <div class="brief-item"><span class="dot"></span><p>관련 종목: 삼성전자, SK하이닉스, NVIDIA</p></div>
-              <div class="brief-item"><span class="dot" style="background:var(--yellow)"></span><p>확인 리스크: 저신뢰 급등 기사 2건, 공급 병목 전망성 보도, 환율 민감도</p></div>
+              <div class="brief-item"><span class="dot"></span><p id="industryDetailCause">주요 원인: AI 반도체 수요 증가</p></div>
+              <div class="brief-item"><span class="dot"></span><p id="industryDetailAssets">관련 종목: 삼성전자, SK하이닉스, NVIDIA</p></div>
+              <div class="brief-item"><span class="dot" style="background:var(--yellow)"></span><p id="industryDetailRisk">확인 리스크: 저신뢰 급등 기사 2건, 공급 병목 전망성 보도, 환율 민감도</p></div>
             </div>
           </div>
         </div>
@@ -1119,6 +1120,85 @@ const newsDetails = {
     reason: '🟡 보통: 신뢰 매체 보도이나 전망성 표현과 추정 수치 포함'
   }
 };
+const industryDetails = {
+  semiconductor: {
+    name:'반도체',
+    score:'+78',
+    badge:'강한 긍정 신호',
+    badgeClass:'badge trust-hi',
+    description:'반도체 산업은 메모리, 파운드리, AI 가속기, 장비/소재 밸류체인을 포함합니다. 서버 투자와 AI 데이터센터 증설 뉴스가 직접적으로 수요 기대를 만듭니다.',
+    reason:'긍정 이유<br>HBM 수요 증가, AI 서버 투자 확대, 주요 고객사의 장기 공급 계약 기대가 동시에 감지되었습니다.',
+    cause:'주요 원인: AI 반도체 수요 증가',
+    assets:'관련 종목: 삼성전자, SK하이닉스, NVIDIA',
+    risk:'확인 리스크: 저신뢰 급등 기사 2건, 공급 병목 전망성 보도, 환율 민감도'
+  },
+  finance: {
+    name:'금융',
+    score:'-45',
+    badge:'주의 신호',
+    badgeClass:'badge warn',
+    description:'금융 산업은 은행, 증권, 보험을 포함하며 금리, 환율, 신용 리스크 뉴스에 민감하게 반응합니다.',
+    reason:'주의 이유<br>금리 동결 기대와 경기 둔화 우려가 동시에 나오며 은행주와 증권주 해석이 엇갈립니다.',
+    cause:'주요 원인: 금리 발언 불확실성, 환율 변동성',
+    assets:'관련 종목: KB금융, 신한지주, 미래에셋증권',
+    risk:'확인 리스크: 부실채권, 예대마진 둔화, 미국 금리 경로'
+  },
+  auto: {
+    name:'자동차',
+    score:'+12',
+    badge:'약한 긍정',
+    badgeClass:'badge trust-hi',
+    description:'자동차 산업은 완성차, 부품, 전기차, 배터리 공급망과 연결됩니다. 수출과 환율 영향이 큰 산업입니다.',
+    reason:'약한 긍정 이유<br>환율 효과와 수출 기대는 긍정적이나 전기차 수요 둔화 뉴스가 일부 부담입니다.',
+    cause:'주요 원인: 수출 회복 기대, 전기차 가격 경쟁',
+    assets:'관련 종목: 현대차, 기아, 현대모비스',
+    risk:'확인 리스크: 미국 관세, 전기차 재고, 원자재 비용'
+  },
+  energy: {
+    name:'에너지',
+    score:'-30',
+    badge:'주의 신호',
+    badgeClass:'badge warn',
+    description:'에너지 산업은 정유, 가스, 전력, 신재생 공급망을 포함하며 유가와 지정학 뉴스에 민감합니다.',
+    reason:'주의 이유<br>유가 변동성과 공급망 이슈가 비용 부담으로 이어질 가능성이 있습니다.',
+    cause:'주요 원인: WTI 변동, 원자재 가격, 공급망 불확실성',
+    assets:'관련 종목: S-Oil, 한국가스공사, 한화솔루션',
+    risk:'확인 리스크: 중동 리스크, 재고 지표, 정제마진'
+  },
+  bio: {
+    name:'바이오',
+    score:'+21',
+    badge:'약한 긍정',
+    badgeClass:'badge trust-hi',
+    description:'바이오 산업은 임상, 신약 승인, 기술수출, 규제 뉴스에 따라 투자심리가 빠르게 변합니다.',
+    reason:'약한 긍정 이유<br>일부 임상 결과와 기술수출 기대가 있으나 규제 이벤트 확인이 필요합니다.',
+    cause:'주요 원인: 임상 데이터 발표, 기술수출 기대',
+    assets:'관련 종목: 삼성바이오로직스, 셀트리온, 유한양행',
+    risk:'확인 리스크: 임상 실패, 허가 지연, 과장성 보도'
+  },
+  airline: {
+    name:'항공',
+    score:'-58',
+    badge:'부정 신호',
+    badgeClass:'badge trust-lo',
+    description:'항공 산업은 여객 수요, 유가, 환율, 정비 비용에 민감합니다. 비용 변수 변화가 실적 전망에 빠르게 반영됩니다.',
+    reason:'부정 이유<br>유가와 환율 부담이 동시에 커지며 단기 비용 리스크가 높아졌습니다.',
+    cause:'주요 원인: 유가 상승, 원화 약세, 여행 수요 둔화 우려',
+    assets:'관련 종목: 대한항공, 제주항공, 진에어',
+    risk:'확인 리스크: 유류비, 환헤지, 국제선 예약률'
+  },
+  it: {
+    name:'IT',
+    score:'+51',
+    badge:'긍정 신호',
+    badgeClass:'badge trust-hi',
+    description:'IT 산업은 소프트웨어, 클라우드, 보안, 플랫폼 서비스를 포함하며 기업 투자 사이클에 민감합니다.',
+    reason:'긍정 이유<br>클라우드 투자와 AI 전환 수요가 이어지고 있습니다.',
+    cause:'주요 원인: 클라우드 전환, 보안 투자, AI 도입',
+    assets:'관련 종목: NAVER, 카카오, 더존비즈온',
+    risk:'확인 리스크: 광고 경기, 규제 뉴스, 비용 증가'
+  }
+};
 const searchItems = [
   { type:'뉴스', title:'미 연준, 금리 동결 가능성 시사', desc:'Reuters · 신뢰 높음 · 영향도 82', screen:'news' },
   { type:'뉴스', title:'NVIDIA 공급 병목 지속 보도', desc:'Bloomberg · 신뢰 보통 · 영향도 74', screen:'news' },
@@ -1213,6 +1293,21 @@ function filterNewsCards(status){
   if (visibleCards.length > 0) {
     showNewsDetail(visibleCards[0].dataset.newsId);
   }
+}
+function showIndustryDetail(id){
+  const item = industryDetails[id] || industryDetails.semiconductor;
+  appState.selectedIndustry = id;
+  document.querySelectorAll('[data-industry-id]').forEach(card=>card.classList.toggle('active', card.dataset.industryId === id));
+  document.getElementById('industryDetailName').textContent = item.name;
+  document.getElementById('industryDetailScore').textContent = item.score;
+  const badge = document.getElementById('industryDetailBadge');
+  badge.textContent = item.badge;
+  badge.className = item.badgeClass;
+  document.getElementById('industryDetailDescription').textContent = item.description;
+  document.getElementById('industryDetailReason').innerHTML = item.reason;
+  document.getElementById('industryDetailCause').textContent = item.cause;
+  document.getElementById('industryDetailAssets').textContent = item.assets;
+  document.getElementById('industryDetailRisk').textContent = item.risk;
 }
 function updatePortfolioCount(){
   const count = document.querySelectorAll('#portfolioAssetTable tr').length;
@@ -1309,6 +1404,9 @@ initTabs('[data-market-tabs]', tab=>updateMarketCopy(tab.dataset.market));
 initTabs('[data-filter-tabs]', tab=>filterNewsCards(tab.dataset.newsFilter || 'all'));
 document.querySelectorAll('[data-news-id]').forEach(button=>{
   button.addEventListener('click',()=>showNewsDetail(button.dataset.newsId));
+});
+document.querySelectorAll('[data-industry-id]').forEach(button=>{
+  button.addEventListener('click',()=>showIndustryDetail(button.dataset.industryId));
 });
 initPortfolioForm();
 initSearch();
