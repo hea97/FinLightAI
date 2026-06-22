@@ -34,7 +34,7 @@
   --radius-md:16px;
   --radius-sm:12px;
   --sidebar-w:260px;
-  --header-h:132px;
+  --header-h:118px;
   font-synthesis-weight:none;
 }
 *{box-sizing:border-box}
@@ -144,7 +144,7 @@ button,input,select{font-family:inherit}
 .header{
   min-height:var(--header-h);
   display:flex;flex-direction:column;gap:14px;
-  padding:16px 30px;
+  padding:14px 26px;
   border-bottom:1px solid var(--line);
   background:rgba(8,12,18,.72);
   backdrop-filter:blur(16px);
@@ -248,7 +248,7 @@ button,input,select{font-family:inherit}
 .content{
   height:calc(100vh - var(--header-h));
   overflow:auto;
-  padding:28px 30px 50px;
+  padding:20px 26px 42px;
 }
 .content::-webkit-scrollbar{width:6px}
 .content::-webkit-scrollbar-thumb{background:#2B3545;border-radius:99px}
@@ -259,13 +259,13 @@ button,input,select{font-family:inherit}
   from{opacity:0;transform:translateY(8px)}
   to{opacity:1;transform:translateY(0)}
 }
-.grid{display:grid;gap:18px}
-.grid-12{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
+.grid{display:grid;gap:14px}
+.grid-12{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
 .card{
   background:linear-gradient(180deg,var(--panel),#111924);
   border:1px solid var(--line);
   border-radius:var(--radius-lg);
-  padding:22px;
+  padding:18px;
   box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
   transition:border-color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
@@ -295,7 +295,7 @@ button,input,select{font-family:inherit}
 .tab.active{color:var(--teal);background:var(--teal-soft);border-color:rgba(0,212,170,.32)}
 .hero-signal{
   grid-column:span 8;
-  min-height:250px;
+  min-height:218px;
   position:relative;
   overflow:hidden;
 }
@@ -307,9 +307,9 @@ button,input,select{font-family:inherit}
 .signal-top{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1}
 .signal-label{font-size:14px;color:var(--text-2);font-weight:950}
 .signal-time{font-size:12px;color:var(--muted);font-weight:800}
-.signal-main{position:relative;z-index:1;margin-top:34px;display:flex;gap:34px;align-items:flex-start}
+.signal-main{position:relative;z-index:1;margin-top:24px;display:flex;gap:28px;align-items:flex-start}
 .signal-badge-xl{
-  width:148px;height:148px;border-radius:36px;
+  width:126px;height:126px;border-radius:30px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:rgba(255,204,0,.12);
   border:1px solid rgba(255,204,0,.35);
@@ -319,13 +319,13 @@ button,input,select{font-family:inherit}
 .signal-badge-xl .mark{font-size:36px;font-weight:950}
 .signal-badge-xl .word{font-size:18px;font-weight:950;margin-top:6px}
 .signal-copy{flex:1}
-.signal-copy h1{font-size:32px;line-height:1.2;margin:0 0 14px;letter-spacing:-.04em}
+.signal-copy h1{font-size:28px;line-height:1.2;margin:0 0 10px;letter-spacing:-.04em}
 .signal-copy p{font-size:14px;color:var(--text-2);line-height:1.7;margin:0;max-width:660px}
 .score-wrap{margin-top:18px;display:flex;align-items:center;gap:14px}
 .score-bar{width:330px;height:10px;border-radius:99px;background:#0A0F16;overflow:hidden;border:1px solid var(--line-soft)}
 .score-bar span{display:block;height:100%;width:68%;background:linear-gradient(90deg,var(--green),var(--yellow));border-radius:99px}
 .score-text{font-size:13px;font-weight:950;color:var(--yellow)}
-.brief-card{grid-column:span 4;min-height:250px}
+.brief-card{grid-column:span 4;min-height:218px}
 .brief-list{display:flex;flex-direction:column;gap:12px}
 .brief-item{
   display:flex;gap:12px;
@@ -338,9 +338,9 @@ button,input,select{font-family:inherit}
   width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--teal);
 }
 .brief-item p{margin:0;font-size:13px;color:var(--text-2);line-height:1.55;font-weight:700}
-.metric-card{grid-column:span 2.4;min-height:116px}
+.metric-card{grid-column:span 2.4;min-height:94px}
 .kpi-label{font-size:12px;color:var(--muted);font-weight:900;letter-spacing:.06em}
-.kpi-value{font-size:25px;font-weight:950;margin-top:10px;letter-spacing:-.03em}
+.kpi-value{font-size:22px;font-weight:950;margin-top:8px;letter-spacing:-.03em}
 .kpi-desc{font-size:12px;color:var(--text-2);margin-top:7px;font-weight:750}
 .up{color:var(--green)}.down{color:var(--red)}.neutral{color:var(--yellow)}.teal{color:var(--teal)}.blue{color:var(--blue)}
 .heatmap-card{grid-column:span 6}
@@ -658,11 +658,11 @@ button,input,select{font-family:inherit}
             </div>
           </div>
 
-          <div class="card compact metric-card"><div class="kpi-label">KOSPI</div><div class="kpi-value up">2,671.45</div><div class="kpi-desc">+0.34% · 안정</div></div>
-          <div class="card compact metric-card"><div class="kpi-label">NASDAQ</div><div class="kpi-value down">16,432</div><div class="kpi-desc">-2.07% · 주의</div></div>
-          <div class="card compact metric-card"><div class="kpi-label">USD/KRW</div><div class="kpi-value neutral">1,382</div><div class="kpi-desc">환율 상승 부담</div></div>
-          <div class="card compact metric-card"><div class="kpi-label">VIX</div><div class="kpi-value neutral">18.2</div><div class="kpi-desc">변동성 증가</div></div>
-          <div class="card compact metric-card"><div class="kpi-label">WTI</div><div class="kpi-value blue">78.4</div><div class="kpi-desc">에너지 비용 확인</div></div>
+          <div class="card compact metric-card"><div class="kpi-label" id="metricLabel0">NASDAQ</div><div class="kpi-value down" id="metricValue0">16,432</div><div class="kpi-desc" id="metricDesc0">-2.07% · 주의</div></div>
+          <div class="card compact metric-card"><div class="kpi-label" id="metricLabel1">S&P 500</div><div class="kpi-value down" id="metricValue1">5,428</div><div class="kpi-desc" id="metricDesc1">기술주 변동성</div></div>
+          <div class="card compact metric-card"><div class="kpi-label" id="metricLabel2">DOW</div><div class="kpi-value neutral" id="metricValue2">39,112</div><div class="kpi-desc" id="metricDesc2">방어주 혼재</div></div>
+          <div class="card compact metric-card"><div class="kpi-label" id="metricLabel3">VIX</div><div class="kpi-value neutral" id="metricValue3">18.2</div><div class="kpi-desc" id="metricDesc3">변동성 증가</div></div>
+          <div class="card compact metric-card"><div class="kpi-label" id="metricLabel4">WTI</div><div class="kpi-value blue" id="metricValue4">78.4</div><div class="kpi-desc" id="metricDesc4">에너지 비용 확인</div></div>
 
           <div class="card heatmap-card">
             <div class="section-title"><h3>산업별 영향도 히트맵</h3><span class="hint">-100 ~ +100</span></div>
@@ -1091,6 +1091,29 @@ const marketCopy = {
     en:['Watched industries favor semiconductors while airlines need caution.','AI data center and HBM demand support positive signals, while airlines and financials remain sensitive to FX and rates.']
   },
 };
+const overviewMetrics = {
+  domestic: [
+    ['KOSPI','2,671.45','+0.34% · 국내 수급 안정','up'],
+    ['KOSDAQ','842.18','+0.12% · 중소형 혼재','up'],
+    ['USD/KRW','1,382','환율 부담 확대','neutral'],
+    ['국고채 3Y','3.28%','금리 경로 확인','neutral'],
+    ['국내 뉴스','24건','저신뢰 3건 포함','blue']
+  ],
+  global: [
+    ['NASDAQ','16,432','-2.07% · 주의','down'],
+    ['S&P 500','5,428','기술주 변동성','down'],
+    ['DOW','39,112','방어주 혼재','neutral'],
+    ['VIX','18.2','변동성 증가','neutral'],
+    ['WTI','78.4','에너지 비용 확인','blue']
+  ],
+  industry: [
+    ['반도체','+78','강한 긍정 · 뉴스 12건','up'],
+    ['항공','-58','유가/환율 부담','down'],
+    ['금융','-45','금리 발언 주의','neutral'],
+    ['바이오','+21','임상 뉴스 확인','up'],
+    ['알림 조건','5개','카카오 채널 대상','blue']
+  ]
+};
 const newsDetails = {
   rumor: {
     source: '[커뮤니티 확산]',
@@ -1256,6 +1279,13 @@ function updateMarketCopy(market){
   if (!copy) return;
   marketHeadline.innerHTML = copy[0];
   marketSummary.textContent = copy[1];
+  (overviewMetrics[market] || overviewMetrics.global).forEach((metric,index)=>{
+    document.getElementById(`metricLabel${index}`).textContent = metric[0];
+    const value = document.getElementById(`metricValue${index}`);
+    value.textContent = metric[1];
+    value.className = `kpi-value ${metric[3]}`;
+    document.getElementById(`metricDesc${index}`).textContent = metric[2];
+  });
 }
 function initTabs(selector, onChange){
   document.querySelectorAll(selector).forEach(group=>{
