@@ -765,28 +765,28 @@ button,input,select{font-family:inherit}
 
       <div class="screen" id="news">
         <div class="market-tabs" data-filter-tabs>
-          <button class="tab active" type="button">전체</button>
-          <button class="tab" type="button">🔴 주의 필요</button>
-          <button class="tab" type="button">🟡 검토 필요</button>
-          <button class="tab" type="button">🟢 신뢰 높음</button>
+          <button class="tab active" type="button" data-news-filter="all">전체</button>
+          <button class="tab" type="button" data-news-filter="danger">🔴 주의 필요</button>
+          <button class="tab" type="button" data-news-filter="review">🟡 검토 필요</button>
+          <button class="tab" type="button" data-news-filter="trusted">🟢 신뢰 높음</button>
         </div>
         <div class="grid-12">
           <div class="card" style="grid-column:span 8">
             <div class="section-title"><h3>뉴스 검증 카드</h3><span class="hint">영향도와 신뢰도 분리</span></div>
             <div class="news-list">
-              <button class="news-item active" type="button" data-news-id="rumor">
+              <button class="news-item active" type="button" data-news-id="rumor" data-news-status="danger">
                 <div class="news-source">[커뮤니티 확산]</div>
                 <div class="news-head"><strong>○○기업 급등 확정 전망</strong><span class="badge red">🔴 주의 필요</span></div>
                 <div class="news-meta"><span class="badge impact">영향 76</span><span class="badge trust-lo">신뢰 낮음</span><span class="badge">출처불명</span></div>
                 <p style="font-size:12px;color:var(--text-2);line-height:1.6;margin:10px 0 0;font-weight:750">의심 사유: 자극적인 표현 사용, 명확한 근거 부족, 동일 문장 반복 확산</p>
               </button>
-              <button class="news-item" type="button" data-news-id="fed">
+              <button class="news-item" type="button" data-news-id="fed" data-news-status="trusted">
                 <div class="news-source">[Reuters]</div>
                 <div class="news-head"><strong>미 연준, 금리 동결 가능성 시사</strong><span class="badge green">🟢 신뢰 높음</span></div>
                 <div class="news-meta"><span class="badge impact">영향 82</span><span class="badge trust-hi">신뢰 높음</span><span class="badge">공식 발언 기반</span></div>
                 <p style="font-size:12px;color:var(--text-2);line-height:1.6;margin:10px 0 0;font-weight:750">핵심 내용: 공식 발언과 복수 매체 확인이 있어 시장 영향 판단 근거로 활용 가능</p>
               </button>
-              <button class="news-item" type="button" data-news-id="nvidia">
+              <button class="news-item" type="button" data-news-id="nvidia" data-news-status="review">
                 <div class="news-source">[Bloomberg]</div>
                 <div class="news-head"><strong>NVIDIA 공급 병목 지속 보도</strong><span class="badge yellow">🟡 검토 필요</span></div>
                 <div class="news-meta"><span class="badge impact">영향 74</span><span class="badge warn">신뢰 보통</span><span class="badge">전망성 표현 포함</span></div>
@@ -1177,6 +1177,17 @@ function showNewsDetail(id){
   trust.className = item.trustClass;
   document.getElementById('newsDetailReason').textContent = item.reason;
 }
+function filterNewsCards(status){
+  const cards = [...document.querySelectorAll('[data-news-id]')];
+  const visibleCards = cards.filter(card=>{
+    const visible = status === 'all' || card.dataset.newsStatus === status;
+    card.style.display = visible ? '' : 'none';
+    return visible;
+  });
+  if (visibleCards.length > 0) {
+    showNewsDetail(visibleCards[0].dataset.newsId);
+  }
+}
 function updatePortfolioCount(){
   const count = document.querySelectorAll('#portfolioAssetTable tr').length;
   const label = document.getElementById('portfolioAssetCount');
@@ -1258,7 +1269,7 @@ languageToggle.addEventListener('click',()=>{
   applyLanguage();
 });
 initTabs('[data-market-tabs]', tab=>updateMarketCopy(tab.dataset.market));
-initTabs('[data-filter-tabs]');
+initTabs('[data-filter-tabs]', tab=>filterNewsCards(tab.dataset.newsFilter || 'all'));
 document.querySelectorAll('[data-news-id]').forEach(button=>{
   button.addEventListener('click',()=>showNewsDetail(button.dataset.newsId));
 });
