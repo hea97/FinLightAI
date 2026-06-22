@@ -181,13 +181,52 @@ button,input,select{font-family:inherit}
 .page-sub{font-size:12px;color:var(--muted);margin-top:4px;font-weight:700}
 .spacer{flex:1}
 .search{
-  width:250px;height:38px;border-radius:14px;
+  position:relative;
+  width:290px;height:38px;border-radius:14px;
   background:var(--panel);
   border:1px solid var(--line);
   color:var(--muted);
   display:flex;align-items:center;gap:8px;
   padding:0 14px;font-size:12px;font-weight:700;
 }
+.search input{
+  width:100%;
+  min-width:0;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:var(--text);
+  font-weight:750;
+}
+.search-results{
+  position:absolute;
+  top:46px;
+  right:0;
+  z-index:20;
+  width:min(420px,80vw);
+  display:none;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#0d1117;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.search-results.active{display:block}
+.search-result{
+  width:100%;
+  display:block;
+  border:0;
+  border-bottom:1px solid var(--line-soft);
+  background:transparent;
+  color:var(--text);
+  padding:12px 14px;
+  text-align:left;
+  cursor:pointer;
+}
+.search-result:last-child{border-bottom:0}
+.search-result strong{display:block;font-size:13px;margin-bottom:4px}
+.search-result span{display:block;color:var(--muted);font-size:11px;font-weight:800}
+.search-empty{padding:14px;color:var(--muted);font-size:12px;font-weight:800}
 .top-btn{
   height:38px;border-radius:14px;
   border:1px solid var(--line);
@@ -545,7 +584,11 @@ button,input,select{font-family:inherit}
           <div class="page-sub" id="pageSub">오늘의 시장 신호와 뉴스 근거를 한눈에 확인합니다.</div>
         </div>
         <div class="spacer"></div>
-        <div class="search">⌘K · 뉴스, 산업, 종목 검색</div>
+        <label class="search" aria-label="뉴스, 산업, 주식 검색">
+          <span id="searchLabel">⌘K</span>
+          <input id="globalSearch" type="search" placeholder="뉴스, 산업, 주식 검색" autocomplete="off" />
+          <div class="search-results" id="searchResults" aria-live="polite"></div>
+        </label>
         <button class="top-btn" id="languageToggle" type="button" aria-pressed="false">🌐 EN</button>
         <button class="top-btn auth-link" type="button" data-screen-shortcut="auth">로그인 / 회원가입</button>
         <button class="top-btn kakao" type="button" data-screen-shortcut="mypage">카카오 채널 추가</button>
@@ -1061,6 +1104,17 @@ const newsDetails = {
     reason: '🟡 보통: 신뢰 매체 보도이나 전망성 표현과 추정 수치 포함'
   }
 };
+const searchItems = [
+  { type:'뉴스', title:'미 연준, 금리 동결 가능성 시사', desc:'Reuters · 신뢰 높음 · 영향도 82', screen:'news' },
+  { type:'뉴스', title:'NVIDIA 공급 병목 지속 보도', desc:'Bloomberg · 신뢰 보통 · 영향도 74', screen:'news' },
+  { type:'뉴스', title:'○○기업 급등 확정 전망', desc:'커뮤니티 확산 · 신뢰 낮음 · 주의 필요', screen:'news' },
+  { type:'산업', title:'반도체', desc:'영향도 +78 · HBM/AI 데이터센터 수요', screen:'industry' },
+  { type:'산업', title:'항공', desc:'영향도 -58 · 환율/유가 민감도 주의', screen:'industry' },
+  { type:'산업', title:'금융', desc:'영향도 -45 · 금리 발언 불확실성', screen:'industry' },
+  { type:'주식', title:'삼성전자', desc:'관심 자산 · 반도체 · 관련 뉴스 12건', screen:'portfolio' },
+  { type:'주식', title:'SK하이닉스', desc:'관심 자산 · 반도체 · 관련 뉴스 9건', screen:'portfolio' },
+  { type:'주식', title:'대한항공', desc:'관심 자산 · 항공 · 오늘 신호 주의', screen:'portfolio' },
+];
 let currentScreen = 'overview';
 let currentLang = 'ko';
 function showScreen(id){
@@ -1083,9 +1137,9 @@ function applyLanguage(){
   document.querySelectorAll('[data-market-tabs] .tab').forEach((tab,index)=>{
     tab.textContent = marketLabels[index] || tab.textContent;
   });
-  document.querySelector('.search').textContent = currentLang === 'en'
-    ? '⌘K · Search news, industries, assets'
-    : '⌘K · 뉴스, 산업, 종목 검색';
+  document.getElementById('globalSearch').placeholder = currentLang === 'en'
+    ? 'Search news, industries, stocks'
+    : '뉴스, 산업, 주식 검색';
   document.querySelector('.top-btn.kakao').textContent = currentLang === 'en' ? 'Add Kakao channel' : '카카오 채널 추가';
   languageToggle.textContent = currentLang === 'en' ? '🌐 KO' : '🌐 EN';
   languageToggle.setAttribute('aria-pressed', currentLang === 'en' ? 'true' : 'false');
@@ -1155,6 +1209,46 @@ function initPortfolioForm(){
   });
   updatePortfolioCount();
 }
+function initSearch(){
+  const input = document.getElementById('globalSearch');
+  const results = document.getElementById('searchResults');
+  if (!input || !results) return;
+  const render = (query)=>{
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) {
+      results.classList.remove('active');
+      results.innerHTML = '';
+      return;
+    }
+    const matches = searchItems.filter(item=>
+      `${item.type} ${item.title} ${item.desc}`.toLowerCase().includes(normalized)
+    ).slice(0,6);
+    results.classList.add('active');
+    results.innerHTML = matches.length
+      ? matches.map((item,index)=>`
+          <button class="search-result" type="button" data-result-index="${index}">
+            <strong>[${item.type}] ${item.title}</strong>
+            <span>${item.desc}</span>
+          </button>
+        `).join('')
+      : '<div class="search-empty">검색 결과가 없습니다. 뉴스, 산업, 주식명을 입력해보세요.</div>';
+    results.querySelectorAll('[data-result-index]').forEach((button,index)=>{
+      button.addEventListener('click',()=>{
+        showScreen(matches[index].screen);
+        input.value = matches[index].title;
+        results.classList.remove('active');
+      });
+    });
+  };
+  input.addEventListener('input',()=>render(input.value));
+  input.addEventListener('focus',()=>render(input.value));
+  input.addEventListener('keydown',(event)=>{
+    if (event.key === 'Escape') results.classList.remove('active');
+  });
+  document.addEventListener('click',(event)=>{
+    if (!event.target.closest('.search')) results.classList.remove('active');
+  });
+}
 navItems.forEach(item=>item.addEventListener('click',()=>showScreen(item.dataset.screen)));
 document.querySelectorAll('[data-screen-shortcut]').forEach(item=>{
   item.addEventListener('click',()=>showScreen(item.dataset.screenShortcut));
@@ -1169,6 +1263,7 @@ document.querySelectorAll('[data-news-id]').forEach(button=>{
   button.addEventListener('click',()=>showNewsDetail(button.dataset.newsId));
 });
 initPortfolioForm();
+initSearch();
 </script>
 </body>
 </html>
