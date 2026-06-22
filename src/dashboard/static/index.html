@@ -254,6 +254,11 @@ button,input,select{font-family:inherit}
 .content::-webkit-scrollbar-thumb{background:#2B3545;border-radius:99px}
 .screen{display:none}
 .screen.active{display:block}
+.screen.active{animation:screenIn .22s ease both}
+@keyframes screenIn{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
 .grid{display:grid;gap:18px}
 .grid-12{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
 .card{
@@ -262,7 +267,9 @@ button,input,select{font-family:inherit}
   border-radius:var(--radius-lg);
   padding:22px;
   box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
+  transition:border-color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
+.card:hover{border-color:rgba(88,166,255,.24)}
 .card.compact{padding:18px;border-radius:18px}
 .section-title{
   display:flex;align-items:center;justify-content:space-between;
@@ -278,7 +285,9 @@ button,input,select{font-family:inherit}
   color:var(--text-2);
   display:flex;align-items:center;font-size:12px;font-weight:900;
   cursor:pointer;
+  transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease;
 }
+.tab:hover{transform:translateY(-1px);border-color:rgba(0,212,170,.28)}
 .tab:focus-visible,.top-btn:focus-visible,.nav-item:focus-visible{
   outline:2px solid var(--teal);
   outline-offset:2px;
@@ -346,8 +355,10 @@ button,input,select{font-family:inherit}
   min-height:92px;border-radius:18px;padding:14px;text-align:left;
   position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.08);
   cursor:pointer;
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
 }
 .hm:hover{transform:translateY(-2px);transition:.18s ease}
+.hm.active{border-color:rgba(0,212,170,.65);box-shadow:0 0 0 2px rgba(0,212,170,.14),0 18px 48px rgba(0,0,0,.22)}
 .hm .name{font-size:13px;font-weight:950}
 .hm .score{font-size:24px;font-weight:950;margin-top:10px}
 .hm .state{font-size:11px;font-weight:850;margin-top:5px;opacity:.86}
@@ -364,7 +375,9 @@ button,input,select{font-family:inherit}
   text-align:left;
   color:inherit;
   width:100%;
+  transition:border-color .18s ease,background .18s ease,transform .18s ease;
 }
+.news-item:hover{transform:translateY(-1px);border-color:rgba(88,166,255,.30)}
 .news-item.active{border-color:rgba(0,212,170,.42);background:linear-gradient(180deg,rgba(0,212,170,.10),var(--panel-2))}
 .news-head{display:flex;align-items:start;justify-content:space-between;gap:10px}
 .news-head strong{font-size:13px;line-height:1.45}
@@ -518,11 +531,13 @@ button,input,select{font-family:inherit}
   padding:16px;border-radius:16px;background:var(--panel-2);border:1px solid var(--line-soft);margin-bottom:10px;
 }
 .portfolio-form{
-  display:grid;
+  display:none;
   grid-template-columns:1.2fr 1fr .7fr auto;
   gap:10px;
   margin-bottom:14px;
+  animation:screenIn .18s ease both;
 }
+.portfolio-form.open{display:grid}
 .portfolio-form input{
   min-width:0;
   height:42px;
@@ -822,7 +837,7 @@ button,input,select{font-family:inherit}
             </div>
           </div>
           <div class="card" style="grid-column:span 8">
-            <div class="section-title"><h3>관심 자산 목록</h3><span class="hint">수동 등록 기반</span></div>
+            <div class="section-title"><h3>관심 자산 목록</h3><button class="tab" id="togglePortfolioForm" type="button" aria-expanded="false">자산 등록 열기</button></div>
             <form class="portfolio-form" id="portfolioForm">
               <input id="portfolioAssetName" type="text" placeholder="자산명 예: 삼성전자" aria-label="자산명" />
               <input id="portfolioAssetSector" type="text" placeholder="산업 예: 반도체" aria-label="산업" />
@@ -1115,40 +1130,49 @@ const searchItems = [
   { type:'주식', title:'SK하이닉스', desc:'관심 자산 · 반도체 · 관련 뉴스 9건', screen:'portfolio' },
   { type:'주식', title:'대한항공', desc:'관심 자산 · 항공 · 오늘 신호 주의', screen:'portfolio' },
 ];
-let currentScreen = 'overview';
-let currentLang = 'ko';
+const appState = {
+  screen: 'overview',
+  lang: 'ko',
+  market: 'global',
+  newsFilter: 'all',
+  selectedNews: 'rumor',
+  selectedIndustry: 'semiconductor',
+  portfolioFormOpen: false
+};
 function showScreen(id){
-  currentScreen = id;
+  appState.screen = id;
   screens.forEach(s=>s.classList.toggle('active',s.id===id));
   navItems.forEach(n=>n.classList.toggle('active',n.dataset.screen===id));
-  const source = currentLang === 'en' ? metaEn : meta;
+  const source = appState.lang === 'en' ? metaEn : meta;
   pageTitle.textContent = source[id]?.[0] || source.overview[0];
   pageSub.textContent = source[id]?.[1] || '';
 }
 function applyLanguage(){
-  const labels = navLabels[currentLang];
+  const labels = navLabels[appState.lang];
   navItems.forEach(item=>{
     const screen = item.dataset.screen;
     item.lastChild.textContent = labels[screen] || item.lastChild.textContent;
   });
-  const marketLabels = currentLang === 'en'
+  const marketLabels = appState.lang === 'en'
     ? ['Korea','Overseas','Watched Industries']
     : ['국내 시장','해외 시장','관심 산업'];
   document.querySelectorAll('[data-market-tabs] .tab').forEach((tab,index)=>{
     tab.textContent = marketLabels[index] || tab.textContent;
   });
-  document.getElementById('globalSearch').placeholder = currentLang === 'en'
+  document.getElementById('globalSearch').placeholder = appState.lang === 'en'
     ? 'Search news, industries, stocks'
     : '뉴스, 산업, 주식 검색';
-  document.querySelector('.top-btn.kakao').textContent = currentLang === 'en' ? 'Add Kakao channel' : '카카오 채널 추가';
-  languageToggle.textContent = currentLang === 'en' ? '🌐 KO' : '🌐 EN';
-  languageToggle.setAttribute('aria-pressed', currentLang === 'en' ? 'true' : 'false');
-  showScreen(currentScreen);
-  const activeMarket = document.querySelector('[data-market-tabs] .tab.active')?.dataset.market || 'us';
-  updateMarketCopy(activeMarket);
+  document.querySelector('.top-btn.kakao').textContent = appState.lang === 'en' ? 'Add Kakao channel' : '카카오 채널 추가';
+  document.querySelector('.top-btn.auth-link').textContent = appState.lang === 'en' ? 'Login / Sign Up' : '로그인 / 회원가입';
+  document.querySelector('.status-chip').textContent = appState.lang === 'en' ? 'YELLOW · Caution' : 'YELLOW · 주의';
+  languageToggle.textContent = appState.lang === 'en' ? '🌐 KO' : '🌐 EN';
+  languageToggle.setAttribute('aria-pressed', appState.lang === 'en' ? 'true' : 'false');
+  showScreen(appState.screen);
+  updateMarketCopy(appState.market);
 }
 function updateMarketCopy(market){
-  const copy = marketCopy[market]?.[currentLang];
+  appState.market = market;
+  const copy = marketCopy[market]?.[appState.lang];
   if (!copy) return;
   marketHeadline.innerHTML = copy[0];
   marketSummary.textContent = copy[1];
@@ -1167,6 +1191,7 @@ function initTabs(selector, onChange){
 function showNewsDetail(id){
   const item = newsDetails[id];
   if (!item) return;
+  appState.selectedNews = id;
   document.querySelectorAll('[data-news-id]').forEach(button=>button.classList.toggle('active', button.dataset.newsId === id));
   document.getElementById('newsDetailSource').textContent = item.source;
   document.getElementById('newsDetailTitle').textContent = item.title;
@@ -1178,6 +1203,7 @@ function showNewsDetail(id){
   document.getElementById('newsDetailReason').textContent = item.reason;
 }
 function filterNewsCards(status){
+  appState.newsFilter = status;
   const cards = [...document.querySelectorAll('[data-news-id]')];
   const visibleCards = cards.filter(card=>{
     const visible = status === 'all' || card.dataset.newsStatus === status;
@@ -1204,7 +1230,17 @@ function escapeHtml(value){
 }
 function initPortfolioForm(){
   const form = document.getElementById('portfolioForm');
+  const toggle = document.getElementById('togglePortfolioForm');
   if (!form) return;
+  const setOpen = (open)=>{
+    appState.portfolioFormOpen = open;
+    form.classList.toggle('open', open);
+    if (toggle) {
+      toggle.textContent = open ? '자산 등록 닫기' : '자산 등록 열기';
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+  };
+  toggle?.addEventListener('click',()=>setOpen(!appState.portfolioFormOpen));
   form.addEventListener('submit',(event)=>{
     event.preventDefault();
     const name = document.getElementById('portfolioAssetName').value.trim();
@@ -1217,6 +1253,7 @@ function initPortfolioForm(){
     );
     form.reset();
     updatePortfolioCount();
+    setOpen(false);
   });
   updatePortfolioCount();
 }
@@ -1265,7 +1302,7 @@ document.querySelectorAll('[data-screen-shortcut]').forEach(item=>{
   item.addEventListener('click',()=>showScreen(item.dataset.screenShortcut));
 });
 languageToggle.addEventListener('click',()=>{
-  currentLang = currentLang === 'ko' ? 'en' : 'ko';
+  appState.lang = appState.lang === 'ko' ? 'en' : 'ko';
   applyLanguage();
 });
 initTabs('[data-market-tabs]', tab=>updateMarketCopy(tab.dataset.market));
