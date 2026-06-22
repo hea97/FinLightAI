@@ -1262,6 +1262,61 @@ const industryDetails = {
     cause:'주요 원인: 클라우드 전환, 보안 투자, AI 도입',
     assets:'관련 종목: NAVER, 카카오, 더존비즈온',
     risk:'확인 리스크: 광고 경기, 규제 뉴스, 비용 증가'
+  },
+  consumer: {
+    name:'소비재',
+    score:'+4',
+    badge:'중립',
+    badgeClass:'badge',
+    description:'소비재 산업은 음식료, 유통, 생활용품, 의류 등 경기와 소비심리에 직접 영향을 받는 업종입니다.',
+    reason:'중립 이유<br>소비심리 둔화 우려와 방어주 성격이 동시에 관측되어 뚜렷한 방향성은 약합니다.',
+    cause:'주요 원인: 소비심리, 유통 재고, 가격 전가력',
+    assets:'관련 종목: CJ제일제당, 이마트, 아모레퍼시픽',
+    risk:'확인 리스크: 내수 둔화, 재고 부담, 원가 상승'
+  },
+  materials: {
+    name:'원자재',
+    score:'-41',
+    badge:'주의 신호',
+    badgeClass:'badge warn',
+    description:'원자재 산업은 철강, 화학, 비철금속, 농산물과 연결되며 달러 강세와 글로벌 수요 변화에 민감합니다.',
+    reason:'주의 이유<br>달러 강세와 중국 수요 둔화 우려가 가격 전망을 압박하고 있습니다.',
+    cause:'주요 원인: 달러 강세, 재고 지표, 중국 경기',
+    assets:'관련 종목: POSCO홀딩스, 고려아연, 롯데케미칼',
+    risk:'확인 리스크: 수요 둔화, 재고 증가, 원가 변동'
+  },
+  defense: {
+    name:'방산',
+    score:'+38',
+    badge:'약한 긍정',
+    badgeClass:'badge trust-hi',
+    description:'방산 산업은 수출 계약, 국방 예산, 지정학 리스크에 영향을 받는 장기 프로젝트형 산업입니다.',
+    reason:'약한 긍정 이유<br>수출 계약 기대와 지정학적 긴장이 방산 수요 기대를 만들고 있습니다.',
+    cause:'주요 원인: 수출 계약, 국방 예산, 지정학 이슈',
+    assets:'관련 종목: 한화에어로스페이스, 현대로템, LIG넥스원',
+    risk:'확인 리스크: 계약 지연, 환율, 정책 변수'
+  },
+  game: {
+    name:'게임',
+    score:'-12',
+    badge:'주의 신호',
+    badgeClass:'badge warn',
+    description:'게임 산업은 신작 출시 일정, 규제, 이용자 지표, 글로벌 퍼블리싱 성과에 따라 변동성이 커집니다.',
+    reason:'주의 이유<br>규제 루머와 신작 일정 불확실성이 투자심리에 부담을 주고 있습니다.',
+    cause:'주요 원인: 규제 루머, 신작 일정, 매출 순위 변화',
+    assets:'관련 종목: 크래프톤, 엔씨소프트, 넷마블',
+    risk:'확인 리스크: 출시 지연, 규제 발표, 이용자 지표 둔화'
+  },
+  utility: {
+    name:'유틸리티',
+    score:'+8',
+    badge:'중립',
+    badgeClass:'badge',
+    description:'유틸리티 산업은 전력, 가스, 수도 등 필수 인프라 업종으로 정책과 요금 규제의 영향을 크게 받습니다.',
+    reason:'중립 이유<br>방어주 성격은 있으나 요금 정책과 원가 부담이 방향성을 제한하고 있습니다.',
+    cause:'주요 원인: 요금 정책, 연료비, 전력 수요',
+    assets:'관련 종목: 한국전력, 한국가스공사, 지역난방공사',
+    risk:'확인 리스크: 요금 인상 지연, 연료비 변동, 정책 리스크'
   }
 };
 const searchItems = [
@@ -1274,6 +1329,11 @@ const searchItems = [
   { type:'주식', title:'삼성전자', desc:'관심 자산 · 반도체 · 관련 뉴스 12건', screen:'portfolio' },
   { type:'주식', title:'SK하이닉스', desc:'관심 자산 · 반도체 · 관련 뉴스 9건', screen:'portfolio' },
   { type:'주식', title:'대한항공', desc:'관심 자산 · 항공 · 오늘 신호 주의', screen:'portfolio' },
+  { type:'산업', title:'소비재', desc:'영향도 +4 · 소비심리/유통 재고 중립', screen:'industry' },
+  { type:'산업', title:'원자재', desc:'영향도 -41 · 달러 강세/재고 지표 주의', screen:'industry' },
+  { type:'산업', title:'방산', desc:'영향도 +38 · 수출 계약/지정학 이슈', screen:'industry' },
+  { type:'산업', title:'게임', desc:'영향도 -12 · 규제 루머/신작 일정', screen:'industry' },
+  { type:'산업', title:'유틸리티', desc:'영향도 +8 · 요금 정책/방어주 성격', screen:'industry' },
 ];
 const appState = {
   screen: 'overview',
