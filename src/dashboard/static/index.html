@@ -592,7 +592,7 @@ button,input,select{font-family:inherit}
           <div class="brand-logo">FL</div>
           <div>
             <div class="brand-title">FinLightAI</div>
-            <div class="brand-sub">AI 금융 상황판</div>
+            <div class="brand-sub" data-i18n="brandSub">AI 금융 상황판</div>
           </div>
         </div>
         <div>
@@ -630,7 +630,7 @@ button,input,select{font-family:inherit}
         <div class="grid-12">
           <div class="card hero-signal">
             <div class="signal-top">
-              <div class="signal-label">오늘의 시장 신호</div>
+              <div class="signal-label" data-i18n="todaySignal">오늘의 시장 신호</div>
               <div class="signal-time">업데이트 2026.06.22 09:30 KST</div>
             </div>
             <div class="signal-main">
@@ -650,7 +650,7 @@ button,input,select{font-family:inherit}
           </div>
 
           <div class="card brief-card">
-            <div class="section-title"><h3>AI 브리핑 요약</h3><span class="hint">3개 포인트</span></div>
+            <div class="section-title"><h3 data-i18n="briefSummary">AI 브리핑 요약</h3><span class="hint" data-i18n="threePoints">3개 포인트</span></div>
             <div class="brief-list">
               <div class="brief-item"><span class="dot"></span><p>시장은 주의 구간이지만 산업별 영향은 혼재되어 있습니다.</p></div>
               <div class="brief-item"><span class="dot" style="background:var(--yellow)"></span><p>뉴스 영향도는 높으나 일부 출처 신뢰도는 낮습니다.</p></div>
@@ -665,7 +665,7 @@ button,input,select{font-family:inherit}
           <div class="card compact metric-card"><div class="kpi-label" id="metricLabel4">WTI</div><div class="kpi-value blue" id="metricValue4">78.4</div><div class="kpi-desc" id="metricDesc4">에너지 비용 확인</div></div>
 
           <div class="card heatmap-card">
-            <div class="section-title"><h3>산업별 영향도 히트맵</h3><span class="hint">-100 ~ +100</span></div>
+            <div class="section-title"><h3 data-i18n="industryHeatmap">산업별 영향도 히트맵</h3><span class="hint">-100 ~ +100</span></div>
             <div class="heatmap">
               <div class="hm good"><div class="name">반도체</div><div class="score">+78</div><div class="state">긍정 · 뉴스 12건</div></div>
               <div class="hm warn"><div class="name">금융</div><div class="score">-45</div><div class="state">주의 · 뉴스 9건</div></div>
@@ -679,7 +679,7 @@ button,input,select{font-family:inherit}
           </div>
 
           <div class="card news-card">
-            <div class="section-title"><h3>뉴스 영향도 TOP 5</h3><span class="hint">신뢰도 분리</span></div>
+            <div class="section-title"><h3 data-i18n="topNews">뉴스 영향도 TOP 5</h3><span class="hint" data-i18n="trustSeparated">신뢰도 분리</span></div>
             <div class="news-list">
               <div class="news-item">
                 <div class="news-head"><strong>연준 발언 이후 금리 불확실성 확대</strong></div>
@@ -781,14 +781,14 @@ button,input,select{font-family:inherit}
 
       <div class="screen" id="news">
         <div class="market-tabs" data-filter-tabs>
-          <button class="tab active" type="button" data-news-filter="all">전체</button>
-          <button class="tab" type="button" data-news-filter="danger">🔴 주의 필요</button>
-          <button class="tab" type="button" data-news-filter="review">🟡 검토 필요</button>
-          <button class="tab" type="button" data-news-filter="trusted">🟢 신뢰 높음</button>
+          <button class="tab active" type="button" data-news-filter="all" data-i18n="filterAll">전체</button>
+          <button class="tab" type="button" data-news-filter="danger" data-i18n="filterDanger">🔴 주의 필요</button>
+          <button class="tab" type="button" data-news-filter="review" data-i18n="filterReview">🟡 검토 필요</button>
+          <button class="tab" type="button" data-news-filter="trusted" data-i18n="filterTrusted">🟢 신뢰 높음</button>
         </div>
         <div class="grid-12">
           <div class="card" style="grid-column:span 8">
-            <div class="section-title"><h3>뉴스 검증 카드</h3><span class="hint">영향도와 신뢰도 분리</span></div>
+            <div class="section-title"><h3 data-i18n="newsCards">뉴스 검증 카드</h3><span class="hint" data-i18n="impactTrust">영향도와 신뢰도 분리</span></div>
             <div class="news-list">
               <button class="news-item active" type="button" data-news-id="rumor" data-news-status="danger">
                 <div class="news-source">[커뮤니티 확산]</div>
@@ -811,7 +811,7 @@ button,input,select{font-family:inherit}
             </div>
           </div>
           <div class="card" style="grid-column:span 4">
-            <div class="section-title"><h3>선택 뉴스 상세 분석</h3></div>
+            <div class="section-title"><h3 data-i18n="selectedNewsDetail">선택 뉴스 상세 분석</h3></div>
             <div id="newsDetailSource" class="news-source">[커뮤니티 확산]</div>
             <h2 id="newsDetailTitle" style="font-size:24px;line-height:1.3;margin:0 0 12px">○○기업 급등 확정 전망</h2>
             <p id="newsDetailBody" style="font-size:13px;color:var(--text-2);line-height:1.7;font-weight:750">본문 요약: 특정 기업의 단기 급등을 단정적으로 표현하지만, 공식 공시나 기관 리포트가 확인되지 않았습니다. 반복 확산 문구가 많아 판단 근거로 쓰기 전 원문 확인이 필요합니다.</p>
@@ -1077,6 +1077,48 @@ const navLabels = {
     auth:'Login'
   }
 };
+const translations = {
+  ko: {
+    brandSub:'AI 금융 상황판',
+    todaySignal:'오늘의 시장 신호',
+    briefSummary:'AI 브리핑 요약',
+    threePoints:'3개 포인트',
+    industryHeatmap:'산업별 영향도 히트맵',
+    topNews:'뉴스 영향도 TOP 5',
+    trustSeparated:'신뢰도 분리',
+    filterAll:'전체',
+    filterDanger:'🔴 주의 필요',
+    filterReview:'🟡 검토 필요',
+    filterTrusted:'🟢 신뢰 높음',
+    newsCards:'뉴스 검증 카드',
+    impactTrust:'영향도와 신뢰도 분리',
+    selectedNewsDetail:'선택 뉴스 상세 분석',
+    loginCta:'로그인 / 회원가입',
+    kakaoCta:'카카오 채널 추가',
+    status:'YELLOW · 주의',
+    searchPlaceholder:'뉴스, 산업, 주식 검색'
+  },
+  en: {
+    brandSub:'AI financial signal board',
+    todaySignal:'Today’s Market Signal',
+    briefSummary:'AI Briefing Summary',
+    threePoints:'3 key points',
+    industryHeatmap:'Industry Impact Heatmap',
+    topNews:'Top 5 News Impact',
+    trustSeparated:'Trust separated',
+    filterAll:'All',
+    filterDanger:'🔴 Needs caution',
+    filterReview:'🟡 Needs review',
+    filterTrusted:'🟢 High trust',
+    newsCards:'News Verification Cards',
+    impactTrust:'Impact and trust separated',
+    selectedNewsDetail:'Selected News Analysis',
+    loginCta:'Login / Sign Up',
+    kakaoCta:'Add Kakao channel',
+    status:'YELLOW · Caution',
+    searchPlaceholder:'Search news, industries, stocks'
+  }
+};
 const marketCopy = {
   domestic: {
     ko:['국내 시장은 환율 부담 속에서도 대형주 수급을 확인할 구간입니다.','환율 상승과 수출주 민감도가 커졌습니다. 국내 시장은 반도체와 자동차의 뉴스 신뢰도를 함께 보며 추가 확인이 필요합니다.'],
@@ -1252,6 +1294,11 @@ function showScreen(id){
 }
 function applyLanguage(){
   const labels = navLabels[appState.lang];
+  const t = translations[appState.lang];
+  document.querySelectorAll('[data-i18n]').forEach(node=>{
+    const key = node.dataset.i18n;
+    if (t[key]) node.textContent = t[key];
+  });
   navItems.forEach(item=>{
     const screen = item.dataset.screen;
     item.lastChild.textContent = labels[screen] || item.lastChild.textContent;
@@ -1262,12 +1309,10 @@ function applyLanguage(){
   document.querySelectorAll('[data-market-tabs] .tab').forEach((tab,index)=>{
     tab.textContent = marketLabels[index] || tab.textContent;
   });
-  document.getElementById('globalSearch').placeholder = appState.lang === 'en'
-    ? 'Search news, industries, stocks'
-    : '뉴스, 산업, 주식 검색';
-  document.querySelector('.top-btn.kakao').textContent = appState.lang === 'en' ? 'Add Kakao channel' : '카카오 채널 추가';
-  document.querySelector('.top-btn.auth-link').textContent = appState.lang === 'en' ? 'Login / Sign Up' : '로그인 / 회원가입';
-  document.querySelector('.status-chip').textContent = appState.lang === 'en' ? 'YELLOW · Caution' : 'YELLOW · 주의';
+  document.getElementById('globalSearch').placeholder = t.searchPlaceholder;
+  document.querySelector('.top-btn.kakao').textContent = t.kakaoCta;
+  document.querySelector('.top-btn.auth-link').textContent = t.loginCta;
+  document.querySelector('.status-chip').textContent = t.status;
   languageToggle.textContent = appState.lang === 'en' ? '🌐 KO' : '🌐 EN';
   languageToggle.setAttribute('aria-pressed', appState.lang === 'en' ? 'true' : 'false');
   showScreen(appState.screen);
