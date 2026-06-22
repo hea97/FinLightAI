@@ -773,7 +773,7 @@ button,input,select{font-family:inherit}
           <div class="card" style="grid-column:span 12">
             <div class="section-title"><h3>포트폴리오 요약</h3><span class="hint">실제 매매 기능 없음</span></div>
             <div class="portfolio-summary">
-              <div class="card compact"><div class="kpi-label">총 평가금액</div><div class="kpi-value">₩4,280,000</div><div class="kpi-desc">샘플 데이터</div></div>
+              <div class="card compact"><div class="kpi-label">관심 자산</div><div id="portfolioAssetCount" class="kpi-value">4개</div><div class="kpi-desc">직접 등록 가능</div></div>
               <div class="card compact"><div class="kpi-label">오늘 변동</div><div class="kpi-value down">-1.2%</div><div class="kpi-desc">시장 신호 YELLOW</div></div>
               <div class="card compact"><div class="kpi-label">위험 노출</div><div class="kpi-value neutral">중간</div><div class="kpi-desc">항공/금융 주의</div></div>
               <div class="card compact"><div class="kpi-label">관련 뉴스</div><div class="kpi-value blue">18건</div><div class="kpi-desc">저신뢰 3건 포함</div></div>
@@ -781,9 +781,15 @@ button,input,select{font-family:inherit}
           </div>
           <div class="card" style="grid-column:span 8">
             <div class="section-title"><h3>관심 자산 목록</h3><span class="hint">수동 등록 기반</span></div>
+            <form class="portfolio-form" id="portfolioForm">
+              <input id="portfolioAssetName" type="text" placeholder="자산명 예: 삼성전자" aria-label="자산명" />
+              <input id="portfolioAssetSector" type="text" placeholder="산업 예: 반도체" aria-label="산업" />
+              <input id="portfolioAssetWeight" type="number" min="0" max="100" placeholder="비중 %" aria-label="비중" />
+              <button type="submit">자산 추가</button>
+            </form>
             <table class="asset-table">
               <thead><tr><th>자산</th><th>산업</th><th>비중</th><th>오늘 신호</th><th>관련 뉴스</th></tr></thead>
-              <tbody>
+              <tbody id="portfolioAssetTable">
                 <tr><td>삼성전자</td><td>반도체</td><td>42%</td><td class="teal">긍정</td><td>12건</td></tr>
                 <tr><td>SK하이닉스</td><td>반도체</td><td>26%</td><td class="teal">긍정</td><td>9건</td></tr>
                 <tr><td>현대차</td><td>자동차</td><td>18%</td><td class="neutral">중립</td><td>5건</td></tr>
@@ -1109,6 +1115,38 @@ function showNewsDetail(id){
   trust.className = item.trustClass;
   document.getElementById('newsDetailReason').textContent = item.reason;
 }
+function updatePortfolioCount(){
+  const count = document.querySelectorAll('#portfolioAssetTable tr').length;
+  const label = document.getElementById('portfolioAssetCount');
+  if (label) label.textContent = `${count}개`;
+}
+function escapeHtml(value){
+  return value.replace(/[&<>"']/g,(char)=>({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[char]));
+}
+function initPortfolioForm(){
+  const form = document.getElementById('portfolioForm');
+  if (!form) return;
+  form.addEventListener('submit',(event)=>{
+    event.preventDefault();
+    const name = document.getElementById('portfolioAssetName').value.trim();
+    const sector = document.getElementById('portfolioAssetSector').value.trim() || '미지정';
+    const weight = document.getElementById('portfolioAssetWeight').value.trim() || '0';
+    if (!name) return;
+    document.getElementById('portfolioAssetTable').insertAdjacentHTML(
+      'beforeend',
+      `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(sector)}</td><td>${escapeHtml(weight)}%</td><td class="neutral">관찰</td><td>0건</td></tr>`
+    );
+    form.reset();
+    updatePortfolioCount();
+  });
+  updatePortfolioCount();
+}
 navItems.forEach(item=>item.addEventListener('click',()=>showScreen(item.dataset.screen)));
 document.querySelectorAll('[data-screen-shortcut]').forEach(item=>{
   item.addEventListener('click',()=>showScreen(item.dataset.screenShortcut));
@@ -1122,6 +1160,7 @@ initTabs('[data-filter-tabs]');
 document.querySelectorAll('[data-news-id]').forEach(button=>{
   button.addEventListener('click',()=>showNewsDetail(button.dataset.newsId));
 });
+initPortfolioForm();
 </script>
 </body>
 </html>
