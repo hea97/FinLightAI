@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { industries, marketData, tabs, type MarketTab, type MarketViewData, type NewsImpact, type Tone } from "./data/mockData";
+import { fetchIndustryImpactData } from "./services/industryImpactApi";
 import { fetchNewsGuardData } from "./services/newsGuardApi";
+import type { IndustryDetail, IndustryImpactResponse, IndustrySummary, RelatedNewsItem } from "./types/industryImpact";
 import type {
   BlockReason,
   NewsArticle,
@@ -132,7 +134,7 @@ function App() {
           </button>
         </div>
 
-        {view !== "guard" ? (
+        {view !== "guard" && view !== "industry" ? (
           <div className="page-heading">
             <h1>{page.title}</h1>
             <p>{page.subtitle}</p>
@@ -156,10 +158,8 @@ function App() {
       ) : (
         <main className="dashboard sub-dashboard">
           {view === "industry" && (
-            <IndustryImpactView
+            <IndustryImpactPage
               selectedIndustryId={selectedIndustryId}
-              selectedIndustryName={selectedIndustry.name}
-              selectedIndustryScore={selectedIndustry.score}
               onIndustryClick={handleIndustryClick}
             />
           )}
@@ -635,6 +635,245 @@ function IndustryImpactView({
         <p>선택한 산업의 뉴스 영향도, 신뢰도, 알림 조건을 함께 확인합니다. 이 화면은 향후 산업별 상세 라우트로 확장할 수 있습니다.</p>
       </section>
     </>
+  );
+}
+
+function IndustryImpactPage({
+  selectedIndustryId,
+  onIndustryClick,
+}: {
+  selectedIndustryId: string;
+  onIndustryClick: (industryId: string) => void;
+}) {
+  const [industryData, setIndustryData] = useState<IndustryImpactResponse | null>(null);
+  const [activeIndustryId, setActiveIndustryId] = useState(selectedIndustryId);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setActiveIndustryId(selectedIndustryId);
+  }, [selectedIndustryId]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetchIndustryImpactData()
+      .then((data) => {
+        if (!mounted) return;
+        setIndustryData(data);
+        if (!data.details[activeIndustryId]) {
+          setActiveIndustryId(data.industries[0]?.id ?? "semiconductor");
+        }
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeIndustryId]);
+
+  if (isLoading || !industryData) {
+    return (
+      <section className="panel industry-impact-loading">
+        <h2>산업 영향도 데이터를 불러오는 중입니다.</h2>
+      </section>
+    );
+  }
+
+  const activeDetail = industryData.details[activeIndustryId] ?? Object.values(industryData.details)[0];
+  const activeSummary = industryData.industries.find((industry) => industry.id === activeDetail.industryId) ?? industryData.industries[0];
+
+  function handleSelectIndustry(industryId: string) {
+    setActiveIndustryId(industryId);
+    onIndustryClick(industryId);
+  }
+
+  return (
+    <>
+      <section className="industry-impact-hero">
+        <div className="hero-icon" aria-hidden="true">▥</div>
+        <div>
+          <h1>산업 영향도</h1>
+          <p>산업별 점수와 근거 뉴스를 한 화면에서 확인합니다.</p>
+        </div>
+      </section>
+      <IndustryImpactHeatmapPanel
+        activeIndustryId={activeDetail.industryId}
+        industries={industryData.industries}
+        onIndustryClick={handleSelectIndustry}
+      />
+      <aside className="industry-impact-side">
+        <IndustryDetailPanel detail={activeDetail} summary={activeSummary} />
+        <IndustryNewsTopList news={activeDetail.topNews} />
+        <IndustryImpactSummaryPanel detail={activeDetail} />
+      </aside>
+    </>
+  );
+}
+
+function IndustryImpactHeatmapPanel({
+  activeIndustryId,
+  industries,
+  onIndustryClick,
+}: {
+  activeIndustryId: string;
+  industries: IndustrySummary[];
+  onIndustryClick: (industryId: string) => void;
+}) {
+  return (
+    <section className="panel industry-impact-heatmap">
+      <div className="impact-panel-heading">
+        <div>
+          <h2>산업별 영향도 히트맵</h2>
+          <p>산업 선택 시 해당 산업의 상세 정보와 근거 뉴스를 확인할 수 있습니다.</p>
+        </div>
+        <div className="impact-scale" aria-label="영향도 범위 -100에서 +100">
+          <span />
+          <small>-100</small>
+          <small>0</small>
+          <small>+100</small>
+        </div>
+      </div>
+      <div className="impact-industry-grid">
+        {industries.map((industry) => (
+          <IndustryImpactCard
+            industry={industry}
+            isActive={activeIndustryId === industry.id}
+            key={industry.id}
+            onClick={() => onIndustryClick(industry.id)}
+          />
+        ))}
+      </div>
+      <div className="impact-footnote">
+        <span>ⓘ 영향도 점수 범위: -100 (최대 악화) ~ +100 (최대 강화)</span>
+        <span>업데이트: 2025.05.24 09:30 ↻</span>
+      </div>
+    </section>
+  );
+}
+
+function IndustryImpactCard({
+  industry,
+  isActive,
+  onClick,
+}: {
+  industry: IndustrySummary;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-pressed={isActive}
+      className={`impact-industry-card impact-industry-card--${industry.tone} ${isActive ? "is-active" : ""}`}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="industry-card-title">
+        <span aria-hidden="true">{industry.icon}</span>
+        {industry.name}
+      </span>
+      <strong>{formatScore(industry.score)}</strong>
+      <em>{industry.toneLabel}</em>
+      <small>뉴스 {industry.newsCount}건</small>
+    </button>
+  );
+}
+
+function IndustryDetailPanel({ detail, summary }: { detail: IndustryDetail; summary: IndustrySummary }) {
+  return (
+    <section className="panel industry-detail-card">
+      <div className="industry-detail-top">
+        <div>
+          <h2>{detail.title}</h2>
+          <div className="detail-score-row">
+            <strong className={detail.score >= 0 ? "score-pos" : "score-neg"}>{formatScore(detail.score)}</strong>
+            <span className={`status-pill status-pill--${summary.tone}`}>{detail.statusLabel}</span>
+          </div>
+        </div>
+        <div className="chip-graphic" aria-hidden="true">▣</div>
+      </div>
+      <p>{detail.description}</p>
+      <div className="detail-meta-grid">
+        <div>
+          <span>긍정 요인</span>
+          <strong>{detail.reasons.positive[0]}</strong>
+        </div>
+        <div>
+          <span>주의 요인</span>
+          <strong>{detail.reasons.caution[0]}</strong>
+        </div>
+        <div>
+          <span>관련 뉴스 수</span>
+          <strong>{detail.newsCount}건</strong>
+        </div>
+        <div>
+          <span>관련 종목</span>
+          <div className="stock-chip-list">
+            {detail.relatedStocks.map((stock) => (
+              <b key={stock}>{stock}</b>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function IndustryNewsTopList({ news }: { news: RelatedNewsItem[] }) {
+  return (
+    <section className="panel industry-news-panel">
+      <div className="industry-news-head">
+        <h2>주요 근거 뉴스 TOP 5</h2>
+        <span>영향도</span>
+      </div>
+      <div className="industry-news-list">
+        {news.map((item) => (
+          <article className="industry-news-item" key={item.id}>
+            <span className="news-rank">{item.rank}</span>
+            <strong>{item.title}</strong>
+            <span>{item.source}</span>
+            <em className={`sentiment-badge sentiment-badge--${item.sentimentLabel}`}>{item.sentimentLabel}</em>
+            <b className={item.impactScore >= 0 ? "score-pos" : "score-neg"}>
+              {item.impactScore >= 0 ? "+" : ""}{item.impactScore.toFixed(2)}
+            </b>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function IndustryImpactSummaryPanel({ detail }: { detail: IndustryDetail }) {
+  return (
+    <section className="panel impact-summary-panel">
+      <h2>영향 요약</h2>
+      <div className="impact-summary-grid">
+        <article>
+          <span>평균 감성</span>
+          <strong className={detail.averageSentiment >= 0 ? "score-pos" : "score-neg"}>
+            {detail.averageSentiment >= 0 ? "+" : ""}{detail.averageSentiment.toFixed(2)}
+          </strong>
+          <small>{detail.averageSentiment >= 0 ? "긍정" : "부정"}</small>
+        </article>
+        <article>
+          <span>관련 뉴스 수</span>
+          <strong>{detail.newsCount}건</strong>
+          <small>최근 7일</small>
+        </article>
+        <article>
+          <span>위험 포인트</span>
+          <strong>{detail.riskPoints}건</strong>
+          <small>주의/부정</small>
+        </article>
+        <article>
+          <span>마지막 업데이트</span>
+          <strong>{detail.updatedAt}</strong>
+          <small>2분 전</small>
+        </article>
+      </div>
+      <p>ⓘ 색상은 단독으로 해석하지 마세요. 점수와 라벨을 함께 확인해야 올바르게 판단할 수 있습니다.</p>
+    </section>
   );
 }
 
