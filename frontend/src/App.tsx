@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { industries, marketData, tabs, type MarketTab, type MarketViewData, type NewsImpact, type Tone } from "./data/mockData";
 import { fetchIndustryImpactData } from "./services/industryImpactApi";
+import { fetchKakaoAlertData } from "./services/kakaoAlertApi";
 import { fetchNewsGuardData } from "./services/newsGuardApi";
 import { fetchPortfolioData } from "./services/portfolioApi";
 import type { IndustryDetail, IndustryImpactResponse, IndustrySummary, RelatedNewsItem } from "./types/industryImpact";
+import type { KakaoAlertHistoryItem, KakaoAlertResponse, KakaoAlertRule, KakaoChatQuestion, KakaoFlowStep, KakaoIntegrationStatus, KakaoPreviewMessage } from "./types/kakaoAlert";
 import type { AssetCurrency, AssetMarket, AssetStatus, IndustryConnection, LinkedSignal, PortfolioAsset, PortfolioResponse, PortfolioSummary } from "./types/portfolio";
 import type {
   BlockReason,
@@ -136,7 +138,7 @@ function App() {
           </button>
         </div>
 
-        {view !== "guard" && view !== "industry" ? (
+        {view !== "guard" && view !== "industry" && view !== "kakao" ? (
           <div className="page-heading">
             <h1>{page.title}</h1>
             <p>{page.subtitle}</p>
@@ -166,7 +168,7 @@ function App() {
             />
           )}
           {view === "portfolio" && <PortfolioPage onViewChange={setView} />}
-          {view === "kakao" && <KakaoChannelView onViewChange={setView} />}
+          {view === "kakao" && <KakaoAlertPage />}
           {view === "mypage" && <MyPageView locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} onViewChange={setView} />}
           {view === "settings" && <SettingsView locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} />}
           {view === "login" && <LoginView onViewChange={setView} />}
@@ -1375,6 +1377,219 @@ function KakaoChannelView({ onViewChange }: { onViewChange: (view: ViewId) => vo
         <button type="button" onClick={() => onViewChange("mypage")}>마이페이지 설정으로 이동</button>
       </section>
     </>
+  );
+}
+
+function KakaoAlertPage() {
+  const [alertData, setAlertData] = useState<KakaoAlertResponse | null>(null);
+  const [rules, setRules] = useState<KakaoAlertRule[]>([]);
+  const [activeQuestionId, setActiveQuestionId] = useState("q1");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetchKakaoAlertData()
+      .then((data) => {
+        if (!mounted) return;
+        setAlertData(data);
+        setRules(data.rules);
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (isLoading || !alertData) {
+    return (
+      <section className="panel kakao-alert-loading">
+        <h2>카카오 알림 데이터를 불러오는 중입니다.</h2>
+      </section>
+    );
+  }
+
+  function toggleRule(ruleId: KakaoAlertRule["id"]) {
+    setRules((currentRules) => currentRules.map((rule) => (rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule)));
+  }
+
+  return (
+    <>
+      <section className="kakao-alert-hero">
+        <div>
+          <h1>카카오 알림</h1>
+          <p>카카오톡 채널 봇으로 시장 신호와 뉴스 가드 알림을 받아보세요.</p>
+          <div className="kakao-status-badges">
+            {alertData.badges.map((badge) => (
+              <span key={badge}>{badge}</span>
+            ))}
+          </div>
+        </div>
+        <p className="kakao-non-advice">투자 추천이 아닌 시장 상태 알림입니다.</p>
+      </section>
+
+      <section className="kakao-alert-left">
+        <KakaoMessagePreviewCard messages={alertData.previewMessages} />
+        <RecentAlertHistoryCard history={alertData.history} />
+      </section>
+
+      <aside className="kakao-alert-right">
+        <AlertRuleSettingsCard rules={rules} onToggle={toggleRule} />
+        <ChatbotQuestionExamplesCard activeQuestionId={activeQuestionId} questions={alertData.questions} onSelect={setActiveQuestionId} />
+        <KakaoIntegrationStatusCard integrations={alertData.integrations} />
+        <AlertFlowCard flow={alertData.flow} />
+      </aside>
+    </>
+  );
+}
+
+function KakaoMessagePreviewCard({ messages }: { messages: KakaoPreviewMessage[] }) {
+  return (
+    <section className="panel kakao-preview-card">
+      <div className="kakao-card-head">
+        <h2>카카오 메시지 미리보기</h2>
+        <span>실제 발송 예시</span>
+      </div>
+      <div className="phone-frame" aria-label="카카오톡 메시지 미리보기">
+        <div className="phone-top">
+          <span>‹</span>
+          <strong><b>FL</b> FinLightAI 알림봇 <em>bot</em></strong>
+          <span>☰</span>
+        </div>
+        <div className="chat-screen">
+          {messages.map((message) => (
+            <article className={`chat-message chat-message--${message.sender}`} key={message.id}>
+              {message.sender === "bot" ? <span className="chat-avatar">FL</span> : null}
+              <div>
+                <p>{message.body}</p>
+                {message.actionLabel ? <button type="button">{message.actionLabel}</button> : null}
+                <time>{message.time}</time>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+      <small>실제 카카오톡 채널 대화창과 동일한 형식으로 발송됩니다.</small>
+    </section>
+  );
+}
+
+function AlertRuleSettingsCard({ rules, onToggle }: { rules: KakaoAlertRule[]; onToggle: (ruleId: KakaoAlertRule["id"]) => void }) {
+  return (
+    <section className="panel alert-rule-card">
+      <div className="kakao-card-head">
+        <div>
+          <h2>알림 조건 설정</h2>
+          <p>선택한 조건에 해당할 때 카카오톡으로 알림을 보내드립니다.</p>
+        </div>
+        <button type="button">설정 관리</button>
+      </div>
+      <div className="alert-rule-grid">
+        {rules.map((rule) => (
+          <button className="alert-rule-row" key={rule.id} type="button" onClick={() => onToggle(rule.id)} aria-pressed={rule.enabled}>
+            <span><b aria-hidden="true">{rule.icon}</b>{rule.label}</span>
+            <i className={rule.enabled ? "enabled" : ""} aria-hidden="true" />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ChatbotQuestionExamplesCard({
+  activeQuestionId,
+  questions,
+  onSelect,
+}: {
+  activeQuestionId: string;
+  questions: KakaoChatQuestion[];
+  onSelect: (questionId: string) => void;
+}) {
+  return (
+    <section className="panel chatbot-question-card">
+      <div className="kakao-card-head">
+        <h2>챗봇 질문 예시</h2>
+      </div>
+      <div className="question-chip-list">
+        {questions.map((question) => (
+          <button className={activeQuestionId === question.id ? "active" : ""} key={question.id} type="button" onClick={() => onSelect(question.id)}>
+            {question.label}
+          </button>
+        ))}
+      </div>
+      <button className="more-question-btn" type="button">더 많은 질문</button>
+    </section>
+  );
+}
+
+function KakaoIntegrationStatusCard({ integrations }: { integrations: KakaoIntegrationStatus[] }) {
+  return (
+    <section className="panel kakao-integration-card">
+      <div className="kakao-card-head">
+        <h2>연동 상태</h2>
+      </div>
+      <div className="integration-grid">
+        {integrations.map((integration) => (
+          <article key={integration.id}>
+            <span aria-hidden="true">{integration.icon}</span>
+            <strong>{integration.label}</strong>
+            <em className={`integration-health integration-health--${integration.health}`}>{integration.value}</em>
+          </article>
+        ))}
+      </div>
+      <button type="button">테스트 실행</button>
+    </section>
+  );
+}
+
+function RecentAlertHistoryCard({ history }: { history: KakaoAlertHistoryItem[] }) {
+  return (
+    <section className="panel recent-alert-card">
+      <div className="kakao-card-head">
+        <h2>최근 발송 내역</h2>
+        <button type="button">전체 보기 →</button>
+      </div>
+      <div className="alert-history-table">
+        <div className="alert-history-head">
+          <span>발송 시간</span>
+          <span>알림 유형</span>
+          <span>트리거 조건</span>
+          <span>발송 상태</span>
+        </div>
+        {history.map((item) => (
+          <article key={item.id}>
+            <time>{item.sentAt}</time>
+            <strong className={`history-tone history-tone--${item.tone}`}>{item.type}</strong>
+            <span>{item.trigger}</span>
+            <em>● {item.status}</em>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AlertFlowCard({ flow }: { flow: KakaoFlowStep[] }) {
+  return (
+    <section className="panel alert-flow-card">
+      <h2>알림 발송 흐름도</h2>
+      <div className="alert-flow-steps">
+        {flow.map((step, index) => (
+          <div className="flow-step-wrap" key={step.id}>
+            <article>
+              <span>{step.icon}</span>
+              <strong>{step.title}</strong>
+              <small>{step.subtitle}</small>
+            </article>
+            {index < flow.length - 1 ? <i aria-hidden="true">→</i> : null}
+          </div>
+        ))}
+      </div>
+      <p>사용자 질문/조건 감지 → n8n Webhook → FinLightAI 분석 → 응답 가공 → 카카오톡 발송</p>
+    </section>
   );
 }
 
