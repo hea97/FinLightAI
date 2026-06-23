@@ -3072,19 +3072,20 @@ button {
 
 .auth-flow-grid {
   display: grid;
+  min-width: 0;
   place-items: center;
 }
 
 .auth-card-frame {
   position: relative;
   width: min(720px, 100%);
+  min-width: 0;
   border: 1px solid rgba(127, 213, 221, 0.42);
   border-radius: 30px;
   background:
     linear-gradient(180deg, rgba(9, 58, 62, 0.9), rgba(0, 16, 17, 0.94)),
     radial-gradient(circle at 50% 0%, rgba(127, 213, 221, 0.16), transparent 40%);
   box-shadow: 0 26px 80px rgba(0, 0, 0, 0.38);
-  overflow: hidden;
   padding-bottom: 24px;
 }
 
@@ -3096,6 +3097,11 @@ button {
   border-bottom: 1px solid rgba(127, 213, 221, 0.24);
   background: rgba(0, 16, 17, 0.52);
   padding: 18px 24px;
+}
+
+.auth-card-topbar > div,
+.auth-mini-brand {
+  min-width: 0;
 }
 
 .auth-mini-brand {
@@ -3128,11 +3134,15 @@ button {
 }
 
 .auth-card-topbar code {
+  display: inline-block;
+  max-width: 100%;
   border: 1px solid rgba(127, 213, 221, 0.65);
   border-radius: 8px;
   color: var(--muted);
   margin-left: 10px;
   padding: 5px 10px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .auth-login-hero {
@@ -3175,12 +3185,13 @@ button {
 
 .auth-signal-strip {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   padding: 0 44px 26px;
 }
 
 .auth-signal-strip strong {
+  min-width: 0;
   border: 1px solid rgba(127, 213, 221, 0.45);
   border-radius: 15px;
   color: var(--text-secondary);
@@ -3203,6 +3214,7 @@ button {
   background: #f8fafc;
   color: #17202a;
   margin: 0 40px;
+  min-width: 0;
   padding: 28px;
 }
 
@@ -3210,6 +3222,7 @@ button {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
 }
 
 .auth-paper-card h3 {
@@ -3288,6 +3301,8 @@ button {
 }
 
 .auth-paper-card input {
+  width: 100%;
+  min-width: 0;
   border: 1px solid #d7dce5;
   border-radius: 12px;
   background: #f3f6fa;
@@ -3303,6 +3318,7 @@ button {
   border-radius: 18px;
   background: rgba(0, 16, 17, 0.5);
   margin: 20px 40px 0;
+  min-width: 0;
   padding: 16px;
 }
 
@@ -3322,12 +3338,14 @@ button {
   border-radius: 12px;
   display: flex;
   justify-content: space-between;
+  gap: 10px;
   margin: 10px 0 0;
   padding: 10px 12px;
 }
 
 .yellow-dot,
 .green-dot {
+  flex: 0 0 auto;
   width: 11px;
   height: 11px;
   border-radius: 50%;
@@ -3341,12 +3359,13 @@ button {
 
 .auth-stepper {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   padding: 32px 36px 26px;
 }
 
 .auth-stepper span {
+  min-width: 0;
   border: 1px solid rgba(127, 213, 221, 0.48);
   border-radius: 16px;
   color: #dffafa;
@@ -3376,7 +3395,7 @@ button {
 
 .auth-signup-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   margin-top: 22px;
 }
@@ -3407,10 +3426,11 @@ button {
 }
 
 .auth-industry-picker {
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .auth-industry-picker button {
+  min-width: 0;
   border: 1px solid #d7dce5;
   border-radius: 12px;
   background: #fff;
@@ -3524,7 +3544,7 @@ button {
 
 .auth-complete-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 18px;
 }
@@ -3551,7 +3571,6 @@ button {
   background: #c9d9d8;
   color: #17202a;
   margin: 28px auto 0;
-  overflow: hidden;
 }
 
 .auth-phone-top {
