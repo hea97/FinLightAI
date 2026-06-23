@@ -248,7 +248,7 @@ button,input,select{font-family:inherit}
 .content{
   height:calc(100vh - var(--header-h));
   overflow:auto;
-  padding:20px 26px 42px;
+  padding:24px 38px 48px;
 }
 .content::-webkit-scrollbar{width:6px}
 .content::-webkit-scrollbar-thumb{background:#2B3545;border-radius:99px}
@@ -259,13 +259,13 @@ button,input,select{font-family:inherit}
   from{opacity:0;transform:translateY(8px)}
   to{opacity:1;transform:translateY(0)}
 }
-.grid{display:grid;gap:14px}
-.grid-12{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.grid{display:grid;gap:24px}
+.grid-12{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px}
 .card{
   background:linear-gradient(180deg,var(--panel),#111924);
   border:1px solid var(--line);
   border-radius:var(--radius-lg);
-  padding:18px;
+  padding:24px;
   box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
   transition:border-color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
@@ -277,7 +277,7 @@ button,input,select{font-family:inherit}
 }
 .section-title h3{margin:0;font-size:14px;font-weight:950;color:var(--text-2);letter-spacing:.02em}
 .section-title .hint{font-size:12px;color:var(--muted);font-weight:750}
-.market-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.market-tabs{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap}
 .tab{
   height:36px;border-radius:999px;
   padding:0 16px;border:1px solid var(--line);
@@ -338,14 +338,21 @@ button,input,select{font-family:inherit}
   width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--teal);
 }
 .brief-item p{margin:0;font-size:13px;color:var(--text-2);line-height:1.55;font-weight:700}
-.metric-card{grid-column:span 2.4;min-height:94px}
+.metric-panel{
+  grid-column:span 5;
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:14px;
+}
+.metric-card{min-height:112px}
 .kpi-label{font-size:12px;color:var(--muted);font-weight:900;letter-spacing:.06em}
 .kpi-value{font-size:22px;font-weight:950;margin-top:8px;letter-spacing:-.03em}
 .kpi-desc{font-size:12px;color:var(--text-2);margin-top:7px;font-weight:750}
 .up{color:var(--green)}.down{color:var(--red)}.neutral{color:var(--yellow)}.teal{color:var(--teal)}.blue{color:var(--blue)}
-.heatmap-card{grid-column:span 6}
-.news-card{grid-column:span 4}
-.alert-summary-card{grid-column:span 2}
+.heatmap-card{grid-column:span 7}
+.news-card{grid-column:span 5}
+.alert-summary-card{grid-column:span 3}
+.kakao-summary-card{grid-column:span 4}
 .heatmap{
   display:grid;
   grid-template-columns:repeat(4,1fr);
@@ -408,7 +415,6 @@ button,input,select{font-family:inherit}
   background:linear-gradient(180deg,rgba(254,229,0,.14),rgba(254,229,0,.05));
   border:1px solid rgba(254,229,0,.28);
   padding:16px;
-  margin-top:12px;
 }
 .kakao-mini strong{color:#FCEB57}
 .auth-bg{
@@ -567,19 +573,28 @@ button,input,select{font-family:inherit}
   color:var(--muted);font-size:11px;font-weight:800;
   background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:999px;padding:7px 12px;
 }
-@media (max-width: 980px){
+@media (max-width: 1180px){
   .sidebar{display:none}
   .header{height:auto;min-height:86px;flex-wrap:wrap;padding:16px}
   .header-main{align-items:flex-start;flex-wrap:wrap}
   .header-brand{border-right:0}
   .shell{width:100vw}
-  .content{height:calc(100vh - 150px);padding:18px}
-  .grid-12,.my-grid,.auth-bg{display:block}
-  .hero-signal,.brief-card,.heatmap-card,.news-card,.alert-summary-card{grid-column:auto;margin-bottom:16px}
-  .metric-card{grid-column:auto}
-  .metric-row{display:grid;grid-template-columns:repeat(2,1fr)}
+  .content{height:calc(100vh - 150px);padding:24px}
+  .grid-12{grid-template-columns:repeat(6,minmax(0,1fr));gap:20px}
+  .hero-signal,.brief-card,.metric-panel,.heatmap-card,.news-card,.alert-summary-card,.kakao-summary-card{grid-column:span 6}
+  .metric-panel{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .my-grid,.auth-bg{display:block}
   .search{display:none}
   .portfolio-form{grid-template-columns:1fr}
+}
+@media (max-width: 700px){
+  .content{padding:18px}
+  .grid-12{display:block}
+  .hero-signal,.brief-card,.metric-panel,.heatmap-card,.news-card,.alert-summary-card,.kakao-summary-card{margin-bottom:18px}
+  .metric-panel{display:grid;grid-template-columns:1fr}
+  .heatmap{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .signal-main{flex-direction:column}
+  .score-bar{width:100%}
 }
 </style>
 </head>
@@ -658,11 +673,13 @@ button,input,select{font-family:inherit}
             </div>
           </div>
 
-          <div class="card compact metric-card"><div class="kpi-label" id="metricLabel0">NASDAQ</div><div class="kpi-value down" id="metricValue0">16,432</div><div class="kpi-desc" id="metricDesc0">-2.07% · 주의</div></div>
-          <div class="card compact metric-card"><div class="kpi-label" id="metricLabel1">S&P 500</div><div class="kpi-value down" id="metricValue1">5,428</div><div class="kpi-desc" id="metricDesc1">기술주 변동성</div></div>
-          <div class="card compact metric-card"><div class="kpi-label" id="metricLabel2">DOW</div><div class="kpi-value neutral" id="metricValue2">39,112</div><div class="kpi-desc" id="metricDesc2">방어주 혼재</div></div>
-          <div class="card compact metric-card"><div class="kpi-label" id="metricLabel3">VIX</div><div class="kpi-value neutral" id="metricValue3">18.2</div><div class="kpi-desc" id="metricDesc3">변동성 증가</div></div>
-          <div class="card compact metric-card"><div class="kpi-label" id="metricLabel4">WTI</div><div class="kpi-value blue" id="metricValue4">78.4</div><div class="kpi-desc" id="metricDesc4">에너지 비용 확인</div></div>
+          <div class="metric-panel">
+            <div class="card compact metric-card"><div class="kpi-label" id="metricLabel0">NASDAQ</div><div class="kpi-value down" id="metricValue0">16,432</div><div class="kpi-desc" id="metricDesc0">-2.07% · 주의</div></div>
+            <div class="card compact metric-card"><div class="kpi-label" id="metricLabel1">S&P 500</div><div class="kpi-value down" id="metricValue1">5,428</div><div class="kpi-desc" id="metricDesc1">기술주 변동성</div></div>
+            <div class="card compact metric-card"><div class="kpi-label" id="metricLabel2">DOW</div><div class="kpi-value neutral" id="metricValue2">39,112</div><div class="kpi-desc" id="metricDesc2">방어주 혼재</div></div>
+            <div class="card compact metric-card"><div class="kpi-label" id="metricLabel3">VIX</div><div class="kpi-value neutral" id="metricValue3">18.2</div><div class="kpi-desc" id="metricDesc3">변동성 증가</div></div>
+            <div class="card compact metric-card"><div class="kpi-label" id="metricLabel4">WTI</div><div class="kpi-value blue" id="metricValue4">78.4</div><div class="kpi-desc" id="metricDesc4">에너지 비용 확인</div></div>
+          </div>
 
           <div class="card heatmap-card">
             <div class="section-title"><h3 data-i18n="industryHeatmap">산업별 영향도 히트맵</h3><span class="hint">-100 ~ +100</span></div>
@@ -702,6 +719,9 @@ button,input,select{font-family:inherit}
               주의 필요 뉴스 14건<br>
               대표 사유: 자극적 표현, 근거 부족, 반복 확산
             </div>
+          </div>
+
+          <div class="kakao-summary-card">
             <div class="kakao-mini">
               <strong>최근 카카오 알림</strong>
               <p style="font-size:12px;line-height:1.6;color:var(--text-2);font-weight:750;margin:8px 0 0">09:30 · 주의 신호 발송 완료<br>08:10 · 저신뢰 뉴스 감지<br>07:30 · 일일 요약 대기</p>
