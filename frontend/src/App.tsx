@@ -5,10 +5,12 @@ import { fetchKakaoAlertData } from "./services/kakaoAlertApi";
 import { fetchMyPageData } from "./services/myPageApi";
 import { fetchNewsGuardData } from "./services/newsGuardApi";
 import { fetchPortfolioData } from "./services/portfolioApi";
+import { fetchSettingsData } from "./services/settingsApi";
 import type { IndustryDetail, IndustryImpactResponse, IndustrySummary, RelatedNewsItem } from "./types/industryImpact";
 import type { KakaoAlertHistoryItem, KakaoAlertResponse, KakaoAlertRule, KakaoChatQuestion, KakaoFlowStep, KakaoIntegrationStatus, KakaoPreviewMessage } from "./types/kakaoAlert";
 import type { MyPageActivity, MyPageAlertSetting, MyPageConnection, MyPageMetric, MyPageProfile, MyPageResponse, MyPageShortcut } from "./types/myPage";
 import type { AssetCurrency, AssetMarket, AssetStatus, IndustryConnection, LinkedSignal, PortfolioAsset, PortfolioResponse, PortfolioSummary } from "./types/portfolio";
+import type { ApiConnection, DataCollectionSettings, DisplaySettings, MiscSettings, NewsGuardMode, NewsGuardSettings, NotificationSetting, SettingsResponse, SettingsStatusCard } from "./types/settings";
 import type {
   BlockReason,
   NewsArticle,
@@ -140,7 +142,7 @@ function App() {
           </button>
         </div>
 
-        {view !== "guard" && view !== "industry" && view !== "kakao" && view !== "mypage" ? (
+        {view !== "guard" && view !== "industry" && view !== "kakao" && view !== "mypage" && view !== "settings" ? (
           <div className="page-heading">
             <h1>{page.title}</h1>
             <p>{page.subtitle}</p>
@@ -172,7 +174,7 @@ function App() {
           {view === "portfolio" && <PortfolioPage onViewChange={setView} />}
           {view === "kakao" && <KakaoAlertPage />}
           {view === "mypage" && <MyPageDashboard locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} onViewChange={setView} />}
-          {view === "settings" && <SettingsView locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} />}
+          {view === "settings" && <SettingsDashboard locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} />}
           {view === "login" && <LoginView onViewChange={setView} />}
         </main>
       )}
@@ -1874,6 +1876,287 @@ function SettingsView({ locale, onLocaleToggle }: { locale: "ko" | "en"; onLocal
         <button type="button">API 상태 카드 표시: 켜짐</button>
       </div>
     </section>
+  );
+}
+
+function SettingsDashboard({ locale, onLocaleToggle }: { locale: "ko" | "en"; onLocaleToggle: () => void }) {
+  const [settingsData, setSettingsData] = useState<SettingsResponse | null>(null);
+  const [dataCollection, setDataCollection] = useState<DataCollectionSettings | null>(null);
+  const [newsGuard, setNewsGuard] = useState<NewsGuardSettings | null>(null);
+  const [notifications, setNotifications] = useState<NotificationSetting[]>([]);
+  const [display, setDisplay] = useState<DisplaySettings | null>(null);
+  const [misc, setMisc] = useState<MiscSettings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetchSettingsData()
+      .then((data) => {
+        if (!mounted) return;
+        setSettingsData(data);
+        setDataCollection(data.dataCollection);
+        setNewsGuard(data.newsGuard);
+        setNotifications(data.notifications);
+        setDisplay(data.display);
+        setMisc(data.misc);
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (isLoading || !settingsData || !dataCollection || !newsGuard || !display || !misc) {
+    return (
+      <section className="panel settings-loading">
+        <h2>설정 데이터를 불러오는 중입니다.</h2>
+      </section>
+    );
+  }
+
+  const loadedSettings = settingsData;
+
+  function resetSettings() {
+    setDataCollection(loadedSettings.dataCollection);
+    setNewsGuard(loadedSettings.newsGuard);
+    setNotifications(loadedSettings.notifications);
+    setDisplay(loadedSettings.display);
+    setMisc(loadedSettings.misc);
+  }
+
+  function toggleNotification(id: NotificationSetting["id"]) {
+    setNotifications((current) => current.map((item) => (item.id === id ? { ...item, enabled: !item.enabled } : item)));
+  }
+
+  function toggleDataFlag(flag: "lowTrustFilter" | "duplicateNewsRemoval") {
+    setDataCollection((current) => (current ? { ...current, [flag]: !current[flag] } : current));
+  }
+
+  function removeKeyword(keyword: string) {
+    setDataCollection((current) => (current ? { ...current, keywords: current.keywords.filter((item) => item !== keyword) } : current));
+  }
+
+  function addKeyword() {
+    const next = "전력 인프라";
+    setDataCollection((current) => (current && !current.keywords.includes(next) ? { ...current, keywords: [...current.keywords, next] } : current));
+  }
+
+  function updateNewsGuardMode(mode: NewsGuardMode) {
+    setNewsGuard((current) => (current ? { ...current, mode } : current));
+  }
+
+  return (
+    <>
+      <section className="settings-hero">
+        <div>
+          <h1>설정</h1>
+          <p>데이터 수집, 뉴스 가드 필터, 알림 기준, 언어 및 표시 설정을 관리합니다.</p>
+        </div>
+        <div className="settings-actions">
+          <button type="button" onClick={resetSettings}>설정 초기화</button>
+          <button type="button">설정 저장</button>
+        </div>
+      </section>
+      <SettingsStatusCards cards={loadedSettings.statusCards} />
+      <section className="settings-grid">
+        <DataCollectionSettingsCard data={dataCollection} onAddKeyword={addKeyword} onRemoveKeyword={removeKeyword} onToggleFlag={toggleDataFlag} />
+        <NewsGuardFilterSettingsCard newsGuard={newsGuard} onModeChange={updateNewsGuardMode} />
+        <AlertSettingsPanel kakaoChannel={loadedSettings.kakaoChannel} notifications={notifications} onToggle={toggleNotification} />
+        <ApiConnectionSettingsCard apiConnections={loadedSettings.apiConnections} />
+        <DisplaySettingsCard display={display} locale={locale} onLocaleToggle={onLocaleToggle} />
+        <MiscSettingsCard misc={misc} />
+      </section>
+    </>
+  );
+}
+
+function SettingsStatusCards({ cards }: { cards: SettingsStatusCard[] }) {
+  return (
+    <section className="settings-status-grid">
+      {cards.map((card) => (
+        <article className="panel settings-status-card" key={card.id}>
+          <span className={`settings-status-icon settings-status-icon--${card.tone}`}>{card.icon}</span>
+          <div>
+            <p>{card.title}</p>
+            <strong>{card.value}</strong>
+            <small>{card.description}</small>
+            <button type="button">상세 보기</button>
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function DataCollectionSettingsCard({
+  data,
+  onAddKeyword,
+  onRemoveKeyword,
+  onToggleFlag,
+}: {
+  data: DataCollectionSettings;
+  onAddKeyword: () => void;
+  onRemoveKeyword: (keyword: string) => void;
+  onToggleFlag: (flag: "lowTrustFilter" | "duplicateNewsRemoval") => void;
+}) {
+  return (
+    <section className="panel settings-card">
+      <h2>A. 데이터 수집 설정</h2>
+      <p>뉴스 및 시장 데이터 수집 주기와 필터를 설정합니다.</p>
+      <div className="settings-select-grid">
+        <label>뉴스 수집 주기<select value={data.newsInterval} onChange={() => undefined}><option>15분</option><option>30분</option></select></label>
+        <label>뉴스 보관 기간<select value={data.newsRetention} onChange={() => undefined}><option>90일</option><option>180일</option></select></label>
+        <label>시장 데이터 보관 기간<select value={data.marketDataRetention} onChange={() => undefined}><option>2년</option><option>5년</option></select></label>
+      </div>
+      <h3>수집 키워드 관리</h3>
+      <div className="settings-keyword-list">
+        {data.keywords.map((keyword) => (
+          <button key={keyword} type="button" onClick={() => onRemoveKeyword(keyword)}>{keyword} ×</button>
+        ))}
+        <button className="add-keyword" type="button" onClick={onAddKeyword}>+ 키워드 추가</button>
+      </div>
+      <div className="settings-toggle-list">
+        <SettingsToggleRow enabled={data.lowTrustFilter} label="저신뢰 뉴스 수집 및 필터링" onToggle={() => onToggleFlag("lowTrustFilter")} sublabel="저신뢰 기사 및 출처를 자동으로 필터링합니다." />
+        <SettingsToggleRow enabled={data.duplicateNewsRemoval} label="중복 뉴스 제거" onToggle={() => onToggleFlag("duplicateNewsRemoval")} sublabel="유사/중복된 뉴스는 최신 정보만 유지합니다." />
+      </div>
+    </section>
+  );
+}
+
+function NewsGuardFilterSettingsCard({ newsGuard, onModeChange }: { newsGuard: NewsGuardSettings; onModeChange: (mode: NewsGuardMode) => void }) {
+  const modes: Array<{ id: NewsGuardMode; title: string; desc: string; icon: string }> = [
+    { id: "basic", title: "기본", desc: "균형 잡힌 필터링", icon: "⌁" },
+    { id: "strict", title: "엄격", desc: "높은 기준으로 엄격하게 필터", icon: "◇" },
+    { id: "flexible", title: "유연", desc: "더 많은 뉴스를 허용", icon: "◌" },
+  ];
+
+  return (
+    <section className="panel settings-card">
+      <h2>B. 뉴스 가드 필터 설정</h2>
+      <p>가짜 뉴스 및 과장/논란 콘텐츠를 설정합니다.</p>
+      <div className="settings-slider-list">
+        <SettingsSliderRow label="출처 신뢰도 최소 기준" value={newsGuard.minimumSourceTrust} />
+        <SettingsSliderRow label="과장/선정 임계 기준" value={newsGuard.sensationalThreshold} />
+        <SettingsSliderRow label="과장 보도 최소 점수" value={newsGuard.minimumReportScore} max={100} />
+        <label>자극적 표현 탐지 민감도<select value={newsGuard.sensitivity} onChange={() => undefined}><option>높음</option><option>보통</option><option>낮음</option></select></label>
+      </div>
+      <div className="news-guard-mode-grid">
+        {modes.map((mode) => (
+          <button className={newsGuard.mode === mode.id ? "active" : ""} key={mode.id} type="button" onClick={() => onModeChange(mode.id)}>
+            <span>{mode.icon}</span>
+            <strong>{mode.title}</strong>
+            <small>{mode.desc}</small>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AlertSettingsPanel({
+  kakaoChannel,
+  notifications,
+  onToggle,
+}: {
+  kakaoChannel: SettingsResponse["kakaoChannel"];
+  notifications: NotificationSetting[];
+  onToggle: (id: NotificationSetting["id"]) => void;
+}) {
+  return (
+    <section className="panel settings-card">
+      <h2>C. 알림 설정</h2>
+      <p>시장 상태 및 주요 이벤트 알림을 설정합니다.</p>
+      <div className="settings-toggle-list compact">
+        {notifications.map((notification) => (
+          <SettingsToggleRow enabled={notification.enabled} key={notification.id} label={notification.label} onToggle={() => onToggle(notification.id)} sublabel={notification.description} />
+        ))}
+      </div>
+      <div className="kakao-channel-note">
+        <span>TALK</span>
+        <div>
+          <strong>{kakaoChannel.botName}</strong>
+          <em>{kakaoChannel.statusLabel}</em>
+          <p>{kakaoChannel.description}</p>
+        </div>
+        <button type="button">채널 봇 관리 ↗</button>
+      </div>
+    </section>
+  );
+}
+
+function ApiConnectionSettingsCard({ apiConnections }: { apiConnections: ApiConnection[] }) {
+  return (
+    <section className="panel settings-card">
+      <div className="settings-card-head">
+        <h2>D. API 연결 상태</h2>
+        <button type="button">전체 API 관리 ›</button>
+      </div>
+      <p>연동된 API의 상태와 제한 정보를 확인하고 관리합니다.</p>
+      <div className="api-connection-grid">
+        {apiConnections.map((api) => (
+          <article key={api.id}>
+            <strong>{api.name}</strong>
+            <em>● {api.connected ? "연결됨" : "확인 필요"}</em>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DisplaySettingsCard({ display, locale, onLocaleToggle }: { display: DisplaySettings; locale: "ko" | "en"; onLocaleToggle: () => void }) {
+  return (
+    <section className="panel settings-card">
+      <h2>E. 언어 및 표시 설정</h2>
+      <p>언어와 화면 표시 옵션을 설정합니다.</p>
+      <div className="settings-select-grid two">
+        <label>언어<button type="button" onClick={onLocaleToggle}>{locale === "ko" ? display.language : "English"}</button></label>
+        <label>테마<select value={display.theme} onChange={() => undefined}><option>다크 모드</option></select></label>
+        <label>숫자/통화 형식<select value={display.numberFormat} onChange={() => undefined}><option>한국 (KRW)</option></select></label>
+        <label>시간대<select value={display.timezone} onChange={() => undefined}><option>(UTC+09:00) 서울</option></select></label>
+      </div>
+    </section>
+  );
+}
+
+function MiscSettingsCard({ misc }: { misc: MiscSettings }) {
+  return (
+    <section className="panel settings-card">
+      <h2>F. 기타 설정</h2>
+      <p>기타 서비스 설정을 관리합니다.</p>
+      <div className="settings-select-grid two">
+        <label>저장 뉴스 검색 로그 보관 기간<select value={misc.searchLogRetention} onChange={() => undefined}><option>180일</option></select></label>
+        <label>세션 자동 만료 시간<select value={misc.sessionTimeout} onChange={() => undefined}><option>30분</option></select></label>
+      </div>
+      <button className="download-data-btn" type="button">내 데이터 다운로드</button>
+      <div className="settings-kakao-info">ⓘ {misc.kakaoNotice}</div>
+    </section>
+  );
+}
+
+function SettingsToggleRow({ enabled, label, onToggle, sublabel }: { enabled: boolean; label: string; onToggle: () => void; sublabel: string }) {
+  return (
+    <button className="settings-toggle-row" type="button" onClick={onToggle} aria-pressed={enabled}>
+      <span>
+        <strong>{label}</strong>
+        <small>{sublabel}</small>
+      </span>
+      <i className={enabled ? "enabled" : ""} aria-hidden="true" />
+    </button>
+  );
+}
+
+function SettingsSliderRow({ label, max = 1, value }: { label: string; max?: number; value: number }) {
+  return (
+    <div className="settings-slider-row">
+      <span>{label}</span>
+      <div><i style={{ width: `${Math.min((value / max) * 100, 100)}%` }} /></div>
+      <strong>{max === 1 ? value.toFixed(2) : value}</strong>
+    </div>
   );
 }
 
