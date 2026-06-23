@@ -1,229 +1,144 @@
-import type { Locale, ViewId } from "../i18n/translations";
+export type MarketTab = "domestic" | "global" | "watchIndustry";
 
-export type MarketTab = "korea" | "global" | "watched";
-export type NewsFilter = "all" | "verified" | "watch" | "rumor";
+export type Tone = "positive" | "negative" | "warning" | "neutral" | "blue" | "green";
 
 export type Metric = {
   label: string;
   value: string;
-  description: string;
-  tone: "up" | "down" | "neutral" | "teal" | "blue";
+  change?: string;
+  note: string;
+  tone: Tone;
 };
 
-export type Industry = {
+export type BriefingPoint = {
+  tone: "green" | "yellow" | "blue";
+  text: string;
+};
+
+export type NewsImpact = {
+  title: string;
+  impact: number;
+  trust: "신뢰 높음" | "신뢰 보통" | "신뢰 낮음";
+  sector: string;
+};
+
+export type MarketViewData = {
+  title: string;
+  description: string;
+  risk: number;
+  updatedAt: string;
+  metrics: Metric[];
+  briefing: BriefingPoint[];
+  news: NewsImpact[];
+  highlightedIndustries: string[];
+};
+
+export type IndustryImpact = {
   id: string;
   name: string;
   score: number;
-  state: string;
-  tone: "good" | "ok" | "neutral" | "warn" | "bad";
-  description: string;
-  reason: string;
-  assets: string[];
-  risks: string[];
+  note: string;
 };
 
-export type NewsItem = {
-  id: string;
-  status: NewsFilter;
-  source: string;
-  title: string;
-  summary: string;
-  impact: number;
-  trust: "높음" | "보통" | "낮음";
-  reason: string;
-  relatedView: ViewId;
-};
-
-export type PortfolioAsset = {
-  id: string;
-  name: string;
-  sector: string;
-  weight: number;
-  signal: string;
-  newsCount: number;
-};
-
-export const marketTabs: Record<Locale, { id: MarketTab; label: string }[]> = {
-  ko: [
-    { id: "korea", label: "국내 시장" },
-    { id: "global", label: "해외 시장" },
-    { id: "watched", label: "관심 산업" },
-  ],
-  en: [
-    { id: "korea", label: "Korea" },
-    { id: "global", label: "Overseas" },
-    { id: "watched", label: "Watched Industries" },
-  ],
-};
-
-export const marketCopy: Record<Locale, Record<MarketTab, { headline: string; summary: string }>> = {
-  ko: {
-    korea: {
-      headline: "국내 증시는 반도체가 방어하고 금융이 부담입니다.",
-      summary: "원화 변동성과 금리 발언을 함께 보며, 대형 수출주 중심의 방어 신호가 우세합니다.",
-    },
-    global: {
-      headline: "해외 시장은 AI 수요와 금리 불확실성이 동시에 움직입니다.",
-      summary: "미국 기술주는 강하지만, 공급망 뉴스와 연준 발언의 신뢰도를 나눠 볼 필요가 있습니다.",
-    },
-    watched: {
-      headline: "관심 산업은 반도체, 방산, 항공의 온도 차가 큽니다.",
-      summary: "관심 산업 탭은 포트폴리오와 연결될 산업만 추려서 리스크를 빠르게 확인하는 영역입니다.",
-    },
-  },
-  en: {
-    korea: {
-      headline: "Korea is supported by semiconductors while financials stay pressured.",
-      summary: "Currency volatility and rate comments matter, but exporters are still cushioning the tape.",
-    },
-    global: {
-      headline: "Overseas markets balance AI demand with rate uncertainty.",
-      summary: "Large-cap tech remains firm, while supply-chain reports need careful trust checks.",
-    },
-    watched: {
-      headline: "Watched sectors show a wide gap between chips, defense, and airlines.",
-      summary: "This tab narrows the dashboard to sectors that can affect the registered portfolio.",
-    },
-  },
-};
-
-export const metrics: Record<MarketTab, Metric[]> = {
-  korea: [
-    { label: "KOSPI", value: "+0.8%", description: "대형 수출주 강세", tone: "up" },
-    { label: "원/달러", value: "1,383", description: "변동성 확대", tone: "neutral" },
-    { label: "기관 수급", value: "+2,140억", description: "전기전자 순매수", tone: "teal" },
-    { label: "리스크", value: "52", description: "주의권 하단", tone: "neutral" },
-  ],
-  global: [
-    { label: "NASDAQ", value: "+1.1%", description: "AI 인프라주 견인", tone: "up" },
-    { label: "VIX", value: "18.4", description: "보통 수준", tone: "neutral" },
-    { label: "미 10년물", value: "4.31%", description: "금리 부담 지속", tone: "down" },
-    { label: "리스크", value: "61", description: "변동성 주의", tone: "neutral" },
-  ],
-  watched: [
-    { label: "반도체", value: "+78", description: "AI 서버 수요", tone: "up" },
-    { label: "방산", value: "+38", description: "수출 계약 기대", tone: "teal" },
-    { label: "항공", value: "-58", description: "유가와 환율 부담", tone: "down" },
-    { label: "금융", value: "-45", description: "금리 경로 불확실", tone: "down" },
-  ],
-};
-
-export const industries: Industry[] = [
-  {
-    id: "semiconductor",
-    name: "반도체",
-    score: 78,
-    state: "강한 긍정",
-    tone: "good",
-    description: "HBM, AI 서버, 파운드리 투자 뉴스가 동시에 우호적으로 작용하고 있습니다.",
-    reason: "고객사 장기 공급 계약과 데이터센터 증설 보도가 수요 기대를 높였습니다.",
-    assets: ["삼성전자", "SK하이닉스", "NVIDIA"],
-    risks: ["공급 병목 과장 보도", "환율 민감도", "미국 규제 발언"],
-  },
-  {
-    id: "finance",
-    name: "금융",
-    score: -45,
-    state: "주의",
-    tone: "warn",
-    description: "금리 경로 불확실성과 경기 둔화 우려가 은행, 증권주에 부담입니다.",
-    reason: "연준 발언 해석이 엇갈리며 순이자마진과 투자 심리에 동시에 영향을 주고 있습니다.",
-    assets: ["KB금융", "신한지주", "미래에셋증권"],
-    risks: ["부동산 PF", "예대마진 둔화", "미국 금리 경로"],
-  },
-  {
-    id: "auto",
-    name: "자동차",
-    score: 12,
-    state: "약한 긍정",
-    tone: "ok",
-    description: "수출 기대는 남아 있지만 전기차 수요 둔화 보도가 일부 부담입니다.",
-    reason: "환율 효과와 신차 믹스 개선은 긍정적이나 가격 경쟁 뉴스가 상쇄하고 있습니다.",
-    assets: ["현대차", "기아", "현대모비스"],
-    risks: ["전기차 가격 경쟁", "미국 재고", "원자재 비용"],
-  },
-  {
-    id: "airline",
-    name: "항공",
-    score: -58,
-    state: "부정",
-    tone: "bad",
-    description: "유가 상승과 환율 부담이 비용 리스크를 키우고 있습니다.",
-    reason: "여객 수요는 견조하지만 비용 변수의 영향도가 더 크게 반영됐습니다.",
-    assets: ["대한항공", "제주항공", "진에어"],
-    risks: ["유류비 헤지", "환율", "예약률 둔화"],
-  },
-  {
-    id: "defense",
-    name: "방산",
-    score: 38,
-    state: "긍정",
-    tone: "good",
-    description: "수출 계약 기대와 지정학적 긴장이 수주 전망을 지지합니다.",
-    reason: "장기 프로젝트 성격상 단기 뉴스보다 계약 확정 여부를 따로 확인해야 합니다.",
-    assets: ["한화에어로스페이스", "현대로템", "LIG넥스원"],
-    risks: ["계약 지연", "환율", "정책 변화"],
-  },
-  {
-    id: "consumer",
-    name: "소비재",
-    score: 4,
-    state: "중립",
-    tone: "neutral",
-    description: "소비심리 둔화와 방어주 성격이 엇갈려 방향성이 약합니다.",
-    reason: "가격 전가력과 재고 부담을 기업별로 구분해 볼 필요가 있습니다.",
-    assets: ["CJ제일제당", "이마트", "아모레퍼시픽"],
-    risks: ["내수 둔화", "재고 부담", "원가 상승"],
-  },
+export const tabs: { key: MarketTab; label: string }[] = [
+  { key: "domestic", label: "국내 시장" },
+  { key: "global", label: "해외 시장" },
+  { key: "watchIndustry", label: "관심 산업" },
 ];
 
-export const newsItems: NewsItem[] = [
-  {
-    id: "fed-rate",
-    status: "verified",
-    source: "Reuters",
-    title: "미 연준, 금리 동결 가능성 시사",
-    summary: "정책 발언은 확인된 출처이나 시장 해석은 과도할 수 있습니다.",
-    impact: 82,
-    trust: "높음",
-    reason: "원문 출처가 명확하고 복수 매체가 같은 방향으로 확인했습니다.",
-    relatedView: "market",
+export const marketData: Record<MarketTab, MarketViewData> = {
+  domestic: {
+    title: "국내 시장은 주의가 필요하지만, 해외 시장은 안정적인 흐름을 보이고 있습니다.",
+    description:
+      "국내 시장은 금리 불확실성과 외국인 수급 이슈로 변동성이 확대될 수 있습니다. 해외 시장은 기술주 중심의 반등이 이어지며 비교적 안정적인 흐름을 보입니다.",
+    risk: 68,
+    updatedAt: "2026.06.23 09:30 KST",
+    briefing: [
+      { tone: "green", text: "국내 시장은 금리 불확실성과 외국인 수급 이슈로 주의가 필요합니다." },
+      { tone: "yellow", text: "외국인 순매수 전환 여부와 환율 흐름을 함께 확인해야 합니다." },
+      { tone: "blue", text: "반도체와 바이오 업종의 긍정 요인이 뉴스에서 확인되고 있습니다." },
+    ],
+    metrics: [
+      { label: "KOSPI", value: "2,671.45", change: "+0.34%", note: "대형 수출주 방어", tone: "positive" },
+      { label: "KOSDAQ", value: "842.18", change: "+0.12%", note: "바이오 일부 강세", tone: "positive" },
+      { label: "USD/KRW", value: "1,382", change: "-0.15%", note: "환율 부담 완화", tone: "warning" },
+      { label: "국고채 3Y", value: "3.28%", change: "-0.02%", note: "금리 경로 확인", tone: "warning" },
+      { label: "국내 뉴스", value: "24건", note: "저신뢰 3건 포함", tone: "blue" },
+    ],
+    news: [
+      { title: "연준 발언 이후 금리 불확실성 확대", impact: 82, trust: "신뢰 높음", sector: "금융" },
+      { title: "AI 반도체 수요 증가 전망", impact: 76, trust: "신뢰 보통", sector: "반도체" },
+      { title: "출처불명 급등 확정성 기사 확산", impact: -71, trust: "신뢰 낮음", sector: "주의" },
+      { title: "유가 상승에 따른 항공업 비용 증가 우려", impact: -65, trust: "신뢰 보통", sector: "항공" },
+      { title: "바이오 임상 결과 발표 임박", impact: 61, trust: "신뢰 높음", sector: "바이오" },
+    ],
+    highlightedIndustries: ["semiconductor", "finance", "bio"],
   },
-  {
-    id: "nvidia-supply",
-    status: "watch",
-    source: "Bloomberg",
-    title: "NVIDIA 공급 병목 지연 보도",
-    summary: "반도체 수요 기대에는 긍정적이나 병목 기간은 추정치입니다.",
-    impact: 74,
-    trust: "보통",
-    reason: "공신력 있는 보도이지만 익명 관계자와 추정 표현이 포함되어 있습니다.",
-    relatedView: "industry",
+  global: {
+    title: "해외 시장은 기술주 중심의 반등이 이어지지만 변동성 확인이 필요합니다.",
+    description:
+      "미국 기술주는 AI 인프라 수요 기대가 이어지고 있으나, 금리 발언과 에너지 가격 변화가 단기 위험 요인으로 남아 있습니다.",
+    risk: 54,
+    updatedAt: "2026.06.23 09:30 KST",
+    briefing: [
+      { tone: "green", text: "나스닥과 S&P 500은 기술주 중심으로 안정적인 흐름을 보입니다." },
+      { tone: "yellow", text: "VIX와 장기금리 변화를 함께 보며 변동성 확대 여부를 점검해야 합니다." },
+      { tone: "blue", text: "글로벌 반도체 공급망 뉴스는 영향도와 신뢰도를 분리해 확인합니다." },
+    ],
+    metrics: [
+      { label: "NASDAQ", value: "16,432", change: "+0.58%", note: "AI 인프라주 견인", tone: "positive" },
+      { label: "S&P 500", value: "5,428", change: "+0.21%", note: "대형주 중심 안정", tone: "positive" },
+      { label: "DOW", value: "39,112", change: "-0.08%", note: "방어주 혼조", tone: "neutral" },
+      { label: "VIX", value: "18.2", change: "+1.4p", note: "변동성 감시", tone: "warning" },
+      { label: "WTI", value: "78.4", change: "+0.7%", note: "에너지 비용 확인", tone: "warning" },
+    ],
+    news: [
+      { title: "미국 기술주 실적 기대감 지속", impact: 79, trust: "신뢰 높음", sector: "기술주" },
+      { title: "VIX 상승에 따른 위험회피 심리", impact: -62, trust: "신뢰 보통", sector: "시장" },
+      { title: "WTI 가격 안정 가능성 보도", impact: 48, trust: "신뢰 보통", sector: "에너지" },
+      { title: "글로벌 반도체 공급망 재편 이슈", impact: 69, trust: "신뢰 높음", sector: "반도체" },
+      { title: "달러 강세와 신흥국 수급 부담", impact: -55, trust: "신뢰 보통", sector: "환율" },
+    ],
+    highlightedIndustries: ["it", "semiconductor", "energy"],
   },
-  {
-    id: "theme-rumor",
-    status: "rumor",
-    source: "Community",
-    title: "테마주 급등 확정 루머 확산",
-    summary: "출처가 불명확하고 확정 표현이 강해 뉴스 가드 주의 대상입니다.",
-    impact: 39,
-    trust: "낮음",
-    reason: "원문 링크와 공식 공시가 없고 같은 문장이 여러 채널에 반복됩니다.",
-    relatedView: "guard",
+  watchIndustry: {
+    title: "관심 산업은 반도체와 IT가 긍정적이고, 항공과 금융은 주의가 필요합니다.",
+    description:
+      "관심 산업별 뉴스 영향도와 신뢰도 차이가 크므로 업종별 근거 확인이 우선입니다. 알림 조건은 카카오 채널 전송 대상으로 관리됩니다.",
+    risk: 61,
+    updatedAt: "2026.06.23 09:30 KST",
+    briefing: [
+      { tone: "green", text: "반도체와 IT 업종은 수요와 투자 뉴스에서 긍정 신호가 확인됩니다." },
+      { tone: "yellow", text: "항공은 유가와 환율 부담으로 부정 신호가 이어지고 있습니다." },
+      { tone: "blue", text: "관심 산업 5개 조건이 카카오 알림 발송 대상으로 대기 중입니다." },
+    ],
+    metrics: [
+      { label: "반도체", value: "+78", note: "강한 긍정 · 뉴스 12건", tone: "positive" },
+      { label: "항공", value: "-58", note: "유가와 환율 부담", tone: "negative" },
+      { label: "금융", value: "-45", note: "금리 발언 주의", tone: "warning" },
+      { label: "바이오", value: "+21", note: "임상 뉴스 확인", tone: "positive" },
+      { label: "알림 조건", value: "5개", note: "카카오 채널 대기", tone: "blue" },
+    ],
+    news: [
+      { title: "AI 반도체 수요 증가 전망", impact: 78, trust: "신뢰 보통", sector: "반도체" },
+      { title: "항공업 비용 증가 우려", impact: -58, trust: "신뢰 보통", sector: "항공" },
+      { title: "금융주 금리 발언 부담", impact: -45, trust: "신뢰 높음", sector: "금융" },
+      { title: "바이오 임상 뉴스 확산", impact: 21, trust: "신뢰 보통", sector: "바이오" },
+      { title: "소비재 업종 중립 흐름", impact: 4, trust: "신뢰 보통", sector: "소비재" },
+    ],
+    highlightedIndustries: ["semiconductor", "airline", "finance", "bio"],
   },
-];
+};
 
-export const initialPortfolio: PortfolioAsset[] = [
-  { id: "samsung", name: "삼성전자", sector: "반도체", weight: 38, signal: "긍정", newsCount: 12 },
-  { id: "sk-hynix", name: "SK하이닉스", sector: "반도체", weight: 24, signal: "강한 긍정", newsCount: 9 },
-  { id: "kakao", name: "카카오", sector: "IT", weight: 14, signal: "중립", newsCount: 4 },
-];
-
-export const searchIndex: { type: string; title: string; description: string; view: ViewId }[] = [
-  { type: "뉴스", title: "미 연준 금리 동결", description: "시장 신호와 뉴스 가드", view: "guard" },
-  { type: "산업", title: "반도체", description: "영향도 +78, AI 서버 수요", view: "industry" },
-  { type: "산업", title: "항공", description: "영향도 -58, 유가와 환율 부담", view: "industry" },
-  { type: "자산", title: "삼성전자", description: "등록 자산, 반도체 연결", view: "portfolio" },
-  { type: "알림", title: "카카오 채널", description: "로그인과 채널 알림 흐름", view: "kakao" },
-  { type: "설정", title: "관심 산업", description: "관심 탭과 알림 기준", view: "settings" },
+export const industries: IndustryImpact[] = [
+  { id: "semiconductor", name: "반도체", score: 78, note: "강한 긍정 · 뉴스 12건" },
+  { id: "finance", name: "금융", score: -45, note: "주의 · 뉴스 9건" },
+  { id: "it", name: "IT", score: 51, note: "긍정 · 뉴스 8건" },
+  { id: "auto", name: "자동차", score: 12, note: "약한 긍정" },
+  { id: "energy", name: "에너지", score: -30, note: "주의" },
+  { id: "bio", name: "바이오", score: 21, note: "약한 긍정" },
+  { id: "airline", name: "항공", score: -58, note: "부정" },
+  { id: "consumer", name: "소비재", score: 4, note: "중립" },
+  { id: "oil", name: "정유", score: -22, note: "주의" },
+  { id: "steel", name: "철강", score: -10, note: "약한 부정" },
 ];
