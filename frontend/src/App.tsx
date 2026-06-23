@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { industries, marketData, tabs, type MarketTab, type MarketViewData, type NewsImpact, type Tone } from "./data/mockData";
 import { fetchIndustryImpactData } from "./services/industryImpactApi";
 import { fetchKakaoAlertData } from "./services/kakaoAlertApi";
@@ -142,7 +142,7 @@ function App() {
           </button>
         </div>
 
-        {view !== "guard" && view !== "industry" && view !== "kakao" && view !== "mypage" && view !== "settings" ? (
+        {view !== "guard" && view !== "industry" && view !== "kakao" && view !== "mypage" && view !== "settings" && view !== "login" ? (
           <div className="page-heading">
             <h1>{page.title}</h1>
             <p>{page.subtitle}</p>
@@ -175,7 +175,7 @@ function App() {
           {view === "kakao" && <KakaoAlertPage />}
           {view === "mypage" && <MyPageDashboard locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} onViewChange={setView} />}
           {view === "settings" && <SettingsDashboard locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} />}
-          {view === "login" && <LoginView onViewChange={setView} />}
+          {view === "login" && <KakaoAuthFlowView onViewChange={setView} />}
         </main>
       )}
 
@@ -2157,6 +2157,206 @@ function SettingsSliderRow({ label, max = 1, value }: { label: string; max?: num
       <div><i style={{ width: `${Math.min((value / max) * 100, 100)}%` }} /></div>
       <strong>{max === 1 ? value.toFixed(2) : value}</strong>
     </div>
+  );
+}
+
+type AuthStep = "login" | "signup" | "complete";
+
+function KakaoAuthFlowView({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
+  const [authStep, setAuthStep] = useState<AuthStep>("login");
+  const [selectedIndustries, setSelectedIndustries] = useState(["반도체", "AI"]);
+  const industryOptions = ["반도체", "AI", "금융", "바이오"];
+
+  function toggleIndustry(industry: string) {
+    setSelectedIndustries((current) =>
+      current.includes(industry) ? current.filter((item) => item !== industry) : [...current, industry],
+    );
+  }
+
+  return (
+    <section className="auth-flow-shell">
+      <div className="auth-flow-heading">
+        <div>
+          <h1>FinLightAI Kakao Auth Flow</h1>
+          <p>LOGIN · SIGN UP · ONBOARDING</p>
+        </div>
+        <span>카카오 OAuth 중심 · 투자 추천이 아닌 시장 신호/근거 제공 안내 포함</span>
+      </div>
+
+      <div className="auth-flow-grid">
+        {authStep === "login" && <AuthLoginStep onEmailLogin={() => setAuthStep("signup")} onKakaoLogin={() => setAuthStep("signup")} />}
+        {authStep === "signup" && (
+          <AuthSignupStep
+            industries={industryOptions}
+            onComplete={() => setAuthStep("complete")}
+            onToggleIndustry={toggleIndustry}
+            selectedIndustries={selectedIndustries}
+          />
+        )}
+        {authStep === "complete" && (
+          <AuthCompleteStep
+            onGoBriefing={() => onViewChange("briefing")}
+            onGoPortfolio={() => onViewChange("portfolio")}
+            selectedIndustries={selectedIndustries}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AuthCardFrame({ children, label, path }: { children: ReactNode; label: string; path: string }) {
+  return (
+    <article className="auth-card-frame">
+      <header className="auth-card-topbar">
+        <div className="auth-mini-brand">
+          <span>FL</span>
+          <strong>FinLightAI</strong>
+        </div>
+        <div>
+          <em>{label}</em>
+          <code>{path}</code>
+        </div>
+      </header>
+      {children}
+    </article>
+  );
+}
+
+function AuthLoginStep({ onEmailLogin, onKakaoLogin }: { onEmailLogin: () => void; onKakaoLogin: () => void }) {
+  return (
+    <AuthCardFrame label="로그인" path="/auth/login">
+      <div className="auth-login-hero">
+        <p>AI FINANCIAL SIGNAL BOARD</p>
+        <h2>복잡한 금융 뉴스를<br /><span>신호와 근거로</span><br />확인하세요.</h2>
+        <small>카카오 계정으로 빠르게 로그인하고, 관심 산업·관심 자산 기반의 시장 신호와 뉴스 가드 요약을 확인합니다.</small>
+      </div>
+      <div className="auth-signal-strip">
+        <strong><span>68</span>오늘 시장 위험도</strong>
+        <strong><span>+78</span>반도체 산업 영향도</strong>
+        <strong><span>2</span>주의 뉴스 감지</strong>
+      </div>
+      <div className="auth-paper-card">
+        <div className="auth-paper-head">
+          <h3>로그인</h3>
+          <span>OAuth 2.0</span>
+        </div>
+        <p>카카오 계정으로 FinLightAI를 시작합니다.</p>
+        <button className="auth-kakao-btn" type="button" onClick={onKakaoLogin}>카카오로 계속하기</button>
+        <div className="auth-divider"><span />또는 이메일로 로그인<span /></div>
+        <label>이메일<input placeholder="finlight@example.com" type="email" /></label>
+        <label>비밀번호<input placeholder="••••••••••••" type="password" /></label>
+        <button className="auth-secondary-btn" type="button" onClick={onEmailLogin}>이메일로 계속하기</button>
+        <small>FinLightAI는 투자 추천이 아니라 신호/근거 제공 서비스입니다.</small>
+      </div>
+      <div className="auth-preview-card">
+        <div><b>로그인 전 미리보기</b><i>● LIVE</i></div>
+        <p><span className="yellow-dot" />해외 시장 / 반도체 <em>YELLOW</em></p>
+        <p><span className="green-dot" />News Guard <em>신뢰 뉴스 4건</em></p>
+      </div>
+    </AuthCardFrame>
+  );
+}
+
+function AuthSignupStep({
+  industries,
+  onComplete,
+  onToggleIndustry,
+  selectedIndustries,
+}: {
+  industries: string[];
+  onComplete: () => void;
+  onToggleIndustry: (industry: string) => void;
+  selectedIndustries: string[];
+}) {
+  return (
+    <AuthCardFrame label="회원가입" path="/auth/signup">
+      <div className="auth-stepper" aria-label="회원가입 진행 단계">
+        <span className="done">카카오 인증<br /><small>계정 확인</small></span>
+        <span className="active">약관 동의<br /><small>필수 확인</small></span>
+        <span>기본 정보<br /><small>프로필 설정</small></span>
+        <span>관심 설정<br /><small>개인화</small></span>
+      </div>
+      <div className="auth-paper-card signup">
+        <h3>회원가입</h3>
+        <p>카카오 인증 후 동의와 기본 정보를 설정합니다.</p>
+        <div className="auth-signup-grid">
+          <div className="auth-agreement-list">
+            {["서비스 이용약관 동의 · 필수", "개인정보 수집 및 이용 동의 · 필수", "투자 추천 아님 안내 확인 · 필수", "카카오 알림 수신 동의 · 선택"].map((item, index) => (
+              <label className="auth-check-row" key={item}>
+                <input defaultChecked={index < 3} type="checkbox" />
+                <span><strong>{item}</strong><small>{index === 3 ? "RED/YELLOW, 일일 브리핑 알림" : "FinLightAI 이용을 위한 확인"}</small></span>
+              </label>
+            ))}
+          </div>
+          <div className="auth-profile-form">
+            <label>닉네임<input defaultValue="데이터 분석가" /></label>
+            <label>대표 관심 시장<input defaultValue="해외 시장 · 반도체 중심" /></label>
+            <strong>관심 산업</strong>
+            <div className="auth-industry-picker">
+              {industries.map((industry) => (
+                <button className={selectedIndustries.includes(industry) ? "selected" : ""} key={industry} type="button" onClick={() => onToggleIndustry(industry)}>
+                  {industry}<small>{industry === "반도체" ? "AI Chip · HBM" : industry === "AI" ? "빅테크 · 데이터센터" : "뉴스 기반 모니터링"}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <button className="auth-primary-btn" type="button" onClick={onComplete}>가입 완료하고 개인화 시작</button>
+      </div>
+      <div className="auth-flow-note">가입 완료 후에는 마이페이지에서 카카오 채널 수신 상태, 관심 산업, 관심 자산, 알림 조건을 한 번에 관리합니다.</div>
+      <div className="auth-data-flow"><span>Kakao OAuth</span><b>→</b><span>User Profile</span><b>→</b><span>MyPage</span></div>
+    </AuthCardFrame>
+  );
+}
+
+function AuthCompleteStep({
+  onGoBriefing,
+  onGoPortfolio,
+  selectedIndustries,
+}: {
+  onGoBriefing: () => void;
+  onGoPortfolio: () => void;
+  selectedIndustries: string[];
+}) {
+  return (
+    <AuthCardFrame label="가입 완료" path="/auth/complete">
+      <div className="auth-complete-hero">
+        <span>✓</span>
+        <h2>가입이 완료되었습니다</h2>
+        <p>이제 관심 자산을 추가하면 시장 신호와 관련 뉴스를 함께 확인할 수 있습니다.</p>
+      </div>
+      <div className="auth-complete-card">
+        <div className="auth-user-row">
+          <span>유</span>
+          <div><strong>데이터 분석가</strong><small>Kakao connected · finlight@kakao.com</small></div>
+        </div>
+        <ul>
+          <li><strong>카카오 채널 연결</strong><em>연결됨</em><small>시장 신호와 News Guard 알림 수신 준비</small></li>
+          <li><strong>관심 산업 {selectedIndustries.length}개 선택</strong><em>완료</em><small>{selectedIndustries.join(", ")} 중심으로 브리핑 개인화</small></li>
+          <li><strong>관심 자산 추가 필요</strong><em>다음 단계</em><small>관심 자산을 추가하면 관련 위험 신호를 연결합니다.</small></li>
+        </ul>
+        <div className="auth-complete-actions">
+          <button type="button" onClick={onGoPortfolio}>관심 자산 추가하기</button>
+          <button type="button" onClick={onGoBriefing}>AI 브리핑 보기</button>
+        </div>
+      </div>
+      <div className="auth-phone-preview">
+        <div className="auth-phone-top">FinLightAI 카카오 채널</div>
+        <div className="auth-phone-body">
+          <p className="auth-chat-user">오늘 시장 신호 알려줘</p>
+          <div className="auth-chat-bot">
+            <strong>[FinLightAI] 주의 신호</strong>
+            <span>시장 위험도 68/100</span>
+            <span>반도체 영향도 +78</span>
+            <span>뉴스 가드 주의 뉴스 2건</span>
+            <small>투자 추천이 아닌 참고용 시장 상태입니다.</small>
+          </div>
+          <button type="button">대시보드에서 자세히 보기</button>
+          <button type="button">관심 자산 리스크 확인</button>
+        </div>
+      </div>
+    </AuthCardFrame>
   );
 }
 
