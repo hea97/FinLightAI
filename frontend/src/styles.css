@@ -2106,6 +2106,438 @@ button {
   grid-column: 1 / -1;
 }
 
+.mypage-hero {
+  grid-column: 1 / -1;
+  min-height: 88px;
+  background:
+    radial-gradient(circle at 82% 10%, rgba(56, 189, 248, 0.15), transparent 26%),
+    linear-gradient(180deg, rgba(1, 14, 28, 0.68), transparent);
+}
+
+.mypage-hero h1,
+.mypage-hero p {
+  margin: 0;
+}
+
+.mypage-hero h1 {
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+.mypage-hero p {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: var(--text-md);
+}
+
+.mypage-top-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(420px, 1.2fr) minmax(0, 1.6fr);
+  gap: 16px;
+}
+
+.mypage-profile-card {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.mypage-avatar {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6ee7c6, #2d9ab8);
+  color: #f8ffff;
+  font-size: 2.3rem;
+  font-weight: 900;
+}
+
+.mypage-profile-card h2,
+.mypage-profile-card p {
+  margin: 0;
+}
+
+.mypage-profile-card h2 {
+  font-size: 1.25rem;
+}
+
+.mypage-profile-card p,
+.mypage-profile-card span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.mypage-profile-card p {
+  margin: 8px 0;
+}
+
+.mypage-profile-card p button,
+.mypage-profile-card > button,
+.mypage-card-head button,
+.mypage-info-list button,
+.mypage-guide-card button {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 760;
+  padding: 8px 12px;
+}
+
+.mypage-profile-card p button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 0 0 4px;
+}
+
+.mypage-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mypage-metric-card {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 110px;
+  padding: 16px;
+}
+
+.mypage-metric-card > span {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(45, 154, 184, 0.18);
+  color: var(--green);
+  font-size: 1.6rem;
+}
+
+.mypage-metric-card p,
+.mypage-metric-card small {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.mypage-metric-card strong {
+  display: block;
+  margin: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  line-height: 1.1;
+}
+
+.mypage-metric-card b {
+  color: var(--green);
+}
+
+.mypage-main-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  gap: 16px;
+}
+
+.mypage-left-column,
+.mypage-right-column {
+  display: grid;
+  gap: 16px;
+  align-self: start;
+}
+
+.mypage-right-column {
+  grid-template-columns: 1fr 1.1fr;
+}
+
+.mypage-alert-settings,
+.mypage-shortcut-card {
+  grid-column: 1 / -1;
+}
+
+.mypage-loading {
+  grid-column: 1 / -1;
+}
+
+.mypage-card h2,
+.mypage-card p {
+  margin: 0;
+}
+
+.mypage-card h2 {
+  font-size: var(--text-lg);
+}
+
+.mypage-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.mypage-card-head span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.mypage-info-list {
+  display: grid;
+  margin: 14px 0 0;
+}
+
+.mypage-info-list div {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 13px 0;
+}
+
+.mypage-info-list dt,
+.mypage-info-list dd {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.mypage-info-list dt {
+  color: var(--muted);
+  font-weight: 760;
+}
+
+.mypage-info-list dd {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--text);
+  text-align: right;
+}
+
+.channel-pill {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #ffe14f;
+  color: #101722;
+  font-size: var(--text-xs);
+  font-weight: 900;
+  padding: 4px 6px;
+}
+
+.mypage-info-list em {
+  border-radius: 7px;
+  background: rgba(80, 230, 151, 0.12);
+  color: var(--green);
+  font-size: var(--text-xs);
+  font-style: normal;
+  font-weight: 820;
+  padding: 5px 8px;
+}
+
+.mypage-toggle-list {
+  display: grid;
+  gap: 8px;
+}
+
+.mypage-toggle-row {
+  display: grid;
+  grid-template-columns: 30px minmax(110px, 0.8fr) minmax(0, 1.2fr) 48px;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.mypage-toggle-row strong {
+  font-size: var(--text-md);
+}
+
+.mypage-toggle-row small {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.danger-text {
+  color: #ff6d64;
+}
+
+.mypage-toggle-row i {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.mypage-toggle-row i::after {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.82);
+  content: "";
+}
+
+.mypage-toggle-row i.enabled {
+  background: linear-gradient(90deg, #62d89d, #8cf5d8);
+}
+
+.mypage-toggle-row i.enabled::after {
+  left: 22px;
+  background: #fff;
+}
+
+.interest-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.interest-chip-list button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: 750;
+  padding: 10px 15px;
+}
+
+.interest-chip-list span {
+  margin-left: 8px;
+  color: var(--muted);
+}
+
+.interest-chip-list .add-interest {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.mypage-connection-list,
+.mypage-activity-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.mypage-connection-list article,
+.mypage-activity-list article {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+}
+
+.mypage-connection-list article {
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+}
+
+.mypage-connection-list span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(115, 215, 176, 0.12);
+  color: #d8fff0;
+  font-size: var(--text-xs);
+  font-weight: 900;
+}
+
+.mypage-connection-list strong,
+.mypage-activity-list strong {
+  font-size: var(--text-sm);
+}
+
+.mypage-connection-list em {
+  color: var(--green);
+  font-size: var(--text-sm);
+  font-style: normal;
+  font-weight: 820;
+}
+
+.mypage-activity-list article {
+  grid-template-columns: 28px minmax(0, 1fr) 150px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 10px;
+}
+
+.mypage-activity-list time {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-align: right;
+}
+
+.mypage-shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.mypage-shortcut-grid button {
+  display: grid;
+  justify-items: start;
+  gap: 9px;
+  min-height: 136px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  padding: 16px;
+  text-align: left;
+}
+
+.mypage-shortcut-grid span {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.14);
+  color: #91e2ff;
+  font-weight: 900;
+}
+
+.mypage-shortcut-grid small,
+.mypage-guide-card p {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.mypage-shortcut-grid em {
+  color: var(--text);
+  font-style: normal;
+}
+
+.mypage-guide-card {
+  border-color: rgba(122, 165, 255, 0.26);
+  background:
+    radial-gradient(circle at 88% 58%, rgba(56, 189, 248, 0.14), transparent 28%),
+    linear-gradient(180deg, var(--card), rgba(12, 17, 25, 0.98));
+}
+
+.mypage-guide-card p {
+  margin: 16px 0;
+}
+
 .sub-hero p,
 .action-panel p,
 .detail-panel p {
@@ -2729,6 +3161,16 @@ button {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .mypage-top-row,
+  .mypage-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mypage-metric-grid,
+  .mypage-shortcut-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .alert-flow-steps {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -2780,7 +3222,8 @@ button {
   }
 
   .alert-rule-grid,
-  .integration-grid {
+  .integration-grid,
+  .mypage-right-column {
     grid-template-columns: 1fr;
   }
 
@@ -2852,6 +3295,7 @@ button {
   .portfolio-hero,
   .portfolio-hero-actions,
   .kakao-alert-hero,
+  .mypage-profile-card,
   .impact-panel-heading,
   .industry-detail-top,
   .impact-footnote,
@@ -2865,8 +3309,22 @@ button {
   .impact-summary-grid,
   .portfolio-summary-strip,
   .asset-form-grid,
-  .alert-flow-steps {
+  .alert-flow-steps,
+  .mypage-metric-grid,
+  .mypage-shortcut-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mypage-info-list div,
+  .mypage-toggle-row,
+  .mypage-activity-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .mypage-info-list dd,
+  .mypage-activity-list time {
+    justify-content: flex-start;
+    text-align: left;
   }
 
   .phone-frame {

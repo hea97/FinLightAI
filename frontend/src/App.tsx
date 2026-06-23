@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { industries, marketData, tabs, type MarketTab, type MarketViewData, type NewsImpact, type Tone } from "./data/mockData";
 import { fetchIndustryImpactData } from "./services/industryImpactApi";
 import { fetchKakaoAlertData } from "./services/kakaoAlertApi";
+import { fetchMyPageData } from "./services/myPageApi";
 import { fetchNewsGuardData } from "./services/newsGuardApi";
 import { fetchPortfolioData } from "./services/portfolioApi";
 import type { IndustryDetail, IndustryImpactResponse, IndustrySummary, RelatedNewsItem } from "./types/industryImpact";
 import type { KakaoAlertHistoryItem, KakaoAlertResponse, KakaoAlertRule, KakaoChatQuestion, KakaoFlowStep, KakaoIntegrationStatus, KakaoPreviewMessage } from "./types/kakaoAlert";
+import type { MyPageActivity, MyPageAlertSetting, MyPageConnection, MyPageMetric, MyPageProfile, MyPageResponse, MyPageShortcut } from "./types/myPage";
 import type { AssetCurrency, AssetMarket, AssetStatus, IndustryConnection, LinkedSignal, PortfolioAsset, PortfolioResponse, PortfolioSummary } from "./types/portfolio";
 import type {
   BlockReason,
@@ -138,7 +140,7 @@ function App() {
           </button>
         </div>
 
-        {view !== "guard" && view !== "industry" && view !== "kakao" ? (
+        {view !== "guard" && view !== "industry" && view !== "kakao" && view !== "mypage" ? (
           <div className="page-heading">
             <h1>{page.title}</h1>
             <p>{page.subtitle}</p>
@@ -169,7 +171,7 @@ function App() {
           )}
           {view === "portfolio" && <PortfolioPage onViewChange={setView} />}
           {view === "kakao" && <KakaoAlertPage />}
-          {view === "mypage" && <MyPageView locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} onViewChange={setView} />}
+          {view === "mypage" && <MyPageDashboard locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} onViewChange={setView} />}
           {view === "settings" && <SettingsView locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} />}
           {view === "login" && <LoginView onViewChange={setView} />}
         </main>
@@ -1614,6 +1616,246 @@ function MyPageView({
         <button type="button" onClick={() => onViewChange("kakao")}>카카오 채널 설정</button>
         <button type="button" onClick={() => onViewChange("industry")}>관심 산업 관리</button>
       </div>
+    </section>
+  );
+}
+
+function MyPageDashboard({
+  locale,
+  onLocaleToggle,
+  onViewChange,
+}: {
+  locale: "ko" | "en";
+  onLocaleToggle: () => void;
+  onViewChange: (view: ViewId) => void;
+}) {
+  const [myPageData, setMyPageData] = useState<MyPageResponse | null>(null);
+  const [alertSettings, setAlertSettings] = useState<MyPageAlertSetting[]>([]);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetchMyPageData()
+      .then((data) => {
+        if (!mounted) return;
+        setMyPageData(data);
+        setAlertSettings(data.alertSettings);
+        setInterests(data.interests);
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (isLoading || !myPageData) {
+    return (
+      <section className="panel mypage-loading">
+        <h2>마이페이지 데이터를 불러오는 중입니다.</h2>
+      </section>
+    );
+  }
+
+  function toggleAlert(alertId: MyPageAlertSetting["id"]) {
+    setAlertSettings((current) => current.map((item) => (item.id === alertId ? { ...item, enabled: !item.enabled } : item)));
+  }
+
+  function removeInterest(interest: string) {
+    setInterests((current) => current.filter((item) => item !== interest));
+  }
+
+  function addInterest() {
+    const next = "전력 인프라";
+    setInterests((current) => (current.includes(next) ? current : [...current, next]));
+  }
+
+  return (
+    <>
+      <section className="mypage-hero">
+        <h1>마이페이지</h1>
+        <p>내 정보와 알림, 관심 산업, 활동 기록을 한 곳에서 관리합니다.</p>
+      </section>
+      <section className="mypage-top-row">
+        <MyPageProfileCard profile={myPageData.profile} />
+        <MyPageMetricCards metrics={myPageData.metrics} />
+      </section>
+      <section className="mypage-main-grid">
+        <div className="mypage-left-column">
+          <InfoSummaryCard locale={locale} onLocaleToggle={onLocaleToggle} profile={myPageData.profile} />
+          <RecentActivityCard activities={myPageData.activities} />
+        </div>
+        <div className="mypage-right-column">
+          <AlertSettingsCard alertSettings={alertSettings} onToggle={toggleAlert} />
+          <InterestKeywordCard interests={interests} onAdd={addInterest} onRemove={removeInterest} />
+          <ConnectionStatusCard connections={myPageData.connections} />
+          <ShortcutCard onViewChange={onViewChange} shortcuts={myPageData.shortcuts} />
+          <GuideCard body={myPageData.guide.body} ctaLabel={myPageData.guide.ctaLabel} title={myPageData.guide.title} />
+        </div>
+      </section>
+    </>
+  );
+}
+
+function MyPageProfileCard({ profile }: { profile: MyPageProfile }) {
+  return (
+    <section className="panel mypage-profile-card">
+      <div className="mypage-avatar">U</div>
+      <div>
+        <h2>{profile.username}님, 반갑습니다!</h2>
+        <p>{profile.email} <button type="button" aria-label="이메일 복사">⧉</button></p>
+        <span>마지막 로그인 {profile.lastLoginAt}</span>
+      </div>
+      <button type="button">프로필 수정</button>
+    </section>
+  );
+}
+
+function MyPageMetricCards({ metrics }: { metrics: MyPageMetric[] }) {
+  return (
+    <div className="mypage-metric-grid">
+      {metrics.map((metric) => (
+        <article className="panel mypage-metric-card" key={metric.id}>
+          <span aria-hidden="true">{metric.icon}</span>
+          <div>
+            <p>{metric.label}</p>
+            <strong>{metric.value}</strong>
+            <small>{metric.helper} {metric.delta ? <b>{metric.delta}</b> : null}</small>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function InfoSummaryCard({ locale, onLocaleToggle, profile }: { locale: "ko" | "en"; onLocaleToggle: () => void; profile: MyPageProfile }) {
+  return (
+    <section className="panel mypage-card">
+      <h2>A. 내 정보 요약</h2>
+      <dl className="mypage-info-list">
+        <div><dt>사용자명</dt><dd>{profile.username}</dd></div>
+        <div><dt>이메일</dt><dd>{profile.email}</dd></div>
+        <div><dt>가입일</dt><dd>{profile.joinedAt}</dd></div>
+        <div><dt>마지막 로그인</dt><dd>{profile.lastLoginAt}</dd></div>
+        <div><dt>언어 설정</dt><dd><button type="button" onClick={onLocaleToggle}>{locale === "ko" ? "한국어" : "English"}</button></dd></div>
+        <div><dt>알림 채널</dt><dd><span className="channel-pill">TALK</span>{profile.alertChannel}<em>연결됨</em></dd></div>
+      </dl>
+    </section>
+  );
+}
+
+function AlertSettingsCard({ alertSettings, onToggle }: { alertSettings: MyPageAlertSetting[]; onToggle: (id: MyPageAlertSetting["id"]) => void }) {
+  return (
+    <section className="panel mypage-card mypage-alert-settings">
+      <div className="mypage-card-head">
+        <h2>B. 알림 설정</h2>
+        <span>투자 추천이 아닌 시장 상태 알림입니다.</span>
+      </div>
+      <div className="mypage-toggle-list">
+        {alertSettings.map((setting) => (
+          <button className="mypage-toggle-row" key={setting.id} type="button" onClick={() => onToggle(setting.id)} aria-pressed={setting.enabled}>
+            <span aria-hidden="true">{setting.icon}</span>
+            <strong className={setting.emphasis ? "danger-text" : ""}>{setting.title}</strong>
+            <small>{setting.description}</small>
+            <i className={setting.enabled ? "enabled" : ""} aria-hidden="true" />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function InterestKeywordCard({ interests, onAdd, onRemove }: { interests: string[]; onAdd: () => void; onRemove: (interest: string) => void }) {
+  return (
+    <section className="panel mypage-card">
+      <div className="mypage-card-head">
+        <h2>C. 관심 산업 / 키워드</h2>
+        <button type="button">관리하기</button>
+      </div>
+      <div className="interest-chip-list">
+        {interests.map((interest) => (
+          <button key={interest} type="button" onClick={() => onRemove(interest)}>
+            {interest} <span>×</span>
+          </button>
+        ))}
+        <button className="add-interest" type="button" onClick={onAdd}>+ 추가</button>
+      </div>
+    </section>
+  );
+}
+
+function ConnectionStatusCard({ connections }: { connections: MyPageConnection[] }) {
+  return (
+    <section className="panel mypage-card">
+      <h2>D. 연동 상태</h2>
+      <div className="mypage-connection-list">
+        {connections.map((connection) => (
+          <article key={connection.id}>
+            <span>{connection.icon}</span>
+            <strong>{connection.label}</strong>
+            <em>● {connection.statusLabel}</em>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecentActivityCard({ activities }: { activities: MyPageActivity[] }) {
+  return (
+    <section className="panel mypage-card">
+      <div className="mypage-card-head">
+        <h2>E. 최근 활동 기록</h2>
+        <button type="button">전체 보기</button>
+      </div>
+      <div className="mypage-activity-list">
+        {activities.map((activity) => (
+          <article key={activity.id}>
+            <span aria-hidden="true">{activity.icon}</span>
+            <strong>{activity.title}</strong>
+            <time>{activity.timestamp}</time>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ShortcutCard({ onViewChange, shortcuts }: { onViewChange: (view: ViewId) => void; shortcuts: MyPageShortcut[] }) {
+  const targetMap: Record<MyPageShortcut["id"], ViewId> = {
+    portfolio: "portfolio",
+    kakao: "kakao",
+    guard: "guard",
+    industry: "industry",
+  };
+
+  return (
+    <section className="panel mypage-card mypage-shortcut-card">
+      <h2>F. 바로가기</h2>
+      <div className="mypage-shortcut-grid">
+        {shortcuts.map((shortcut) => (
+          <button key={shortcut.id} type="button" onClick={() => onViewChange(targetMap[shortcut.id])}>
+            <span>{shortcut.icon}</span>
+            <strong>{shortcut.title}</strong>
+            <small>{shortcut.description}</small>
+            <em>→</em>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function GuideCard({ body, ctaLabel, title }: { body: string; ctaLabel: string; title: string }) {
+  return (
+    <section className="panel mypage-card mypage-guide-card">
+      <h2>G. {title}</h2>
+      <p>{body}</p>
+      <button type="button">{ctaLabel} ↗</button>
     </section>
   );
 }
