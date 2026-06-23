@@ -15,6 +15,7 @@ export interface PortfolioAsset {
   recentSellPrice?: number;
   currency: AssetCurrency;
   status: AssetStatus;
+  decisionMemo?: string;
   relatedNewsCount: number;
   cautionNewsCount: number;
   updatedAt: string;

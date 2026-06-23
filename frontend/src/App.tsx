@@ -24,12 +24,11 @@ import type {
 
 type ViewId = "briefing" | "guard" | "industry" | "portfolio" | "kakao" | "mypage" | "settings" | "login";
 
-const navItems: { id: ViewId; label: string }[] = [
+const navItems: { id: Exclude<ViewId, "kakao" | "login">; label: string }[] = [
   { id: "briefing", label: "AI 브리핑" },
   { id: "guard", label: "뉴스 가드" },
   { id: "industry", label: "산업 영향도" },
   { id: "portfolio", label: "포트폴리오" },
-  { id: "kakao", label: "카카오 알림" },
   { id: "mypage", label: "마이페이지" },
   { id: "settings", label: "설정" },
 ];
@@ -69,11 +68,27 @@ const viewCopy: Record<ViewId, { title: string; subtitle: string }> = {
   },
 };
 
+type HeaderSearchResult = {
+  id: string;
+  title: string;
+  subtitle: string;
+  targetView: ViewId;
+  targetIndustryId?: string;
+};
+
+const headerSearchIndex: HeaderSearchResult[] = [
+  { id: "briefing-yellow", title: "YELLOW 주의 신호", subtitle: "오늘 시장 신호와 위험도 68/100", targetView: "briefing" },
+  { id: "news-guard", title: "뉴스 가드", subtitle: "저신뢰 뉴스와 차단 상태 확인", targetView: "guard" },
+  { id: "industry-semiconductor", title: "반도체", subtitle: "산업 영향도와 관련 뉴스", targetView: "industry", targetIndustryId: "semiconductor" },
+  { id: "asset-samsung", title: "삼성전자 005930", subtitle: "포트폴리오 보유 자산", targetView: "portfolio" },
+  { id: "kakao-alerts", title: "카카오 알림", subtitle: "카카오 채널 챗봇 + n8n 흐름", targetView: "kakao" },
+];
+
 function App() {
   const [view, setView] = useState<ViewId>("briefing");
   const [marketTab, setMarketTab] = useState<MarketTab>("domestic");
   const [selectedIndustryId, setSelectedIndustryId] = useState("semiconductor");
-  const [locale, setLocale] = useState<"ko" | "en">("ko");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const currentMarket = marketData[marketTab];
   const selectedIndustry = useMemo(
@@ -81,11 +96,29 @@ function App() {
     [selectedIndustryId],
   );
   const page = viewCopy[view];
+  const searchResults = useMemo(() => {
+    const normalized = searchQuery.trim().toLowerCase();
+    if (!normalized) return [];
+
+    return headerSearchIndex
+      .filter((item) => `${item.title} ${item.subtitle}`.toLowerCase().includes(normalized))
+      .slice(0, 5);
+  }, [searchQuery]);
 
   function handleIndustryClick(industryId: string) {
     setSelectedIndustryId(industryId);
     setMarketTab("watchIndustry");
     setView("industry");
+  }
+
+  function handleSearchResultClick(result: HeaderSearchResult) {
+    if (result.targetIndustryId) {
+      setSelectedIndustryId(result.targetIndustryId);
+      setMarketTab("watchIndustry");
+    }
+
+    setView(result.targetView);
+    setSearchQuery("");
   }
 
   return (
@@ -117,29 +150,38 @@ function App() {
         </nav>
 
         <div className="header-actions">
-          <label className="search-box">
+          <div className="search-box">
             <span aria-hidden="true">⌕</span>
-            <input placeholder="뉴스, 산업, 주식 검색" />
+            <input
+              aria-label="뉴스, 산업, 종목 검색"
+              placeholder="뉴스, 산업, 종목 검색"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
             <kbd>⌘K</kbd>
-          </label>
-          <div className="language-toggle" aria-label="언어 전환">
-            <button className={locale === "ko" ? "active" : ""} type="button" onClick={() => setLocale("ko")}>
-              KO
-            </button>
-            <button className={locale === "en" ? "active" : ""} type="button" onClick={() => setLocale("en")}>
-              EN
-            </button>
+            {searchQuery ? (
+              <div className="search-popover" role="listbox">
+                {searchResults.length > 0 ? (
+                  searchResults.map((result) => (
+                    <button key={result.id} type="button" onClick={() => handleSearchResultClick(result)}>
+                      <strong>{result.title}</strong>
+                      <span>{result.subtitle}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="search-empty">검색 결과가 없습니다.</div>
+                )}
+              </div>
+            ) : null}
           </div>
-          <button className="icon-button" type="button" onClick={() => setView("kakao")} aria-label="알림">
+          <button className="icon-button" type="button" onClick={() => setView("kakao")} aria-label="카카오 및 시장 알림">
             ♡<span className="notification-dot">3</span>
           </button>
           <button className="user-menu" type="button" onClick={() => setView("mypage")}>
             <span className="avatar">U</span>
             finlight_user
           </button>
-          <button className="small-btn yellow" type="button" onClick={() => setView("guard")}>
-            YELLOW · 주의
-          </button>
+          <SignalTrafficLight signal="yellow" onClick={() => setView("guard")} />
         </div>
 
         {view !== "guard" && view !== "industry" && view !== "kakao" && view !== "mypage" && view !== "settings" && view !== "login" ? (
@@ -173,14 +215,48 @@ function App() {
           )}
           {view === "portfolio" && <PortfolioPage onViewChange={setView} />}
           {view === "kakao" && <KakaoAlertPage />}
-          {view === "mypage" && <MyPageDashboard locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} onViewChange={setView} />}
-          {view === "settings" && <SettingsDashboard locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} />}
+          {view === "mypage" && <MyPageDashboard onViewChange={setView} />}
+          {view === "settings" && <SettingsDashboard />}
           {view === "login" && <KakaoAuthFlowView onViewChange={setView} />}
         </main>
       )}
 
       <div className="prototype-chip">FinLightAI High-Fidelity UI Prototype · v3</div>
     </div>
+  );
+}
+
+function SignalTrafficLight({ signal, onClick }: { signal: "red" | "yellow" | "green"; onClick: () => void }) {
+  const labels = {
+    red: "위험",
+    yellow: "주의",
+    green: "안정",
+  };
+
+  return (
+    <button
+      className="signal-traffic-light"
+      type="button"
+      onClick={onClick}
+      aria-label={`현재 시장 신호: ${labels[signal]}`}
+      title={`현재 시장 신호: ${labels[signal]}`}
+    >
+      <span className={`signal-dot red ${signal === "red" ? "active" : ""}`} aria-hidden="true" />
+      <span className={`signal-dot yellow ${signal === "yellow" ? "active" : ""}`} aria-hidden="true" />
+      <span className={`signal-dot green ${signal === "green" ? "active" : ""}`} aria-hidden="true" />
+    </button>
+  );
+}
+
+function PageHeader({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+  return (
+    <section className="page-header">
+      <div>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+      {action ? <div className="page-header-action">{action}</div> : null}
+    </section>
   );
 }
 
@@ -372,13 +448,7 @@ function NewsGuardPage() {
   return (
     <main className="news-guard-page">
       <section className="news-guard-main">
-        <header className="news-guard-heading">
-          <div className="page-icon" aria-hidden="true">◆</div>
-          <div>
-            <h1>뉴스 가드</h1>
-            <p>뉴스 신뢰도를 검증하고 저신뢰 뉴스를 걸러냅니다.</p>
-          </div>
-        </header>
+        <PageHeader title="뉴스 가드" description="뉴스 신뢰도를 검증하고 저신뢰 뉴스를 걸러냅니다." />
 
         <NewsGuardKpiGrid data={data} />
 
@@ -699,13 +769,7 @@ function IndustryImpactPage({
 
   return (
     <>
-      <section className="industry-impact-hero">
-        <div className="hero-icon" aria-hidden="true">▥</div>
-        <div>
-          <h1>산업 영향도</h1>
-          <p>산업별 점수와 근거 뉴스를 한 화면에서 확인합니다.</p>
-        </div>
-      </section>
+      <PageHeader title="산업 영향도" description="산업별 점수와 근거 뉴스를 한 화면에서 확인합니다." />
       <IndustryImpactHeatmapPanel
         activeIndustryId={activeDetail.industryId}
         industries={industryData.industries}
@@ -896,6 +960,7 @@ type PortfolioAssetDraft = {
   recentSellPrice: string;
   currency: AssetCurrency;
   status: AssetStatus;
+  decisionMemo: string;
 };
 
 const emptyAssetDraft: PortfolioAssetDraft = {
@@ -909,6 +974,7 @@ const emptyAssetDraft: PortfolioAssetDraft = {
   recentSellPrice: "",
   currency: "KRW",
   status: "holding",
+  decisionMemo: "",
 };
 
 function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
@@ -993,16 +1059,16 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
 
   return (
     <>
-      <section className="portfolio-hero">
-        <div>
-          <h1>포트폴리오</h1>
-          <p>직접 등록한 자산을 기준으로 현황과 연결된 산업/뉴스 신호를 모니터링합니다.</p>
-        </div>
-        <div className="portfolio-hero-actions">
-          <span>최근 업데이트 {summary.updatedAt}</span>
-          <button type="button" onClick={openAddForm}>자산 추가</button>
-        </div>
-      </section>
+      <PageHeader
+        title="포트폴리오"
+        description="직접 등록한 자산을 기준으로 산업/뉴스 신호를 모니터링합니다."
+        action={(
+          <div className="portfolio-hero-actions">
+            <span>최근 업데이트 {summary.updatedAt}</span>
+            <button type="button" onClick={openAddForm}>자산 추가</button>
+          </div>
+        )}
+      />
 
       <PortfolioSummaryCards summary={summary} />
 
@@ -1115,6 +1181,7 @@ function AssetTable({
             <th>최근 매도가</th>
             <th>상태</th>
             <th>연결 뉴스</th>
+            <th>메모</th>
             <th>관리</th>
           </tr>
         </thead>
@@ -1134,6 +1201,9 @@ function AssetTable({
               <td>
                 <span>{asset.relatedNewsCount}건</span>
                 <small>주의 {asset.cautionNewsCount}건</small>
+              </td>
+              <td>
+                <span className="asset-memo-preview">{asset.decisionMemo || "메모 없음"}</span>
               </td>
               <td>
                 <div className="asset-actions">
@@ -1222,6 +1292,15 @@ function AssetFormModal({
               <option value="partial_sold">일부 매도</option>
               <option value="watching">관심</option>
             </select>
+          </label>
+          <label className="asset-form-memo">
+            메모
+            <textarea
+              rows={4}
+              placeholder="이 자산을 등록한 이유, 확인할 시장 신호, 발표 후 체크할 내용을 적어두세요."
+              value={draft.decisionMemo}
+              onChange={(event) => onChange({ ...draft, decisionMemo: event.target.value })}
+            />
           </label>
         </div>
         <div className="portfolio-modal-actions">
@@ -1597,24 +1676,15 @@ function AlertFlowCard({ flow }: { flow: KakaoFlowStep[] }) {
   );
 }
 
-function MyPageView({
-  locale,
-  onLocaleToggle,
-  onViewChange,
-}: {
-  locale: "ko" | "en";
-  onLocaleToggle: () => void;
-  onViewChange: (view: ViewId) => void;
-}) {
+function MyPageView({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
   return (
     <section className="panel sub-hero">
       <div className="section-title-row">
         <h2>마이페이지</h2>
         <span>개인화 설정</span>
       </div>
-      <p>관심 산업, 언어, 알림 채널을 관리합니다. 현재 언어 버튼은 상태 전환까지 연결되어 있습니다.</p>
+      <p>관심 산업과 알림 채널을 관리합니다. MVP에서는 한국어 UI를 기준으로 제공합니다.</p>
       <div className="settings-list">
-        <button type="button" onClick={onLocaleToggle}>언어 전환: 현재 {locale === "ko" ? "한국어" : "English"}</button>
         <button type="button" onClick={() => onViewChange("kakao")}>카카오 채널 설정</button>
         <button type="button" onClick={() => onViewChange("industry")}>관심 산업 관리</button>
       </div>
@@ -1623,12 +1693,8 @@ function MyPageView({
 }
 
 function MyPageDashboard({
-  locale,
-  onLocaleToggle,
   onViewChange,
 }: {
-  locale: "ko" | "en";
-  onLocaleToggle: () => void;
   onViewChange: (view: ViewId) => void;
 }) {
   const [myPageData, setMyPageData] = useState<MyPageResponse | null>(null);
@@ -1688,7 +1754,7 @@ function MyPageDashboard({
       </section>
       <section className="mypage-main-grid">
         <div className="mypage-left-column">
-          <InfoSummaryCard locale={locale} onLocaleToggle={onLocaleToggle} profile={myPageData.profile} />
+          <InfoSummaryCard profile={myPageData.profile} />
           <RecentActivityCard activities={myPageData.activities} />
         </div>
         <div className="mypage-right-column">
@@ -1734,7 +1800,7 @@ function MyPageMetricCards({ metrics }: { metrics: MyPageMetric[] }) {
   );
 }
 
-function InfoSummaryCard({ locale, onLocaleToggle, profile }: { locale: "ko" | "en"; onLocaleToggle: () => void; profile: MyPageProfile }) {
+function InfoSummaryCard({ profile }: { profile: MyPageProfile }) {
   return (
     <section className="panel mypage-card">
       <h2>A. 내 정보 요약</h2>
@@ -1743,7 +1809,7 @@ function InfoSummaryCard({ locale, onLocaleToggle, profile }: { locale: "ko" | "
         <div><dt>이메일</dt><dd>{profile.email}</dd></div>
         <div><dt>가입일</dt><dd>{profile.joinedAt}</dd></div>
         <div><dt>마지막 로그인</dt><dd>{profile.lastLoginAt}</dd></div>
-        <div><dt>언어 설정</dt><dd><button type="button" onClick={onLocaleToggle}>{locale === "ko" ? "한국어" : "English"}</button></dd></div>
+        <div><dt>언어 설정</dt><dd>한국어</dd></div>
         <div><dt>알림 채널</dt><dd><span className="channel-pill">TALK</span>{profile.alertChannel}<em>연결됨</em></dd></div>
       </dl>
     </section>
@@ -1862,16 +1928,15 @@ function GuideCard({ body, ctaLabel, title }: { body: string; ctaLabel: string; 
   );
 }
 
-function SettingsView({ locale, onLocaleToggle }: { locale: "ko" | "en"; onLocaleToggle: () => void }) {
+function SettingsView() {
   return (
     <section className="panel sub-hero">
       <div className="section-title-row">
         <h2>설정</h2>
         <span>서비스 기준</span>
       </div>
-      <p>데이터 수집, 뉴스 가드 필터, 알림 기준, 언어 표시를 조정합니다.</p>
+      <p>데이터 수집, 뉴스 가드 필터, 알림 기준, 화면 표시를 조정합니다.</p>
       <div className="settings-list">
-        <button type="button" onClick={onLocaleToggle}>언어: {locale === "ko" ? "한국어" : "English"}</button>
         <button type="button">뉴스 가드 기본 필터: 전체 뉴스</button>
         <button type="button">API 상태 카드 표시: 켜짐</button>
       </div>
@@ -1879,7 +1944,7 @@ function SettingsView({ locale, onLocaleToggle }: { locale: "ko" | "en"; onLocal
   );
 }
 
-function SettingsDashboard({ locale, onLocaleToggle }: { locale: "ko" | "en"; onLocaleToggle: () => void }) {
+function SettingsDashboard() {
   const [settingsData, setSettingsData] = useState<SettingsResponse | null>(null);
   const [dataCollection, setDataCollection] = useState<DataCollectionSettings | null>(null);
   const [newsGuard, setNewsGuard] = useState<NewsGuardSettings | null>(null);
@@ -1954,7 +2019,7 @@ function SettingsDashboard({ locale, onLocaleToggle }: { locale: "ko" | "en"; on
       <section className="settings-hero">
         <div>
           <h1>설정</h1>
-          <p>데이터 수집, 뉴스 가드 필터, 알림 기준, 언어 및 표시 설정을 관리합니다.</p>
+          <p>데이터 수집, 뉴스 가드 필터, 알림 기준 및 표시 설정을 관리합니다.</p>
         </div>
         <div className="settings-actions">
           <button type="button" onClick={resetSettings}>설정 초기화</button>
@@ -1967,7 +2032,7 @@ function SettingsDashboard({ locale, onLocaleToggle }: { locale: "ko" | "en"; on
         <NewsGuardFilterSettingsCard newsGuard={newsGuard} onModeChange={updateNewsGuardMode} />
         <AlertSettingsPanel kakaoChannel={loadedSettings.kakaoChannel} notifications={notifications} onToggle={toggleNotification} />
         <ApiConnectionSettingsCard apiConnections={loadedSettings.apiConnections} />
-        <DisplaySettingsCard display={display} locale={locale} onLocaleToggle={onLocaleToggle} />
+        <DisplaySettingsCard display={display} />
         <MiscSettingsCard misc={misc} />
       </section>
     </>
@@ -2108,13 +2173,13 @@ function ApiConnectionSettingsCard({ apiConnections }: { apiConnections: ApiConn
   );
 }
 
-function DisplaySettingsCard({ display, locale, onLocaleToggle }: { display: DisplaySettings; locale: "ko" | "en"; onLocaleToggle: () => void }) {
+function DisplaySettingsCard({ display }: { display: DisplaySettings }) {
   return (
     <section className="panel settings-card">
-      <h2>E. 언어 및 표시 설정</h2>
-      <p>언어와 화면 표시 옵션을 설정합니다.</p>
+      <h2>E. 표시 설정</h2>
+      <p>MVP에서는 한국어 UI를 기준으로 화면 표시 옵션만 설정합니다.</p>
       <div className="settings-select-grid two">
-        <label>언어<button type="button" onClick={onLocaleToggle}>{locale === "ko" ? display.language : "English"}</button></label>
+        <label>언어<button type="button" disabled>{display.language}</button></label>
         <label>테마<select value={display.theme} onChange={() => undefined}><option>다크 모드</option></select></label>
         <label>숫자/통화 형식<select value={display.numberFormat} onChange={() => undefined}><option>한국 (KRW)</option></select></label>
         <label>시간대<select value={display.timezone} onChange={() => undefined}><option>(UTC+09:00) 서울</option></select></label>
@@ -2417,6 +2482,7 @@ function assetToDraft(asset: PortfolioAsset): PortfolioAssetDraft {
     recentSellPrice: asset.recentSellPrice?.toString() ?? "",
     currency: asset.currency,
     status: asset.status,
+    decisionMemo: asset.decisionMemo ?? "",
   };
 }
 
@@ -2433,6 +2499,7 @@ function draftToAsset(draft: PortfolioAssetDraft, existingId: string | null): Po
     recentSellPrice: draft.recentSellPrice ? Number(draft.recentSellPrice) : undefined,
     currency: draft.currency,
     status: draft.status,
+    decisionMemo: draft.decisionMemo.trim() || undefined,
     relatedNewsCount: 0,
     cautionNewsCount: 0,
     updatedAt: "2026.06.23 09:30",
