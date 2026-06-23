@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { industries, marketData, tabs, type MarketTab, type MarketViewData, type NewsImpact, type Tone } from "./data/mockData";
 import { fetchIndustryImpactData } from "./services/industryImpactApi";
 import { fetchNewsGuardData } from "./services/newsGuardApi";
+import { fetchPortfolioData } from "./services/portfolioApi";
 import type { IndustryDetail, IndustryImpactResponse, IndustrySummary, RelatedNewsItem } from "./types/industryImpact";
+import type { AssetCurrency, AssetMarket, AssetStatus, IndustryConnection, LinkedSignal, PortfolioAsset, PortfolioResponse, PortfolioSummary } from "./types/portfolio";
 import type {
   BlockReason,
   NewsArticle,
@@ -163,7 +165,7 @@ function App() {
               onIndustryClick={handleIndustryClick}
             />
           )}
-          {view === "portfolio" && <PortfolioView onViewChange={setView} />}
+          {view === "portfolio" && <PortfolioPage onViewChange={setView} />}
           {view === "kakao" && <KakaoChannelView onViewChange={setView} />}
           {view === "mypage" && <MyPageView locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} onViewChange={setView} />}
           {view === "settings" && <SettingsView locale={locale} onLocaleToggle={() => setLocale(locale === "ko" ? "en" : "ko")} />}
@@ -877,6 +879,457 @@ function IndustryImpactSummaryPanel({ detail }: { detail: IndustryDetail }) {
   );
 }
 
+type PortfolioAssetDraft = {
+  assetName: string;
+  symbol: string;
+  market: AssetMarket;
+  industry: string;
+  quantity: number;
+  averageBuyPrice: number;
+  currentPrice: number;
+  recentSellPrice: string;
+  currency: AssetCurrency;
+  status: AssetStatus;
+};
+
+const emptyAssetDraft: PortfolioAssetDraft = {
+  assetName: "",
+  symbol: "",
+  market: "KR",
+  industry: "반도체",
+  quantity: 0,
+  averageBuyPrice: 0,
+  currentPrice: 0,
+  recentSellPrice: "",
+  currency: "KRW",
+  status: "holding",
+};
+
+function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
+  const [portfolioData, setPortfolioData] = useState<PortfolioResponse | null>(null);
+  const [assets, setAssets] = useState<PortfolioAsset[]>([]);
+  const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<PortfolioAssetDraft>(emptyAssetDraft);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetchPortfolioData()
+      .then((data) => {
+        if (!mounted) return;
+        setPortfolioData(data);
+        setAssets(data.assets);
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const summary = useMemo(() => derivePortfolioSummary(assets, portfolioData?.summary), [assets, portfolioData?.summary]);
+  const industryConnections = useMemo(() => deriveIndustryConnections(assets, portfolioData?.industryConnections ?? []), [assets, portfolioData?.industryConnections]);
+  const allocation = useMemo(() => deriveAssetAllocation(assets), [assets]);
+
+  if (isLoading || !portfolioData) {
+    return (
+      <section className="panel portfolio-loading">
+        <h2>포트폴리오 데이터를 불러오는 중입니다.</h2>
+      </section>
+    );
+  }
+
+  const deleteTarget = assets.find((asset) => asset.id === deleteTargetId);
+
+  function openAddForm() {
+    setEditingAssetId(null);
+    setDraft(emptyAssetDraft);
+    setIsFormOpen(true);
+  }
+
+  function openEditForm(asset: PortfolioAsset) {
+    setEditingAssetId(asset.id);
+    setDraft(assetToDraft(asset));
+    setIsFormOpen(true);
+  }
+
+  function closeForm() {
+    setIsFormOpen(false);
+    setEditingAssetId(null);
+    setDraft(emptyAssetDraft);
+  }
+
+  function handleSaveAsset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextAsset = draftToAsset(draft, editingAssetId);
+
+    setAssets((currentAssets) => {
+      if (editingAssetId) {
+        return currentAssets.map((asset) => (asset.id === editingAssetId ? { ...asset, ...nextAsset, id: editingAssetId } : asset));
+      }
+
+      return [nextAsset, ...currentAssets];
+    });
+
+    closeForm();
+  }
+
+  function confirmDeleteAsset() {
+    if (!deleteTargetId) return;
+    setAssets((currentAssets) => currentAssets.filter((asset) => asset.id !== deleteTargetId));
+    setDeleteTargetId(null);
+  }
+
+  return (
+    <>
+      <section className="portfolio-hero">
+        <div>
+          <h1>포트폴리오</h1>
+          <p>직접 등록한 자산을 기준으로 현황과 연결된 산업/뉴스 신호를 모니터링합니다.</p>
+        </div>
+        <div className="portfolio-hero-actions">
+          <span>최근 업데이트 {summary.updatedAt}</span>
+          <button type="button" onClick={openAddForm}>자산 추가</button>
+        </div>
+      </section>
+
+      <PortfolioSummaryCards summary={summary} />
+
+      <section className="panel portfolio-assets-panel">
+        <div className="portfolio-section-head">
+          <div>
+            <h2>자산 목록</h2>
+            <p>자산명, 종목코드, 보유 수량, 기준가와 상태를 확인합니다.</p>
+          </div>
+          <button type="button" onClick={openAddForm}>+ 자산 추가</button>
+        </div>
+        <AssetTable assets={assets} onDelete={(assetId) => setDeleteTargetId(assetId)} onEdit={openEditForm} />
+      </section>
+
+      <aside className="portfolio-side">
+        <AssetAllocationChart allocation={allocation} />
+        <IndustryLinkSummary connections={industryConnections} onViewChange={onViewChange} />
+        <LinkedSignalCards signals={portfolioData.linkedSignals} />
+        <PortfolioNoticePanel onViewChange={onViewChange} />
+      </aside>
+
+      {isFormOpen ? (
+        <AssetFormModal
+          draft={draft}
+          isEditing={Boolean(editingAssetId)}
+          onChange={setDraft}
+          onClose={closeForm}
+          onSubmit={handleSaveAsset}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <DeleteAssetDialog
+          asset={deleteTarget}
+          onCancel={() => setDeleteTargetId(null)}
+          onConfirm={confirmDeleteAsset}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function PortfolioSummaryCards({ summary }: { summary: PortfolioSummary }) {
+  const gapClass = summary.valuationGap >= 0 ? "score-pos" : "score-neg";
+
+  return (
+    <section className="portfolio-summary-strip" aria-label="포트폴리오 요약">
+      <article className="panel">
+        <span>등록 자산</span>
+        <strong>{summary.assetCount}개</strong>
+        <small>직접 입력 기준</small>
+      </article>
+      <article className="panel">
+        <span>입력 기준 원금</span>
+        <strong>{formatKrw(summary.totalInputAmount)}</strong>
+        <small>보유 수량 × 평균 매수가</small>
+      </article>
+      <article className="panel">
+        <span>현재 평가 기준 금액</span>
+        <strong>{formatKrw(summary.totalCurrentAmount)}</strong>
+        <small>현재 기준가 반영</small>
+      </article>
+      <article className="panel">
+        <span>평가 차이</span>
+        <strong className={gapClass}>{formatSignedKrw(summary.valuationGap)}</strong>
+        <small className={gapClass}>{summary.valuationGapRate >= 0 ? "+" : ""}{summary.valuationGapRate.toFixed(2)}%</small>
+      </article>
+      <article className="panel">
+        <span>연결 산업</span>
+        <strong>{summary.linkedIndustryCount}개</strong>
+        <small>산업 영향도와 연결</small>
+      </article>
+      <article className="panel">
+        <span>알림 상태</span>
+        <strong>{summary.cautionAlertCount}건 주의</strong>
+        <small>일반 {summary.normalAlertCount}건</small>
+      </article>
+    </section>
+  );
+}
+
+function AssetTable({
+  assets,
+  onDelete,
+  onEdit,
+}: {
+  assets: PortfolioAsset[];
+  onDelete: (assetId: string) => void;
+  onEdit: (asset: PortfolioAsset) => void;
+}) {
+  if (assets.length === 0) {
+    return (
+      <div className="asset-empty">
+        <strong>등록된 자산이 없습니다.</strong>
+        <span>자산 추가 버튼으로 모니터링할 항목을 등록할 수 있습니다.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="asset-table-wrap">
+      <table className="asset-table">
+        <thead>
+          <tr>
+            <th>자산명</th>
+            <th>종목코드</th>
+            <th>보유 수량</th>
+            <th>평균 매수가</th>
+            <th>현재 기준가</th>
+            <th>최근 매도가</th>
+            <th>상태</th>
+            <th>연결 뉴스</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody>
+          {assets.map((asset) => (
+            <tr key={asset.id}>
+              <td>
+                <strong>{asset.assetName}</strong>
+                <span>{asset.industry}</span>
+              </td>
+              <td>{asset.symbol}</td>
+              <td>{asset.quantity.toLocaleString()}주</td>
+              <td>{formatAssetCurrency(asset.averageBuyPrice, asset.currency)}</td>
+              <td>{formatAssetCurrency(asset.currentPrice, asset.currency)}</td>
+              <td>{asset.recentSellPrice ? formatAssetCurrency(asset.recentSellPrice, asset.currency) : "-"}</td>
+              <td><StatusBadge status={asset.status} /></td>
+              <td>
+                <span>{asset.relatedNewsCount}건</span>
+                <small>주의 {asset.cautionNewsCount}건</small>
+              </td>
+              <td>
+                <div className="asset-actions">
+                  <button type="button" onClick={() => onEdit(asset)}>수정</button>
+                  <button type="button" onClick={() => onDelete(asset.id)}>삭제</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AssetFormModal({
+  draft,
+  isEditing,
+  onChange,
+  onClose,
+  onSubmit,
+}: {
+  draft: PortfolioAssetDraft;
+  isEditing: boolean;
+  onChange: (draft: PortfolioAssetDraft) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <form className="portfolio-modal" onSubmit={onSubmit}>
+        <div className="portfolio-modal-head">
+          <h2>{isEditing ? "자산 수정" : "자산 추가"}</h2>
+          <button type="button" onClick={onClose} aria-label="닫기">×</button>
+        </div>
+        <div className="asset-form-grid">
+          <label>
+            자산명
+            <input required value={draft.assetName} onChange={(event) => onChange({ ...draft, assetName: event.target.value })} />
+          </label>
+          <label>
+            종목코드
+            <input required value={draft.symbol} onChange={(event) => onChange({ ...draft, symbol: event.target.value.toUpperCase() })} />
+          </label>
+          <label>
+            시장
+            <select value={draft.market} onChange={(event) => onChange({ ...draft, market: event.target.value as AssetMarket })}>
+              <option value="KR">KR</option>
+              <option value="US">US</option>
+              <option value="TW">TW</option>
+              <option value="OTHER">OTHER</option>
+            </select>
+          </label>
+          <label>
+            산업
+            <input required value={draft.industry} onChange={(event) => onChange({ ...draft, industry: event.target.value })} />
+          </label>
+          <label>
+            보유 수량
+            <input min="0" required type="number" value={draft.quantity} onChange={(event) => onChange({ ...draft, quantity: Number(event.target.value) })} />
+          </label>
+          <label>
+            평균 매수가
+            <input min="0" required type="number" value={draft.averageBuyPrice} onChange={(event) => onChange({ ...draft, averageBuyPrice: Number(event.target.value) })} />
+          </label>
+          <label>
+            현재 기준가
+            <input min="0" required type="number" value={draft.currentPrice} onChange={(event) => onChange({ ...draft, currentPrice: Number(event.target.value) })} />
+          </label>
+          <label>
+            최근 매도가
+            <input min="0" placeholder="없으면 비워두기" type="number" value={draft.recentSellPrice} onChange={(event) => onChange({ ...draft, recentSellPrice: event.target.value })} />
+          </label>
+          <label>
+            통화
+            <select value={draft.currency} onChange={(event) => onChange({ ...draft, currency: event.target.value as AssetCurrency })}>
+              <option value="KRW">KRW</option>
+              <option value="USD">USD</option>
+              <option value="TWD">TWD</option>
+            </select>
+          </label>
+          <label>
+            상태
+            <select value={draft.status} onChange={(event) => onChange({ ...draft, status: event.target.value as AssetStatus })}>
+              <option value="holding">보유중</option>
+              <option value="partial_sold">일부 매도</option>
+              <option value="watching">관심</option>
+            </select>
+          </label>
+        </div>
+        <div className="portfolio-modal-actions">
+          <button type="button" onClick={onClose}>취소</button>
+          <button type="submit">{isEditing ? "수정 저장" : "자산 추가"}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function DeleteAssetDialog({
+  asset,
+  onCancel,
+  onConfirm,
+}: {
+  asset: PortfolioAsset;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="portfolio-modal delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-asset-title">
+        <h2 id="delete-asset-title">자산 삭제</h2>
+        <p><strong>{asset.assetName}</strong>을 목록에서 제거합니다. 등록된 모니터링 항목만 삭제되며 외부 거래와 연결되지 않습니다.</p>
+        <div className="portfolio-modal-actions">
+          <button type="button" onClick={onCancel}>취소</button>
+          <button type="button" className="danger" onClick={onConfirm}>삭제</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssetAllocationChart({ allocation }: { allocation: Array<{ id: string; name: string; amount: number; ratio: number }> }) {
+  return (
+    <section className="panel allocation-panel">
+      <h2>자산 비중</h2>
+      <div className="allocation-list">
+        {allocation.map((item) => (
+          <article key={item.id}>
+            <div>
+              <strong>{item.name}</strong>
+              <span>{formatKrw(item.amount)}</span>
+            </div>
+            <div className="allocation-track" aria-label={`${item.name} 비중 ${item.ratio.toFixed(1)}%`}>
+              <span style={{ width: `${Math.max(item.ratio, 4)}%` }} />
+            </div>
+            <em>{item.ratio.toFixed(1)}%</em>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function IndustryLinkSummary({ connections, onViewChange }: { connections: IndustryConnection[]; onViewChange: (view: ViewId) => void }) {
+  return (
+    <section className="panel industry-link-panel">
+      <div className="portfolio-section-head compact">
+        <h2>산업 연결 요약</h2>
+        <button type="button" onClick={() => onViewChange("industry")}>산업 영향도 보기</button>
+      </div>
+      <div className="industry-link-list">
+        {connections.map((connection) => (
+          <article key={connection.id}>
+            <strong>{connection.industryName}</strong>
+            <span>{connection.connectedAssetCount}개 자산</span>
+            <em className={`signal-label signal-label--${connection.signalLabel}`}>{connection.signalLabel}</em>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LinkedSignalCards({ signals }: { signals: LinkedSignal[] }) {
+  return (
+    <section className="panel linked-signal-panel">
+      <h2>최근 연결 신호</h2>
+      <div className="linked-signal-list">
+        {signals.map((signal) => (
+          <article className={`linked-signal linked-signal--${signal.tone}`} key={signal.id}>
+            <span>{signal.time} · {signal.industryName}</span>
+            <strong>{signal.title}</strong>
+            <p>{signal.summary}</p>
+            <small>연결 자산 {signal.relatedAssetCount}개</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PortfolioNoticePanel({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
+  return (
+    <section className="panel portfolio-notice-panel">
+      <h2>자산 현황 모니터링 안내</h2>
+      <p>이 화면은 사용자가 직접 입력한 자산과 FinLightAI의 산업/뉴스 신호를 연결해 보여줍니다. 특정 자산의 매수·매도 판단이나 수익을 보장하지 않습니다.</p>
+      <button type="button" onClick={() => onViewChange("guard")}>뉴스 가드 확인</button>
+    </section>
+  );
+}
+
+function StatusBadge({ status }: { status: AssetStatus }) {
+  const labels: Record<AssetStatus, string> = {
+    holding: "보유중",
+    partial_sold: "일부 매도",
+    watching: "관심",
+  };
+
+  return <span className={`asset-status asset-status--${status}`}>{labels[status]}</span>;
+}
+
 function PortfolioView({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
   return (
     <>
@@ -1010,6 +1463,119 @@ function trustClass(trust: NewsImpact["trust"]) {
   if (trust === "신뢰 높음") return "trust-high";
   if (trust === "신뢰 낮음") return "trust-low";
   return "trust-mid";
+}
+
+function assetToDraft(asset: PortfolioAsset): PortfolioAssetDraft {
+  return {
+    assetName: asset.assetName,
+    symbol: asset.symbol,
+    market: asset.market,
+    industry: asset.industry,
+    quantity: asset.quantity,
+    averageBuyPrice: asset.averageBuyPrice,
+    currentPrice: asset.currentPrice,
+    recentSellPrice: asset.recentSellPrice?.toString() ?? "",
+    currency: asset.currency,
+    status: asset.status,
+  };
+}
+
+function draftToAsset(draft: PortfolioAssetDraft, existingId: string | null): PortfolioAsset {
+  return {
+    id: existingId ?? `asset-${Date.now()}`,
+    assetName: draft.assetName.trim(),
+    symbol: draft.symbol.trim().toUpperCase(),
+    market: draft.market,
+    industry: draft.industry.trim(),
+    quantity: draft.quantity,
+    averageBuyPrice: draft.averageBuyPrice,
+    currentPrice: draft.currentPrice,
+    recentSellPrice: draft.recentSellPrice ? Number(draft.recentSellPrice) : undefined,
+    currency: draft.currency,
+    status: draft.status,
+    relatedNewsCount: 0,
+    cautionNewsCount: 0,
+    updatedAt: "2026.06.23 09:30",
+  };
+}
+
+function derivePortfolioSummary(assets: PortfolioAsset[], fallback?: PortfolioSummary): PortfolioSummary {
+  const totalInputAmount = assets.reduce((sum, asset) => sum + toKrw(asset.averageBuyPrice * asset.quantity, asset.currency), 0);
+  const totalCurrentAmount = assets.reduce((sum, asset) => sum + toKrw(asset.currentPrice * asset.quantity, asset.currency), 0);
+  const valuationGap = totalCurrentAmount - totalInputAmount;
+  const valuationGapRate = totalInputAmount > 0 ? (valuationGap / totalInputAmount) * 100 : 0;
+  const cautionAlertCount = assets.reduce((sum, asset) => sum + asset.cautionNewsCount, 0);
+  const relatedNewsCount = assets.reduce((sum, asset) => sum + asset.relatedNewsCount, 0);
+
+  return {
+    assetCount: assets.length,
+    totalInputAmount,
+    totalCurrentAmount,
+    valuationGap,
+    valuationGapRate,
+    linkedIndustryCount: new Set(assets.map((asset) => asset.industry)).size,
+    cautionAlertCount,
+    normalAlertCount: Math.max(relatedNewsCount - cautionAlertCount, 0),
+    updatedAt: fallback?.updatedAt ?? "2026.06.23 09:30",
+  };
+}
+
+function deriveIndustryConnections(assets: PortfolioAsset[], fallback: IndustryConnection[]): IndustryConnection[] {
+  const industryMap = assets.reduce<Record<string, number>>((acc, asset) => {
+    acc[asset.industry] = (acc[asset.industry] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(industryMap).map(([industryName, connectedAssetCount]) => {
+    const matched = fallback.find((connection) => connection.industryName === industryName);
+    return {
+      id: matched?.id ?? industryName,
+      industryName,
+      connectedAssetCount,
+      signalLabel: matched?.signalLabel ?? "중립",
+    };
+  });
+}
+
+function deriveAssetAllocation(assets: PortfolioAsset[]) {
+  const items = assets.map((asset) => ({
+    id: asset.id,
+    name: asset.assetName,
+    amount: toKrw(asset.currentPrice * asset.quantity, asset.currency),
+  }));
+  const total = items.reduce((sum, item) => sum + item.amount, 0);
+
+  return items.map((item) => ({
+    ...item,
+    ratio: total > 0 ? (item.amount / total) * 100 : 0,
+  }));
+}
+
+function toKrw(amount: number, currency: AssetCurrency) {
+  const rates: Record<AssetCurrency, number> = {
+    KRW: 1,
+    USD: 1382,
+    TWD: 43,
+  };
+
+  return amount * rates[currency];
+}
+
+function formatKrw(value: number) {
+  return `${Math.round(value).toLocaleString()}원`;
+}
+
+function formatSignedKrw(value: number) {
+  const sign = value >= 0 ? "+" : "-";
+  return `${sign}${formatKrw(Math.abs(value))}`;
+}
+
+function formatAssetCurrency(value: number, currency: AssetCurrency) {
+  if (currency === "KRW") {
+    return `${Math.round(value).toLocaleString()}원`;
+  }
+
+  return `${currency} ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 export default App;

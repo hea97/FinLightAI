@@ -1,0 +1,121 @@
+import type { IndustryConnection, LinkedSignal, PortfolioAsset, PortfolioResponse, PortfolioSummary } from "../types/portfolio";
+
+const assets: PortfolioAsset[] = [
+  {
+    id: "asset-samsung",
+    assetName: "삼성전자",
+    symbol: "005930",
+    market: "KR",
+    industry: "반도체",
+    quantity: 32,
+    averageBuyPrice: 71800,
+    currentPrice: 74200,
+    recentSellPrice: 75600,
+    currency: "KRW",
+    status: "holding",
+    relatedNewsCount: 12,
+    cautionNewsCount: 2,
+    updatedAt: "2026.06.23 09:30",
+  },
+  {
+    id: "asset-sk",
+    assetName: "SK하이닉스",
+    symbol: "000660",
+    market: "KR",
+    industry: "반도체",
+    quantity: 8,
+    averageBuyPrice: 186000,
+    currentPrice: 191500,
+    currency: "KRW",
+    status: "holding",
+    relatedNewsCount: 9,
+    cautionNewsCount: 1,
+    updatedAt: "2026.06.23 09:30",
+  },
+  {
+    id: "asset-nvidia",
+    assetName: "NVIDIA",
+    symbol: "NVDA",
+    market: "US",
+    industry: "IT",
+    quantity: 5,
+    averageBuyPrice: 124.2,
+    currentPrice: 132.8,
+    recentSellPrice: 129.4,
+    currency: "USD",
+    status: "partial_sold",
+    relatedNewsCount: 14,
+    cautionNewsCount: 3,
+    updatedAt: "2026.06.23 09:30",
+  },
+  {
+    id: "asset-hyundai",
+    assetName: "현대차",
+    symbol: "005380",
+    market: "KR",
+    industry: "자동차",
+    quantity: 4,
+    averageBuyPrice: 245000,
+    currentPrice: 238000,
+    currency: "KRW",
+    status: "watching",
+    relatedNewsCount: 6,
+    cautionNewsCount: 2,
+    updatedAt: "2026.06.23 09:30",
+  },
+];
+
+const industryConnections: IndustryConnection[] = [
+  { id: "semiconductor", industryName: "반도체", connectedAssetCount: 2, signalLabel: "긍정" },
+  { id: "it", industryName: "IT", connectedAssetCount: 1, signalLabel: "긍정" },
+  { id: "auto", industryName: "자동차", connectedAssetCount: 1, signalLabel: "주의" },
+];
+
+const linkedSignals: LinkedSignal[] = [
+  {
+    id: "signal-1",
+    industryName: "반도체",
+    time: "09:30",
+    title: "AI 메모리 수요 확대 신호 감지",
+    summary: "연결 자산 2개와 관련된 뉴스가 증가했습니다.",
+    relatedAssetCount: 2,
+    tone: "positive",
+  },
+  {
+    id: "signal-2",
+    industryName: "자동차",
+    time: "08:40",
+    title: "환율과 비용 부담 뉴스 확인",
+    summary: "주의 뉴스가 늘어 추가 확인이 필요합니다.",
+    relatedAssetCount: 1,
+    tone: "caution",
+  },
+  {
+    id: "signal-3",
+    industryName: "IT",
+    time: "07:50",
+    title: "해외 기술주 변동성 점검",
+    summary: "뉴스 신뢰도와 시장 신호를 함께 확인하세요.",
+    relatedAssetCount: 1,
+    tone: "neutral",
+  },
+];
+
+const summary: PortfolioSummary = {
+  assetCount: assets.length,
+  totalInputAmount: 5263741,
+  totalCurrentAmount: 5435565,
+  valuationGap: 171824,
+  valuationGapRate: 3.27,
+  linkedIndustryCount: industryConnections.length,
+  cautionAlertCount: 2,
+  normalAlertCount: 5,
+  updatedAt: "2026.06.23 09:30",
+};
+
+export const portfolioMock: PortfolioResponse = {
+  summary,
+  assets,
+  industryConnections,
+  linkedSignals,
+};
