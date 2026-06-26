@@ -11,7 +11,7 @@ export type Metric = {
 };
 
 export type BriefingPoint = {
-  tone: "green" | "yellow" | "blue";
+  tone: "green" | "yellow" | "red" | "neutral";
   text: string;
 };
 
@@ -56,7 +56,7 @@ export const marketData: Record<MarketTab, MarketViewData> = {
     briefing: [
       { tone: "green", text: "국내 시장은 금리 불확실성과 외국인 수급 이슈로 주의가 필요합니다." },
       { tone: "yellow", text: "외국인 순매수 전환 여부와 환율 흐름을 함께 확인해야 합니다." },
-      { tone: "blue", text: "반도체와 바이오 업종의 긍정 요인이 뉴스에서 확인되고 있습니다." },
+      { tone: "green", text: "반도체와 바이오 업종의 긍정 요인이 뉴스에서 확인되고 있습니다." },
     ],
     metrics: [
       { label: "KOSPI", value: "2,671.45", change: "+0.34%", note: "대형 수출주 방어", tone: "positive" },
@@ -83,7 +83,7 @@ export const marketData: Record<MarketTab, MarketViewData> = {
     briefing: [
       { tone: "green", text: "나스닥과 S&P 500은 기술주 중심으로 안정적인 흐름을 보입니다." },
       { tone: "yellow", text: "VIX와 장기금리 변화를 함께 보며 변동성 확대 여부를 점검해야 합니다." },
-      { tone: "blue", text: "글로벌 반도체 공급망 뉴스는 영향도와 신뢰도를 분리해 확인합니다." },
+      { tone: "yellow", text: "글로벌 반도체 공급망 뉴스는 영향도와 신뢰도를 분리해 확인합니다." },
     ],
     metrics: [
       { label: "NASDAQ", value: "16,432", change: "+0.58%", note: "AI 인프라주 견인", tone: "positive" },
@@ -110,7 +110,7 @@ export const marketData: Record<MarketTab, MarketViewData> = {
     briefing: [
       { tone: "green", text: "반도체와 IT 업종은 수요와 투자 뉴스에서 긍정 신호가 확인됩니다." },
       { tone: "yellow", text: "항공은 유가와 환율 부담으로 부정 신호가 이어지고 있습니다." },
-      { tone: "blue", text: "관심 산업 5개 조건이 카카오 알림 발송 대상으로 대기 중입니다." },
+      { tone: "neutral", text: "관심 산업 5개 조건이 카카오 알림 발송 대상으로 대기 중입니다." },
     ],
     metrics: [
       { label: "반도체", value: "+78", note: "강한 긍정 · 뉴스 12건", tone: "positive" },

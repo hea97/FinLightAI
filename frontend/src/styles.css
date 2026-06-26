@@ -536,8 +536,12 @@ button {
   background: var(--yellow);
 }
 
-.briefing-dot.blue {
-  background: var(--blue);
+.briefing-dot.red {
+  background: var(--red);
+}
+
+.briefing-dot.neutral {
+  background: var(--muted);
 }
 
 .market-tabs {
