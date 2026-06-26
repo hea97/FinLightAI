@@ -12,6 +12,16 @@ class Settings(BaseSettings):
     news_api_key: str | None = None
     guardian_api_key: str | None = None
     finnhub_api_key: str | None = None
+    alpha_vantage_api_key: str | None = None
+    openai_api_key: str | None = None
+    opendart_api_key: str | None = None
+    kis_app_key: str | None = None
+    kis_app_secret: str | None = None
+    kis_account_no: str | None = None
+    kakao_rest_api_key: str | None = None
+    kakao_client_secret: str | None = None
+    kakao_redirect_uri: str | None = None
+    kakao_channel_id: str | None = None
     bbc_rss_url: str = "https://feeds.bbci.co.uk/news/world/rss.xml"
     discord_webhook_url: str | None = None
     smtp_host: str | None = None

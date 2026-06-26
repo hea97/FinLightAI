@@ -4,12 +4,74 @@ import hashlib
 from datetime import datetime, timezone
 from typing import Any
 
+import httpx
+
+from config.settings import get_settings
+
 
 class NewsCollector:
     DEFAULT_KEYWORDS = ["AI", "semiconductor", "policy", "export control", "NVIDIA", "Samsung Electronics"]
 
-    def collect_from_gdelt(self, keywords: list[str] | None = None, days: int = 1) -> list[dict[str, Any]]:
+    def collect_from_gdelt(
+        self,
+        keywords: list[str] | None = None,
+        days: int = 1,
+        max_records: int = 50,
+    ) -> list[dict[str, Any]]:
         selected = keywords or self.DEFAULT_KEYWORDS
+        safe_days = max(1, min(days, 3))
+        safe_max_records = max(1, min(max_records, 200))
+        query = self._build_gdelt_query(selected)
+        params = {
+            "query": query,
+            "mode": "artlist",
+            "format": "json",
+            "maxrecords": safe_max_records,
+            "timespan": f"{safe_days}d",
+            "sort": "datedesc",
+        }
+
+        try:
+            settings = get_settings()
+            response = httpx.get(settings.gdelt_base_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            articles = data.get("articles", [])
+            if articles:
+                return [self._normalize_gdelt_article(article) for article in articles]
+        except (httpx.HTTPError, ValueError, TypeError):
+            pass
+
+        return self._seed_articles(selected)
+
+    def _build_gdelt_query(self, keywords: list[str]) -> str:
+        terms = []
+        for keyword in keywords:
+            cleaned = keyword.strip()
+            if not cleaned:
+                continue
+            terms.append(f'"{cleaned}"' if " " in cleaned else cleaned)
+        return f"({' OR '.join(terms)})" if terms else "(AI OR semiconductor)"
+
+    def _normalize_gdelt_article(self, article: dict[str, Any]) -> dict[str, Any]:
+        title = article.get("title") or "Untitled GDELT article"
+        domain = article.get("domain") or article.get("sourceCommonName") or article.get("source") or "GDELT"
+        published_at = article.get("seendate") or datetime.now(timezone.utc).isoformat()
+        return {
+            "source": domain,
+            "title": title,
+            "content": article.get("description") or title,
+            "author": "GDELT",
+            "url": article.get("url", ""),
+            "published_at": published_at,
+            "domain": domain,
+            "image_url": article.get("socialimage", ""),
+            "language": article.get("language", ""),
+            "source_country": article.get("sourceCountry", ""),
+            "provider": "GDELT",
+        }
+
+    def _seed_articles(self, selected: list[str]) -> list[dict[str, Any]]:
         return [
             {
                 "source": "Reuters",
@@ -23,6 +85,10 @@ class NewsCollector:
                 "author": "FinLightAI Seed",
                 "url": "https://www.reuters.com/technology/semiconductor-policy-ai-chip-supply",
                 "published_at": datetime.now(timezone.utc).isoformat(),
+                "domain": "reuters.com",
+                "language": "English",
+                "source_country": "US",
+                "provider": "seed",
             }
         ]
 
