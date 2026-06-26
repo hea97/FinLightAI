@@ -764,16 +764,18 @@ function IndustryImpactPage({
   return (
     <>
       <PageHeader title={viewCopy.industry.title} description={viewCopy.industry.subtitle} />
-      <IndustryImpactHeatmapPanel
-        activeIndustryId={activeDetail.industryId}
-        industries={industryData.industries}
-        onIndustryClick={handleSelectIndustry}
-      />
-      <aside className="industry-impact-side">
-        <IndustryDetailPanel detail={activeDetail} summary={activeSummary} />
-        <IndustryNewsTopList news={activeDetail.topNews} />
-        <IndustryImpactSummaryPanel detail={activeDetail} />
-      </aside>
+      <IndustryImpactSummaryPanel detail={activeDetail} />
+      <section className="industry-impact-layout">
+        <IndustryImpactHeatmapPanel
+          activeIndustryId={activeDetail.industryId}
+          industries={industryData.industries}
+          onIndustryClick={handleSelectIndustry}
+        />
+        <aside className="industry-impact-side">
+          <IndustryDetailPanel detail={activeDetail} summary={activeSummary} />
+          <IndustryNewsTopList news={activeDetail.topNews} />
+        </aside>
+      </section>
     </>
   );
 }
