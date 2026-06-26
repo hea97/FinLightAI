@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from src.collector.news_collector import NewsCollector
 from src.dashboard.app import app
+from src.processor.gemini_client import GeminiClient
 
 
 def _sample_articles():
@@ -35,6 +36,11 @@ def test_news_guard_endpoint_returns_view_model(monkeypatch):
 
 def test_core_real_api_transition_endpoints(monkeypatch):
     monkeypatch.setattr(NewsCollector, "collect_from_gdelt", lambda self, days=1, max_records=50, keywords=None: _sample_articles())
+    monkeypatch.setattr(
+        GeminiClient,
+        "generate_briefing",
+        lambda self, articles: {"headline": "AI briefing generated.", "summary": ["One", "Two", "Three"]},
+    )
     client = TestClient(app)
 
     for path in ["/api/briefing", "/api/industry-impact", "/api/portfolio", "/api/kakao-alert", "/api/mypage", "/api/settings"]:

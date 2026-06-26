@@ -8,6 +8,7 @@ from fastapi import APIRouter
 
 from config.settings import get_settings
 from src.collector.news_collector import NewsCollector
+from src.processor.gemini_client import GeminiClient
 
 router = APIRouter()
 KST = timezone(timedelta(hours=9))
@@ -52,17 +53,19 @@ def get_briefing() -> dict[str, Any]:
     top_articles = articles[:5]
     caution_count = sum(1 for article in top_articles if _score_article(article) < 0.7)
     risk_score = min(100, 42 + caution_count * 9 + len(top_articles) * 2)
+    ai_briefing = GeminiClient().generate_briefing(top_articles)
+    fallback_summary = [
+        "Recent global AI and semiconductor news was collected from GDELT DOC 2.0.",
+        "News Guard currently scores source, URL, and publish-time availability.",
+        "Gemini, Finnhub, and KIS can enrich summaries, price reaction, and portfolio risk.",
+    ]
 
     return {
         "asOf": _now_label(),
         "signal": "YELLOW" if risk_score >= 60 else "GREEN",
         "riskScore": risk_score,
-        "headline": "GDELT-based market briefing is ready.",
-        "summary": [
-            "Recent global AI and semiconductor news was collected from GDELT DOC 2.0.",
-            "News Guard currently scores source, URL, and publish-time availability.",
-            "Finnhub, KIS, and OpenAI keys can enrich price reaction, portfolio risk, and AI summaries.",
-        ],
+        "headline": ai_briefing["headline"] if ai_briefing else "GDELT-based market briefing is ready.",
+        "summary": ai_briefing["summary"] if ai_briefing else fallback_summary,
         "keyNews": [_to_briefing_news(article) for article in top_articles],
         "providerStatus": _provider_status(),
     }
@@ -291,6 +294,7 @@ def get_settings_view() -> dict[str, Any]:
         {"id": "guardian", "name": "The Guardian API", "connected": bool(settings.guardian_api_key)},
         {"id": "finnhub", "name": "Finnhub API", "connected": bool(settings.finnhub_api_key)},
         {"id": "alpha-vantage", "name": "Alpha Vantage", "connected": bool(settings.alpha_vantage_api_key)},
+        {"id": "gemini", "name": "Gemini API", "connected": bool(settings.gemini_api_key)},
         {"id": "openai", "name": "OpenAI API", "connected": bool(settings.openai_api_key)},
         {"id": "opendart", "name": "OpenDART", "connected": bool(settings.opendart_api_key)},
         {"id": "kis", "name": "KIS Open API", "connected": bool(settings.kis_app_key and settings.kis_app_secret)},
@@ -555,6 +559,7 @@ def _provider_status() -> dict[str, str]:
         "guardian": "connected" if settings.guardian_api_key else "waiting_for_api_key",
         "finnhub": "connected" if settings.finnhub_api_key else "waiting_for_api_key",
         "alphaVantage": "connected" if settings.alpha_vantage_api_key else "waiting_for_api_key",
+        "gemini": "connected" if settings.gemini_api_key else "waiting_for_api_key",
         "kis": "connected" if settings.kis_app_key and settings.kis_app_secret else "waiting_for_api_key",
         "openai": "connected" if settings.openai_api_key else "waiting_for_api_key",
         "kakao": "connected" if settings.kakao_rest_api_key else "waiting_for_api_key",
