@@ -1838,9 +1838,8 @@ button {
 }
 
 .prototype-chip {
-  position: fixed;
-  right: 24px;
-  bottom: 14px;
+  width: fit-content;
+  margin: 0 var(--page-x) 0 auto;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: rgba(17, 24, 36, 0.72);
@@ -4025,6 +4024,7 @@ button {
 .news-guard-list {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .news-guard-card {
@@ -4038,6 +4038,12 @@ button {
   border-radius: 12px;
   background: rgba(6, 20, 32, 0.76);
   padding: 10px 14px 10px 10px;
+}
+
+.news-guard-card > *,
+.news-card-body,
+.news-card-metrics {
+  min-width: 0;
 }
 
 .reliability-box {
@@ -4105,10 +4111,12 @@ button {
   font-size: var(--text-lg);
   font-weight: 850;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .news-meta {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
   color: var(--text-secondary);
@@ -4151,6 +4159,7 @@ button {
 
 .metric-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 48px;
 }
 
@@ -4454,6 +4463,10 @@ button {
 }
 
 @media (max-width: 900px) {
+  .top-header {
+    position: static;
+  }
+
   .metric-strip,
   .industry-grid,
   .impact-industry-grid,
@@ -4701,11 +4714,16 @@ button {
 
   .news-guard-card {
     grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .news-card-metrics,
   .external-link {
     grid-column: auto;
+  }
+
+  .news-card-body p {
+    white-space: normal;
   }
 
   .signal-badge {
@@ -4717,8 +4735,6 @@ button {
   }
 
   .prototype-chip {
-    position: static;
-    width: fit-content;
     margin: 0 14px;
   }
 }
