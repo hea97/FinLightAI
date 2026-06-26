@@ -1497,31 +1497,36 @@ function KakaoAlertPage() {
 
   return (
     <>
-      <section className="kakao-alert-hero">
-        <div>
-          <h1>카카오 알림</h1>
-          <p>카카오톡 채널 봇으로 시장 신호와 뉴스 가드 알림을 받아보세요.</p>
-          <div className="kakao-status-badges">
-            {alertData.badges.map((badge) => (
-              <span key={badge}>{badge}</span>
-            ))}
-          </div>
+      <PageHeader title={viewCopy.kakao.title} description={viewCopy.kakao.subtitle} />
+      <KakaoSummaryCard badges={alertData.badges} />
+
+      <section className="kakao-main-grid">
+        <div className="kakao-alert-column">
+          <KakaoMessagePreviewCard messages={alertData.previewMessages} />
+          <RecentAlertHistoryCard history={alertData.history} />
         </div>
-        <p className="kakao-non-advice">투자 추천이 아닌 시장 상태 알림입니다.</p>
+
+        <aside className="kakao-alert-column">
+          <KakaoIntegrationStatusCard integrations={alertData.integrations} />
+          <AlertRuleSettingsCard rules={rules} onToggle={toggleRule} />
+          <ChatbotQuestionExamplesCard activeQuestionId={activeQuestionId} questions={alertData.questions} onSelect={setActiveQuestionId} />
+        </aside>
       </section>
 
-      <section className="kakao-alert-left">
-        <KakaoMessagePreviewCard messages={alertData.previewMessages} />
-        <RecentAlertHistoryCard history={alertData.history} />
-      </section>
-
-      <aside className="kakao-alert-right">
-        <AlertRuleSettingsCard rules={rules} onToggle={toggleRule} />
-        <ChatbotQuestionExamplesCard activeQuestionId={activeQuestionId} questions={alertData.questions} onSelect={setActiveQuestionId} />
-        <KakaoIntegrationStatusCard integrations={alertData.integrations} />
-        <AlertFlowCard flow={alertData.flow} />
-      </aside>
+      <AlertFlowCard flow={alertData.flow} />
     </>
+  );
+}
+
+function KakaoSummaryCard({ badges }: { badges: string[] }) {
+  return (
+    <section className="panel kakao-summary-card">
+      <div>
+        <h2>카카오 알림 상태</h2>
+        <p>{badges.join(" · ")} · 마지막 테스트 2분 전</p>
+      </div>
+      <button type="button">테스트 실행</button>
+    </section>
   );
 }
 
@@ -1609,8 +1614,9 @@ function KakaoIntegrationStatusCard({ integrations }: { integrations: KakaoInteg
     <section className="panel kakao-integration-card">
       <div className="kakao-card-head">
         <h2>연동 상태</h2>
+        <span>마지막 확인 2분 전</span>
       </div>
-      <div className="integration-grid">
+      <div className="integration-list">
         {integrations.map((integration) => (
           <article key={integration.id}>
             <span aria-hidden="true">{integration.icon}</span>
@@ -1654,7 +1660,12 @@ function RecentAlertHistoryCard({ history }: { history: KakaoAlertHistoryItem[] 
 function AlertFlowCard({ flow }: { flow: KakaoFlowStep[] }) {
   return (
     <section className="panel alert-flow-card">
-      <h2>알림 발송 흐름도</h2>
+      <div className="kakao-card-head">
+        <div>
+          <h2>알림 발송 흐름도</h2>
+          <p>사용자 질문 또는 알림 조건 감지 후 카카오톡 메시지가 발송되는 과정입니다.</p>
+        </div>
+      </div>
       <div className="alert-flow-steps">
         {flow.map((step, index) => (
           <div className="flow-step-wrap" key={step.id}>

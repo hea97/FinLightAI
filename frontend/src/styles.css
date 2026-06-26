@@ -1320,6 +1320,48 @@ button {
   font-size: var(--text-md);
 }
 
+.kakao-summary-card {
+  grid-column: 1 / -1;
+  display: flex;
+  min-height: 96px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--card-gap);
+}
+
+.kakao-summary-card h2,
+.kakao-summary-card p {
+  margin: 0;
+}
+
+.kakao-summary-card h2 {
+  font-size: var(--text-lg);
+}
+
+.kakao-summary-card p {
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.kakao-summary-card button {
+  min-height: 40px;
+  border: 1px solid rgba(115, 215, 176, 0.55);
+  border-radius: 12px;
+  background: rgba(115, 215, 176, 0.14);
+  color: var(--text);
+  font-weight: 850;
+  padding: 0 16px;
+}
+
+.kakao-main-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
+  gap: var(--section-gap);
+  align-items: stretch;
+}
+
 .kakao-status-badges {
   display: flex;
   flex-wrap: wrap;
@@ -1350,11 +1392,12 @@ button {
   padding: 9px 13px;
 }
 
-.kakao-alert-left,
-.kakao-alert-right {
+.kakao-alert-column {
   display: grid;
-  gap: 16px;
-  align-self: start;
+  grid-template-rows: auto 1fr;
+  gap: var(--section-gap);
+  min-width: 0;
+  align-self: stretch;
 }
 
 .kakao-alert-loading {
@@ -1365,8 +1408,8 @@ button {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
+  gap: 18px;
+  margin-bottom: 18px;
 }
 
 .kakao-card-head h2,
@@ -1405,6 +1448,8 @@ button {
 }
 
 .kakao-preview-card {
+  display: flex;
+  flex-direction: column;
   min-height: 520px;
 }
 
@@ -1601,34 +1646,40 @@ button {
   margin: 14px 0 0 auto;
 }
 
-.integration-grid {
+.integration-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
-.integration-grid article {
+.integration-list article {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
+  min-height: 58px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
-  padding: 12px;
+  padding: 0 16px;
 }
 
-.integration-grid article > span {
+.integration-list article > span {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 38px;
+  height: 38px;
   place-items: center;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(115, 215, 176, 0.12);
+  color: #d8fff0;
+  font-size: var(--text-xs);
+  font-weight: 950;
 }
 
-.integration-grid strong {
+.integration-list strong {
+  overflow: hidden;
   font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .integration-health {
@@ -1669,6 +1720,7 @@ button {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
   font-size: var(--text-sm);
+  min-height: 54px;
 }
 
 .alert-history-table time {
@@ -1692,10 +1744,15 @@ button {
   color: var(--green);
   font-style: normal;
   font-weight: 820;
+  text-align: right;
 }
 
 .alert-flow-card h2 {
-  margin: 0 0 16px;
+  margin: 0;
+}
+
+.alert-flow-card {
+  grid-column: 1 / -1;
 }
 
 .alert-flow-steps {
@@ -1719,6 +1776,14 @@ button {
   display: grid;
   justify-items: center;
   gap: 7px;
+  min-height: 116px;
+  align-content: center;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top, rgba(115, 215, 176, 0.13), transparent 50%),
+    rgba(255, 255, 255, 0.035);
+  padding: 16px 12px;
   text-align: center;
 }
 
@@ -4308,6 +4373,14 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .kakao-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kakao-alert-column {
+    grid-template-rows: auto;
+  }
+
   .industry-impact-layout {
     grid-template-columns: 1fr;
   }
@@ -4395,7 +4468,6 @@ button {
   }
 
   .alert-rule-grid,
-  .integration-grid,
   .settings-select-grid,
   .settings-select-grid.two,
   .api-connection-grid,
@@ -4405,7 +4477,7 @@ button {
 
   .alert-history-head,
   .alert-history-table article {
-    grid-template-columns: 72px 1fr;
+    grid-template-columns: 80px minmax(0, 1fr);
   }
 
   .alert-history-head span:nth-child(3),
@@ -4479,6 +4551,7 @@ button {
   .portfolio-hero,
   .portfolio-hero-actions,
   .kakao-alert-hero,
+  .kakao-summary-card,
   .mypage-guide-card,
   .mypage-profile-card,
   .settings-hero,
@@ -4506,6 +4579,14 @@ button {
   .auth-industry-picker,
   .auth-complete-actions {
     grid-template-columns: 1fr;
+  }
+
+  .kakao-preview-card {
+    min-height: auto;
+  }
+
+  .phone-frame {
+    width: 100%;
   }
 
   .mypage-info-list div,
