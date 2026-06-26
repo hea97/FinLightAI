@@ -24,12 +24,11 @@ import type {
 
 type ViewId = "briefing" | "guard" | "industry" | "portfolio" | "kakao" | "mypage" | "settings" | "login";
 
-const navItems: { id: Exclude<ViewId, "kakao" | "login">; label: string }[] = [
+const navItems: { id: Exclude<ViewId, "kakao" | "mypage" | "login">; label: string }[] = [
   { id: "briefing", label: "AI 브리핑" },
   { id: "guard", label: "뉴스 가드" },
   { id: "industry", label: "산업 영향도" },
   { id: "portfolio", label: "포트폴리오" },
-  { id: "mypage", label: "마이페이지" },
   { id: "settings", label: "설정" },
 ];
 
@@ -48,7 +47,7 @@ const viewCopy: Record<ViewId, { title: string; subtitle: string }> = {
   },
   portfolio: {
     title: "포트폴리오",
-    subtitle: "보유 관심 자산을 산업 신호와 연결해 모니터링합니다.",
+    subtitle: "직접 등록한 자산을 기준으로 산업/뉴스 신호를 모니터링합니다.",
   },
   kakao: {
     title: "카카오 알림",
@@ -95,7 +94,6 @@ function App() {
     () => industries.find((industry) => industry.id === selectedIndustryId) ?? industries[0],
     [selectedIndustryId],
   );
-  const page = viewCopy[view];
   const searchResults = useMemo(() => {
     const normalized = searchQuery.trim().toLowerCase();
     if (!normalized) return [];
@@ -184,12 +182,6 @@ function App() {
           <SignalTrafficLight signal="yellow" onClick={() => setView("guard")} />
         </div>
 
-        {view !== "guard" && view !== "industry" && view !== "kakao" && view !== "mypage" && view !== "settings" && view !== "login" ? (
-          <div className="page-heading">
-            <h1>{page.title}</h1>
-            <p>{page.subtitle}</p>
-          </div>
-        ) : null}
       </header>
 
       {view === "briefing" ? (
@@ -281,6 +273,8 @@ function BriefingDashboard({
 }) {
   return (
     <main className="dashboard">
+      <PageHeader title={viewCopy.briefing.title} description={viewCopy.briefing.subtitle} />
+
       <section className="panel market-signal">
         <div className="section-title-row">
           <h2>오늘의 시장 신호</h2>
@@ -769,7 +763,7 @@ function IndustryImpactPage({
 
   return (
     <>
-      <PageHeader title="산업 영향도" description="산업별 점수와 근거 뉴스를 한 화면에서 확인합니다." />
+      <PageHeader title={viewCopy.industry.title} description={viewCopy.industry.subtitle} />
       <IndustryImpactHeatmapPanel
         activeIndustryId={activeDetail.industryId}
         industries={industryData.industries}
@@ -1060,8 +1054,8 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
   return (
     <>
       <PageHeader
-        title="포트폴리오"
-        description="직접 등록한 자산을 기준으로 산업/뉴스 신호를 모니터링합니다."
+        title={viewCopy.portfolio.title}
+        description={viewCopy.portfolio.subtitle}
         action={(
           <div className="portfolio-hero-actions">
             <span>최근 업데이트 {summary.updatedAt}</span>
@@ -1744,10 +1738,7 @@ function MyPageDashboard({
 
   return (
     <>
-      <section className="mypage-hero">
-        <h1>마이페이지</h1>
-        <p>내 정보와 알림, 관심 산업, 활동 기록을 한 곳에서 관리합니다.</p>
-      </section>
+      <PageHeader title={viewCopy.mypage.title} description={viewCopy.mypage.subtitle} />
       <section className="mypage-top-row">
         <MyPageProfileCard profile={myPageData.profile} />
         <MyPageMetricCards metrics={myPageData.metrics} />
@@ -2016,16 +2007,16 @@ function SettingsDashboard() {
 
   return (
     <>
-      <section className="settings-hero">
-        <div>
-          <h1>설정</h1>
-          <p>데이터 수집, 뉴스 가드 필터, 알림 기준 및 표시 설정을 관리합니다.</p>
-        </div>
-        <div className="settings-actions">
-          <button type="button" onClick={resetSettings}>설정 초기화</button>
-          <button type="button">설정 저장</button>
-        </div>
-      </section>
+      <PageHeader
+        title={viewCopy.settings.title}
+        description={viewCopy.settings.subtitle}
+        action={(
+          <div className="settings-actions">
+            <button type="button" onClick={resetSettings}>설정 초기화</button>
+            <button type="button">설정 저장</button>
+          </div>
+        )}
+      />
       <SettingsStatusCards cards={loadedSettings.statusCards} />
       <section className="settings-grid">
         <DataCollectionSettingsCard data={dataCollection} onAddKeyword={addKeyword} onRemoveKeyword={removeKeyword} onToggleFlag={toggleDataFlag} />

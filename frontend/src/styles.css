@@ -11,6 +11,20 @@
   --text-hero: 1.75rem;
   --text-kpi: 2rem;
   --text-signal: 2.125rem;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --page-x: 32px;
+  --page-y: 40px;
+  --page-bottom: 56px;
+  --section-gap: 24px;
+  --card-gap: 24px;
+  --card-padding: 24px;
   --bg: #080d14;
   --surface: #111722;
   --surface-2: #151c29;
@@ -73,11 +87,11 @@ button {
   z-index: 20;
   display: flex;
   flex-wrap: wrap;
-  gap: 22px;
+  gap: var(--space-6);
   align-items: center;
   border-bottom: 1px solid var(--border);
   background: rgba(7, 11, 18, 0.9);
-  padding: 12px 24px;
+  padding: 12px var(--page-x);
   backdrop-filter: blur(16px);
 }
 
@@ -106,9 +120,7 @@ button {
 }
 
 .brand-copy strong,
-.brand-copy span,
-.page-heading h1,
-.page-heading p {
+.brand-copy span {
   display: block;
 }
 
@@ -117,8 +129,7 @@ button {
   font-weight: 800;
 }
 
-.brand-copy span,
-.page-heading p {
+.brand-copy span {
   color: var(--muted);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -130,30 +141,15 @@ button {
   background: var(--border);
 }
 
-.page-heading {
-  flex: 1 0 100%;
-}
-
-.page-heading h1 {
-  margin: 0 0 4px;
-  font-size: var(--text-2xl);
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.2;
-}
-
-.page-heading p {
-  margin: 0;
-}
-
 .page-header {
   grid-column: 1 / -1;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 20px;
+  gap: var(--card-gap);
   min-width: 0;
-  padding: 10px 0 8px;
+  margin-bottom: 8px;
+  padding: 0;
 }
 
 .page-header h1,
@@ -376,11 +372,11 @@ button {
 .dashboard {
   display: grid;
   grid-template-columns: 1.08fr 0.95fr;
-  gap: 16px 20px;
+  gap: var(--section-gap);
   width: min(100%, 1440px);
   max-width: 1440px;
   margin: 0 auto;
-  padding: 14px 24px 32px;
+  padding: var(--page-y) var(--page-x) var(--page-bottom);
 }
 
 .sub-dashboard {
@@ -1790,7 +1786,7 @@ button {
 .portfolio-hero-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .portfolio-hero-actions span {
@@ -1825,12 +1821,12 @@ button {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--card-gap);
 }
 
 .portfolio-summary-strip .panel {
   min-height: 104px;
-  padding: 16px;
+  padding: var(--card-padding);
 }
 
 .portfolio-summary-strip span,
@@ -1857,8 +1853,8 @@ button {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 .portfolio-section-head.compact {
@@ -2135,7 +2131,7 @@ button {
   display: grid;
   place-items: center;
   background: rgba(1, 6, 13, 0.72);
-  padding: 20px;
+  padding: var(--card-padding);
 }
 
 .portfolio-modal {
@@ -2223,42 +2219,18 @@ button {
   grid-column: 1 / -1;
 }
 
-.mypage-hero {
-  grid-column: 1 / -1;
-  min-height: 88px;
-  background:
-    radial-gradient(circle at 82% 10%, rgba(56, 189, 248, 0.15), transparent 26%),
-    linear-gradient(180deg, rgba(1, 14, 28, 0.68), transparent);
-}
-
-.mypage-hero h1,
-.mypage-hero p {
-  margin: 0;
-}
-
-.mypage-hero h1 {
-  font-size: 1.75rem;
-  line-height: 1.2;
-}
-
-.mypage-hero p {
-  margin-top: 10px;
-  color: var(--muted);
-  font-size: var(--text-md);
-}
-
 .mypage-top-row {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: minmax(420px, 1.2fr) minmax(0, 1.6fr);
-  gap: 16px;
+  gap: var(--card-gap);
 }
 
 .mypage-profile-card {
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 18px;
+  gap: var(--space-5);
 }
 
 .mypage-avatar {
@@ -2316,16 +2288,16 @@ button {
 .mypage-metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--card-gap);
 }
 
 .mypage-metric-card {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
+  gap: var(--space-4);
   min-height: 110px;
-  padding: 16px;
+  padding: var(--card-padding);
 }
 
 .mypage-metric-card > span {
@@ -2362,13 +2334,13 @@ button {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: 0.95fr 1.05fr;
-  gap: 16px;
+  gap: var(--card-gap);
 }
 
 .mypage-left-column,
 .mypage-right-column {
   display: grid;
-  gap: 16px;
+  gap: var(--card-gap);
   align-self: start;
 }
 
@@ -3735,10 +3707,10 @@ button {
 .news-guard-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 20px;
+  gap: var(--section-gap);
   max-width: 1660px;
   margin: 0 auto;
-  padding: 22px 32px 32px;
+  padding: var(--page-y) var(--page-x) var(--page-bottom);
 }
 
 .news-guard-main {
@@ -3772,8 +3744,8 @@ button {
 .news-guard-kpis {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--card-gap);
+  margin-bottom: var(--section-gap);
 }
 
 .news-guard-kpi {
@@ -3784,7 +3756,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 14px;
   background: linear-gradient(145deg, rgba(13, 40, 58, 0.82), rgba(5, 18, 30, 0.78));
-  padding: 18px;
+  padding: var(--card-padding);
 }
 
 .news-kpi-icon {
@@ -4252,7 +4224,6 @@ button {
 
   .news-guard-page {
     grid-template-columns: 1fr;
-    padding: 20px;
   }
 
   .impact-industry-grid {
@@ -4366,8 +4337,16 @@ button {
 }
 
 @media (max-width: 640px) {
-  .top-header,
-  .dashboard {
+  :root {
+    --page-x: 20px;
+    --page-y: 32px;
+    --page-bottom: 44px;
+    --section-gap: 20px;
+    --card-gap: 20px;
+    --card-padding: 20px;
+  }
+
+  .top-header {
     padding-inline: 14px;
   }
 
@@ -4509,10 +4488,6 @@ button {
 
   .impact-summary-grid article:last-child {
     border-bottom: 0;
-  }
-
-  .news-guard-page {
-    padding: 14px;
   }
 
   .news-filter-tabs {
