@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { industries, marketData, tabs, type MarketTab, type MarketViewData, type NewsImpact, type Tone } from "./data/mockData";
 import { fetchIndustryImpactData } from "./services/industryImpactApi";
 import { fetchKakaoAlertData } from "./services/kakaoAlertApi";
@@ -1696,7 +1696,10 @@ function MyPageDashboard({
   const [myPageData, setMyPageData] = useState<MyPageResponse | null>(null);
   const [alertSettings, setAlertSettings] = useState<MyPageAlertSetting[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
+  const [isQuickPanelOpen, setIsQuickPanelOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const quickPanelRef = useRef<HTMLDivElement>(null);
+  const quickPanelTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -1716,6 +1719,25 @@ function MyPageDashboard({
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isQuickPanelOpen) return;
+
+    function handleDocumentClick(event: MouseEvent) {
+      const target = event.target;
+
+      if (
+        target instanceof Node &&
+        !quickPanelRef.current?.contains(target) &&
+        !quickPanelTriggerRef.current?.contains(target)
+      ) {
+        setIsQuickPanelOpen(false);
+      }
+    }
+
+    document.addEventListener("click", handleDocumentClick);
+    return () => document.removeEventListener("click", handleDocumentClick);
+  }, [isQuickPanelOpen]);
 
   if (isLoading || !myPageData) {
     return (
@@ -1741,23 +1763,29 @@ function MyPageDashboard({
   return (
     <>
       <PageHeader title={viewCopy.mypage.title} description={viewCopy.mypage.subtitle} />
+      <GuideCard body={myPageData.guide.body} ctaLabel={myPageData.guide.ctaLabel} title={myPageData.guide.title} />
       <section className="mypage-top-row">
         <MyPageProfileCard profile={myPageData.profile} />
         <MyPageMetricCards metrics={myPageData.metrics} />
       </section>
       <section className="mypage-main-grid">
-        <div className="mypage-left-column">
-          <InfoSummaryCard profile={myPageData.profile} />
-          <RecentActivityCard activities={myPageData.activities} />
-        </div>
-        <div className="mypage-right-column">
-          <AlertSettingsCard alertSettings={alertSettings} onToggle={toggleAlert} />
-          <InterestKeywordCard interests={interests} onAdd={addInterest} onRemove={removeInterest} />
-          <ConnectionStatusCard connections={myPageData.connections} />
-          <ShortcutCard onViewChange={onViewChange} shortcuts={myPageData.shortcuts} />
-          <GuideCard body={myPageData.guide.body} ctaLabel={myPageData.guide.ctaLabel} title={myPageData.guide.title} />
-        </div>
+        <InfoSummaryCard profile={myPageData.profile} />
+        <AlertSettingsCard alertSettings={alertSettings} onToggle={toggleAlert} />
       </section>
+      <section className="mypage-bottom-grid">
+        <RecentActivityCard activities={myPageData.activities} />
+        <InterestKeywordCard interests={interests} onAdd={addInterest} onRemove={removeInterest} />
+        <ConnectionStatusCard connections={myPageData.connections} />
+      </section>
+      <QuickPanel
+        isOpen={isQuickPanelOpen}
+        onClose={() => setIsQuickPanelOpen(false)}
+        onToggle={() => setIsQuickPanelOpen((current) => !current)}
+        onViewChange={onViewChange}
+        panelRef={quickPanelRef}
+        shortcuts={myPageData.shortcuts}
+        triggerRef={quickPanelTriggerRef}
+      />
     </>
   );
 }
@@ -1781,12 +1809,10 @@ function MyPageMetricCards({ metrics }: { metrics: MyPageMetric[] }) {
     <div className="mypage-metric-grid">
       {metrics.map((metric) => (
         <article className="panel mypage-metric-card" key={metric.id}>
+          <p>{metric.label}</p>
           <span aria-hidden="true">{metric.icon}</span>
-          <div>
-            <p>{metric.label}</p>
-            <strong>{metric.value}</strong>
-            <small>{metric.helper} {metric.delta ? <b>{metric.delta}</b> : null}</small>
-          </div>
+          <strong>{metric.value}</strong>
+          <small>{metric.helper} {metric.delta ? <b>{metric.delta}</b> : null}</small>
         </article>
       ))}
     </div>
@@ -1886,7 +1912,23 @@ function RecentActivityCard({ activities }: { activities: MyPageActivity[] }) {
   );
 }
 
-function ShortcutCard({ onViewChange, shortcuts }: { onViewChange: (view: ViewId) => void; shortcuts: MyPageShortcut[] }) {
+function QuickPanel({
+  isOpen,
+  onClose,
+  onToggle,
+  onViewChange,
+  panelRef,
+  shortcuts,
+  triggerRef,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onToggle: () => void;
+  onViewChange: (view: ViewId) => void;
+  panelRef: RefObject<HTMLDivElement | null>;
+  shortcuts: MyPageShortcut[];
+  triggerRef: RefObject<HTMLButtonElement | null>;
+}) {
   const targetMap: Record<MyPageShortcut["id"], ViewId> = {
     portfolio: "portfolio",
     kakao: "kakao",
@@ -1895,27 +1937,41 @@ function ShortcutCard({ onViewChange, shortcuts }: { onViewChange: (view: ViewId
   };
 
   return (
-    <section className="panel mypage-card mypage-shortcut-card">
-      <h2>F. 바로가기</h2>
-      <div className="mypage-shortcut-grid">
+    <div className="quick-panel-wrapper">
+      <button
+        aria-expanded={isOpen}
+        className="quick-panel-trigger"
+        onClick={onToggle}
+        ref={triggerRef}
+        type="button"
+      >
+        빠른 이동
+      </button>
+      <div className="quick-panel" hidden={!isOpen} ref={panelRef}>
         {shortcuts.map((shortcut) => (
-          <button key={shortcut.id} type="button" onClick={() => onViewChange(targetMap[shortcut.id])}>
-            <span>{shortcut.icon}</span>
-            <strong>{shortcut.title}</strong>
-            <small>{shortcut.description}</small>
-            <em>→</em>
+          <button
+            key={shortcut.id}
+            type="button"
+            onClick={() => {
+              onViewChange(targetMap[shortcut.id]);
+              onClose();
+            }}
+          >
+            {shortcut.title}
           </button>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
 
 function GuideCard({ body, ctaLabel, title }: { body: string; ctaLabel: string; title: string }) {
   return (
     <section className="panel mypage-card mypage-guide-card">
-      <h2>G. {title}</h2>
-      <p>{body}</p>
+      <div>
+        <h2>{title}</h2>
+        <p>{body}</p>
+      </div>
       <button type="button">{ctaLabel} ↗</button>
     </section>
   );

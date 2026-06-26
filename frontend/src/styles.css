@@ -2247,8 +2247,9 @@ button {
 .mypage-top-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(420px, 1.2fr) minmax(0, 1.6fr);
+  grid-template-columns: minmax(360px, 2fr) repeat(4, minmax(150px, 1fr));
   gap: var(--card-gap);
+  align-items: stretch;
 }
 
 .mypage-profile-card {
@@ -2311,29 +2312,29 @@ button {
 }
 
 .mypage-metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--card-gap);
+  display: contents;
 }
 
 .mypage-metric-card {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto auto;
   align-items: center;
-  gap: var(--space-4);
-  min-height: 110px;
-  padding: var(--card-padding);
+  justify-items: center;
+  min-height: 210px;
+  padding: 22px 18px;
+  text-align: center;
 }
 
 .mypage-metric-card > span {
   display: grid;
-  width: 58px;
-  height: 58px;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  border-radius: 14px;
+  align-self: center;
+  border-radius: 12px;
   background: rgba(45, 154, 184, 0.18);
   color: var(--green);
-  font-size: 1.6rem;
+  font-size: 1rem;
 }
 
 .mypage-metric-card p,
@@ -2345,7 +2346,7 @@ button {
 
 .mypage-metric-card strong {
   display: block;
-  margin: 4px 0;
+  margin: 0;
   font-family: var(--font-mono);
   font-size: 1.6rem;
   line-height: 1.1;
@@ -2358,22 +2359,24 @@ button {
 .mypage-main-grid {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 0.95fr 1.05fr;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   gap: var(--card-gap);
+  align-items: stretch;
 }
 
-.mypage-left-column,
-.mypage-right-column {
+.mypage-bottom-grid {
+  grid-column: 1 / -1;
   display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr) minmax(300px, 0.7fr);
   gap: var(--card-gap);
-  align-self: start;
+  align-items: stretch;
 }
 
-.mypage-right-column {
-  grid-template-columns: 1fr 1.1fr;
+.mypage-main-grid > .panel,
+.mypage-bottom-grid > .panel {
+  height: 100%;
 }
 
-.mypage-alert-settings,
 .mypage-shortcut-card {
   grid-column: 1 / -1;
 }
@@ -2642,6 +2645,12 @@ button {
 }
 
 .mypage-guide-card {
+  grid-column: 1 / -1;
+  display: flex;
+  min-height: 92px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--card-gap);
   border-color: rgba(122, 165, 255, 0.26);
   background:
     radial-gradient(circle at 88% 58%, rgba(56, 189, 248, 0.14), transparent 28%),
@@ -2649,7 +2658,55 @@ button {
 }
 
 .mypage-guide-card p {
-  margin: 16px 0;
+  margin: 8px 0 0;
+}
+
+.quick-panel-wrapper {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 80;
+}
+
+.quick-panel-trigger {
+  height: 46px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: rgba(13, 25, 42, 0.96);
+  color: var(--text);
+  font-weight: 900;
+  padding: 0 18px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3);
+}
+
+.quick-panel {
+  position: absolute;
+  right: 0;
+  bottom: 58px;
+  display: grid;
+  width: 220px;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(13, 25, 42, 0.98);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
+  padding: 10px;
+}
+
+.quick-panel button {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 850;
+  padding: 0 14px;
+  text-align: left;
+}
+
+.quick-panel button:hover {
+  background: rgba(138, 240, 199, 0.1);
 }
 
 .sub-hero p,
@@ -4268,16 +4325,23 @@ button {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .mypage-top-row,
   .mypage-main-grid,
+  .mypage-bottom-grid,
   .settings-grid {
     grid-template-columns: 1fr;
   }
 
-  .mypage-metric-grid,
   .mypage-shortcut-grid,
   .settings-status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mypage-top-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mypage-profile-card {
+    grid-column: 1 / -1;
   }
 
   .alert-flow-steps {
@@ -4332,7 +4396,6 @@ button {
 
   .alert-rule-grid,
   .integration-grid,
-  .mypage-right-column,
   .settings-select-grid,
   .settings-select-grid.two,
   .api-connection-grid,
@@ -4416,6 +4479,7 @@ button {
   .portfolio-hero,
   .portfolio-hero-actions,
   .kakao-alert-hero,
+  .mypage-guide-card,
   .mypage-profile-card,
   .settings-hero,
   .settings-actions,
@@ -4434,7 +4498,6 @@ button {
   .portfolio-summary-strip,
   .asset-form-grid,
   .alert-flow-steps,
-  .mypage-metric-grid,
   .mypage-shortcut-grid,
   .settings-status-grid,
   .news-guard-mode-grid,
@@ -4451,6 +4514,29 @@ button {
   .settings-slider-row,
   .kakao-channel-note {
     grid-template-columns: 1fr;
+  }
+
+  .mypage-top-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mypage-profile-card,
+  .mypage-guide-card {
+    grid-column: 1 / -1;
+  }
+
+  .mypage-profile-card {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .mypage-metric-card {
+    min-height: 180px;
+  }
+
+  .quick-panel-wrapper {
+    right: 18px;
+    bottom: 18px;
   }
 
   .auth-flow-shell {
