@@ -4,14 +4,52 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from sqlalchemy.orm import Session
 
 from config.settings import get_settings
 from src.collector.news_collector import NewsCollector
+from src.dashboard.database import get_db
+from src.dashboard.models import PortfolioAsset as PortfolioAssetRecord
+from src.dashboard.repository import (
+    DuplicatePortfolioAssetError,
+    create_asset,
+    delete_asset,
+    ensure_user,
+    get_kakao_rules,
+    get_user_settings,
+    list_assets,
+    save_user_settings,
+    update_asset,
+    update_kakao_rule,
+    update_mypage,
+)
+from src.dashboard.schemas import (
+    BriefingResponse,
+    IndustryImpactResponse,
+    KakaoAlertResponse,
+    KakaoAlertRule,
+    KakaoRuleUpdate,
+    MyPageResponse,
+    MyPageUpdate,
+    NewsGuardResponse,
+    PortfolioAsset,
+    PortfolioAssetInput,
+    PortfolioResponse,
+    SettingsResponse,
+    SettingsUpdate,
+)
 from src.processor.gemini_client import GeminiClient
 
 router = APIRouter()
 KST = timezone(timedelta(hours=9))
+
+
+def get_current_user_id(x_user_id: str = Header(default="demo-user")) -> str:
+    user_id = x_user_id.strip()
+    if not user_id or len(user_id) > 80 or not all(char.isalnum() or char in {"-", "_"} for char in user_id):
+        raise HTTPException(status_code=400, detail="Invalid X-User-ID header")
+    return user_id
 
 
 @router.get("/signals")
@@ -47,13 +85,14 @@ def get_market() -> dict[str, float | str]:
     return {"ticker": "005930.KS", "return_1d": 0.021, "volume_ratio": 2.4, "volatility_5d": 0.018}
 
 
-@router.get("/briefing")
+@router.get("/briefing", response_model=BriefingResponse)
 def get_briefing() -> dict[str, Any]:
     articles = _load_gdelt_articles(max_records=30)
     top_articles = articles[:5]
     caution_count = sum(1 for article in top_articles if _score_article(article) < 0.7)
     risk_score = min(100, 42 + caution_count * 9 + len(top_articles) * 2)
-    ai_briefing = GeminiClient().generate_briefing(top_articles)
+    gemini = GeminiClient()
+    ai_briefing = gemini.generate_briefing(top_articles)
     fallback_summary = [
         "Recent global AI and semiconductor news was collected from GDELT DOC 2.0.",
         "News Guard currently scores source, URL, and publish-time availability.",
@@ -67,11 +106,11 @@ def get_briefing() -> dict[str, Any]:
         "headline": ai_briefing["headline"] if ai_briefing else "GDELT-based market briefing is ready.",
         "summary": ai_briefing["summary"] if ai_briefing else fallback_summary,
         "keyNews": [_to_briefing_news(article) for article in top_articles],
-        "providerStatus": _provider_status(),
+        "providerStatus": _provider_status(gemini.last_status),
     }
 
 
-@router.get("/news-guard")
+@router.get("/news-guard", response_model=NewsGuardResponse)
 def get_news_guard(filter: str = "all") -> dict[str, Any]:
     raw_articles = _load_gdelt_articles(max_records=50)
     all_articles = [_to_news_guard_article(article) for article in raw_articles]
@@ -114,7 +153,7 @@ def get_news_guard(filter: str = "all") -> dict[str, Any]:
     }
 
 
-@router.get("/industry-impact")
+@router.get("/industry-impact", response_model=IndustryImpactResponse)
 def get_industry_impact() -> dict[str, Any]:
     articles = _load_gdelt_articles(max_records=50)
     semiconductor_count = _count_mentions(articles, ["semiconductor", "chip", "nvidia", "samsung", "tsmc", "hynix"])
@@ -133,97 +172,82 @@ def get_industry_impact() -> dict[str, Any]:
     }
 
 
-@router.get("/portfolio")
-def get_portfolio() -> dict[str, Any]:
-    updated_at = _now_label()
-    assets = [
-        {
-            "id": "asset-samsung",
-            "assetName": "Samsung Electronics",
-            "symbol": "005930",
-            "market": "KR",
-            "industry": "Semiconductor",
-            "quantity": 32,
-            "averageBuyPrice": 71800,
-            "currentPrice": 74200,
-            "recentSellPrice": 75600,
-            "currency": "KRW",
-            "status": "holding",
-            "decisionMemo": "KIS price data is pending. Temporary reference price is displayed.",
-            "relatedNewsCount": 12,
-            "cautionNewsCount": 2,
-            "updatedAt": updated_at,
-        },
-        {
-            "id": "asset-nvidia",
-            "assetName": "NVIDIA",
-            "symbol": "NVDA",
-            "market": "US",
-            "industry": "AI/IT",
-            "quantity": 5,
-            "averageBuyPrice": 124.2,
-            "currentPrice": 132.8,
-            "currency": "USD",
-            "status": "holding",
-            "decisionMemo": "Finnhub or Alpha Vantage can replace this with live or delayed price data.",
-            "relatedNewsCount": 14,
-            "cautionNewsCount": 3,
-            "updatedAt": updated_at,
-        },
-    ]
-    total_input = sum(asset["quantity"] * asset["averageBuyPrice"] for asset in assets)
-    total_current = sum(asset["quantity"] * asset["currentPrice"] for asset in assets)
+@router.get("/portfolio", response_model=PortfolioResponse)
+def get_portfolio(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    return _portfolio_response(list_assets(db, user_id))
 
+
+@router.post("/portfolio", response_model=PortfolioAsset, status_code=status.HTTP_201_CREATED)
+def post_portfolio_asset(
+    payload: PortfolioAssetInput,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    try:
+        asset = create_asset(db, user_id, payload)
+    except DuplicatePortfolioAssetError as exc:
+        raise HTTPException(status_code=409, detail="This asset is already in the portfolio") from exc
+    return _portfolio_asset_dict(asset)
+
+
+@router.patch("/portfolio/{asset_id}", response_model=PortfolioAsset)
+def patch_portfolio_asset(
+    asset_id: str,
+    payload: PortfolioAssetInput,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    try:
+        asset = update_asset(db, user_id, asset_id, payload)
+    except DuplicatePortfolioAssetError as exc:
+        raise HTTPException(status_code=409, detail="This asset is already in the portfolio") from exc
+    if not asset:
+        raise HTTPException(status_code=404, detail="Portfolio asset not found")
+    return _portfolio_asset_dict(asset)
+
+
+@router.delete("/portfolio/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_portfolio_asset(
+    asset_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> Response:
+    if not delete_asset(db, user_id, asset_id):
+        raise HTTPException(status_code=404, detail="Portfolio asset not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/kakao-alert", response_model=KakaoAlertResponse)
+def get_kakao_alert(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    settings = get_settings()
+    rules = get_kakao_rules(db, user_id)
+    kakao_ready = bool(settings.kakao_rest_api_key and settings.kakao_channel_id)
     return {
-        "summary": {
-            "assetCount": len(assets),
-            "totalInputAmount": round(total_input, 2),
-            "totalCurrentAmount": round(total_current, 2),
-            "valuationGap": round(total_current - total_input, 2),
-            "valuationGapRate": round((total_current - total_input) / total_input * 100, 2),
-            "linkedIndustryCount": 2,
-            "cautionAlertCount": 2,
-            "normalAlertCount": 5,
-            "updatedAt": updated_at,
-        },
-        "assets": assets,
-        "industryConnections": [
-            {"id": "semiconductor", "industryName": "Semiconductor", "connectedAssetCount": 1, "signalLabel": "Positive"},
-            {"id": "it", "industryName": "AI/IT", "connectedAssetCount": 1, "signalLabel": "Caution"},
+        "badges": [
+            "Kakao API configured" if kakao_ready else "Kakao key pending",
+            "Alert rules persisted",
+            "Test send available after OAuth",
         ],
-        "linkedSignals": [
-            {
-                "id": "signal-gdelt",
-                "industryName": "Semiconductor",
-                "time": updated_at[-5:],
-                "title": "GDELT semiconductor news increased",
-                "summary": "News-based risk signal is active until market data APIs are connected.",
-                "relatedAssetCount": 2,
-                "tone": "caution",
-            }
-        ],
-    }
-
-
-@router.get("/kakao-alert")
-def get_kakao_alert() -> dict[str, Any]:
-    return {
-        "badges": ["Kakao key pending", "FastAPI endpoint ready", "Test send can be wired after auth"],
-        "rules": [
-            {"id": "market-risk", "icon": "RISK", "label": "Market risk score >= 70", "enabled": True},
-            {"id": "industry-impact", "icon": "IND", "label": "Watched industry impact >= 60", "enabled": True},
-            {"id": "low-trust-news", "icon": "NEWS", "label": "Low-trust news detected", "enabled": True},
-            {"id": "portfolio-news", "icon": "PORT", "label": "Portfolio-related news", "enabled": True},
-            {"id": "red-signal", "icon": "RED", "label": "RED signal created", "enabled": True},
-            {"id": "daily-briefing", "icon": "DAY", "label": "Daily AI briefing", "enabled": True},
-        ],
+        "rules": [{"id": rule.rule_id, "icon": rule.icon, "label": rule.label, "enabled": rule.enabled} for rule in rules],
         "questions": [
             {"id": "q1", "label": "Show today's market signal"},
             {"id": "q2", "label": "Any caution news?"},
             {"id": "q3", "label": "Show semiconductor impact"},
         ],
         "integrations": [
-            {"id": "channel", "icon": "K", "label": "Kakao Channel", "value": "Application required", "health": "ready"},
+            {
+                "id": "channel",
+                "icon": "K",
+                "label": "Kakao Channel",
+                "value": "Configured" if kakao_ready else "Application required",
+                "health": "connected" if kakao_ready else "ready",
+            },
             {"id": "api", "icon": "FL", "label": "FinLightAI API", "value": "Ready", "health": "normal"},
         ],
         "history": [],
@@ -243,31 +267,42 @@ def get_kakao_alert() -> dict[str, Any]:
     }
 
 
-@router.get("/mypage")
-@router.get("/my-page")
-def get_mypage() -> dict[str, Any]:
+@router.patch("/kakao-alert/rules/{rule_id}", response_model=KakaoAlertRule)
+def patch_kakao_rule(
+    rule_id: str,
+    payload: KakaoRuleUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    rule = update_kakao_rule(db, user_id, rule_id, payload.enabled)
+    if not rule:
+        raise HTTPException(status_code=404, detail="Kakao alert rule not found")
+    return {"id": rule.rule_id, "icon": rule.icon, "label": rule.label, "enabled": rule.enabled}
+
+
+@router.get("/mypage", response_model=MyPageResponse)
+@router.get("/my-page", response_model=MyPageResponse)
+def get_mypage(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    user = ensure_user(db, user_id)
     return {
         "profile": {
-            "username": "finlight_user",
-            "email": "finlight@example.com",
-            "joinedAt": "2026.06.01",
-            "lastLoginAt": _now_label(),
-            "language": "Korean",
-            "alertChannel": "Kakao Channel",
-            "channelConnected": False,
+            "username": user.username,
+            "email": user.email,
+            "joinedAt": _format_datetime(user.created_at),
+            "lastLoginAt": _format_datetime(user.last_login_at),
+            "language": user.language,
+            "alertChannel": user.alert_channel,
+            "channelConnected": user.channel_connected,
         },
         "metrics": [
             {"id": "weekly-alerts", "icon": "ALERT", "label": "Weekly alerts", "value": "0", "helper": "Kakao pending"},
             {"id": "industries", "icon": "IND", "label": "Watched industries", "value": "3", "helper": "Semiconductor, AI, Policy"},
         ],
-        "alertSettings": [
-            {"id": "kakao", "icon": "K", "title": "Kakao alerts", "description": "Enabled after Kakao API setup.", "enabled": False},
-            {"id": "daily-briefing", "icon": "DAY", "title": "Daily AI briefing", "description": "Summarizes key news every day.", "enabled": True},
-            {"id": "red-signal", "icon": "RED", "title": "RED signal alert", "description": "Shows high-risk signals immediately.", "enabled": True, "emphasis": True},
-            {"id": "portfolio-news", "icon": "PORT", "title": "Portfolio news", "description": "Tracks watched assets.", "enabled": True},
-            {"id": "news-guard", "icon": "NEWS", "title": "News Guard", "description": "Shows low-trust news caution signals.", "enabled": True},
-        ],
-        "interests": ["Semiconductor", "AI", "Policy/Regulation"],
+        "alertSettings": user.alert_settings,
+        "interests": user.interests,
         "connections": [
             {"id": "api", "icon": "FL", "label": "FinLightAI API", "status": "connected", "statusLabel": "Connected"},
             {"id": "news", "icon": "G", "label": "GDELT", "status": "normal", "statusLabel": "Ready"},
@@ -285,8 +320,27 @@ def get_mypage() -> dict[str, Any]:
     }
 
 
-@router.get("/settings")
-def get_settings_view() -> dict[str, Any]:
+@router.patch("/mypage", response_model=MyPageResponse)
+@router.patch("/my-page", response_model=MyPageResponse)
+def patch_mypage(
+    payload: MyPageUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    update_mypage(
+        db,
+        user_id,
+        [item.model_dump(by_alias=True, exclude_none=True) for item in payload.alert_settings] if payload.alert_settings is not None else None,
+        payload.interests,
+    )
+    return get_mypage(user_id, db)
+
+
+@router.get("/settings", response_model=SettingsResponse)
+def get_settings_view(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
     settings = get_settings()
     api_connections = [
         {"id": "gdelt", "name": "GDELT DOC 2.0 API", "connected": True},
@@ -302,13 +356,7 @@ def get_settings_view() -> dict[str, Any]:
     ]
     connected_count = sum(1 for item in api_connections if item["connected"])
 
-    return {
-        "statusCards": [
-            {"id": "data", "icon": "DATA", "title": "Data collection", "value": "Partially connected", "description": "GDELT real API is available.", "tone": "normal"},
-            {"id": "api", "icon": "API", "title": "API integration", "value": f"{connected_count} / {len(api_connections)} connected", "description": "Credential-based APIs are waiting for keys.", "tone": "warning"},
-            {"id": "guard", "icon": "GUARD", "title": "News Guard", "value": "Basic", "description": "Source and URL based scoring.", "tone": "strict"},
-            {"id": "kakao", "icon": "K", "title": "Kakao alerts", "value": "Application required", "description": "Connect after Kakao developer/business setup.", "tone": "warning"},
-        ],
+    defaults = {
         "dataCollection": {
             "newsInterval": "15 min",
             "newsRetention": "90 days",
@@ -331,12 +379,6 @@ def get_settings_view() -> dict[str, Any]:
             {"id": "daily-briefing", "label": "Daily AI briefing", "description": "Daily summary", "enabled": True},
             {"id": "weekly-report", "label": "Weekly report", "description": "Weekly market summary", "enabled": True},
         ],
-        "kakaoChannel": {
-            "botName": "FinLightAI Kakao Channel",
-            "statusLabel": "Application required",
-            "description": "Connect alert sending after Kakao channel and message API setup.",
-        },
-        "apiConnections": api_connections,
         "display": {
             "language": "Korean",
             "theme": "Dark mode",
@@ -349,6 +391,110 @@ def get_settings_view() -> dict[str, Any]:
             "kakaoNotice": "Production alerts should follow Kakao Bizmessage and channel policy.",
         },
     }
+    stored = get_user_settings(db, user_id, defaults)
+    return {
+        "statusCards": [
+            {"id": "data", "icon": "DATA", "title": "Data collection", "value": "Partially connected", "description": "GDELT real API is available.", "tone": "normal"},
+            {"id": "api", "icon": "API", "title": "API integration", "value": f"{connected_count} / {len(api_connections)} connected", "description": "Credential-based APIs are waiting for keys.", "tone": "warning"},
+            {"id": "guard", "icon": "GUARD", "title": "News Guard", "value": "Basic", "description": "Source and URL based scoring.", "tone": "strict"},
+            {"id": "kakao", "icon": "K", "title": "Kakao alerts", "value": "Application required", "description": "Connect after Kakao developer/business setup.", "tone": "warning"},
+        ],
+        "dataCollection": stored["dataCollection"],
+        "newsGuard": stored["newsGuard"],
+        "notifications": stored["notifications"],
+        "kakaoChannel": {
+            "botName": "FinLightAI Kakao Channel",
+            "statusLabel": "Application required",
+            "description": "Connect alert sending after Kakao channel and message API setup.",
+        },
+        "apiConnections": api_connections,
+        "display": stored["display"],
+        "misc": stored["misc"],
+    }
+
+
+@router.put("/settings", response_model=SettingsResponse)
+def put_settings(
+    payload: SettingsUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    save_user_settings(db, user_id, payload)
+    return get_settings_view(user_id, db)
+
+
+def _portfolio_response(records: list[PortfolioAssetRecord]) -> dict[str, Any]:
+    assets = [_portfolio_asset_dict(record) for record in records]
+    rates = {"KRW": 1.0, "USD": 1382.0, "TWD": 43.0}
+    total_input = sum(asset["quantity"] * asset["averageBuyPrice"] * rates[asset["currency"]] for asset in assets)
+    total_current = sum(asset["quantity"] * asset["currentPrice"] * rates[asset["currency"]] for asset in assets)
+    industries: dict[str, int] = {}
+    for asset in assets:
+        industries[asset["industry"]] = industries.get(asset["industry"], 0) + 1
+    caution_count = sum(asset["cautionNewsCount"] for asset in assets)
+    related_count = sum(asset["relatedNewsCount"] for asset in assets)
+    updated_at = max((asset["updatedAt"] for asset in assets), default=_now_label())
+
+    return {
+        "summary": {
+            "assetCount": len(assets),
+            "totalInputAmount": round(total_input, 2),
+            "totalCurrentAmount": round(total_current, 2),
+            "valuationGap": round(total_current - total_input, 2),
+            "valuationGapRate": round((total_current - total_input) / total_input * 100, 2) if total_input else 0,
+            "linkedIndustryCount": len(industries),
+            "cautionAlertCount": caution_count,
+            "normalAlertCount": max(related_count - caution_count, 0),
+            "updatedAt": updated_at,
+        },
+        "assets": assets,
+        "industryConnections": [
+            {
+                "id": hashlib.sha1(industry.encode("utf-8")).hexdigest()[:8],
+                "industryName": industry,
+                "connectedAssetCount": count,
+                "signalLabel": "Caution" if industry == "AI/IT" else "Positive",
+            }
+            for industry, count in industries.items()
+        ],
+        "linkedSignals": [
+            {
+                "id": "signal-gdelt",
+                "industryName": next(iter(industries), "Market"),
+                "time": updated_at[-5:],
+                "title": "GDELT market-news signal",
+                "summary": "News-based risk signal is active until market data APIs are connected.",
+                "relatedAssetCount": len(assets),
+                "tone": "caution",
+            }
+        ] if assets else [],
+    }
+
+
+def _portfolio_asset_dict(record: PortfolioAssetRecord) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "assetName": record.asset_name,
+        "symbol": record.symbol,
+        "market": record.market,
+        "industry": record.industry,
+        "quantity": record.quantity,
+        "averageBuyPrice": record.average_buy_price,
+        "currentPrice": record.current_price,
+        "recentSellPrice": record.recent_sell_price,
+        "currency": record.currency,
+        "status": record.status,
+        "decisionMemo": record.decision_memo,
+        "relatedNewsCount": record.related_news_count,
+        "cautionNewsCount": record.caution_news_count,
+        "updatedAt": _format_datetime(record.updated_at),
+    }
+
+
+def _format_datetime(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(KST).strftime("%Y.%m.%d %H:%M")
 
 
 def _load_gdelt_articles(max_records: int = 50) -> list[dict[str, Any]]:
@@ -551,7 +697,7 @@ def _published_label(value: Any) -> str:
     return str(value)
 
 
-def _provider_status() -> dict[str, str]:
+def _provider_status(gemini_status: str | None = None) -> dict[str, str]:
     settings = get_settings()
     return {
         "gdelt": "connected",
@@ -559,7 +705,7 @@ def _provider_status() -> dict[str, str]:
         "guardian": "connected" if settings.guardian_api_key else "waiting_for_api_key",
         "finnhub": "connected" if settings.finnhub_api_key else "waiting_for_api_key",
         "alphaVantage": "connected" if settings.alpha_vantage_api_key else "waiting_for_api_key",
-        "gemini": "connected" if settings.gemini_api_key else "waiting_for_api_key",
+        "gemini": gemini_status or ("configured" if settings.gemini_api_key else "waiting_for_api_key"),
         "kis": "connected" if settings.kis_app_key and settings.kis_app_secret else "waiting_for_api_key",
         "openai": "connected" if settings.openai_api_key else "waiting_for_api_key",
         "kakao": "connected" if settings.kakao_rest_api_key else "waiting_for_api_key",
@@ -568,8 +714,14 @@ def _provider_status() -> dict[str, str]:
 
 def _provider_health(articles: list[dict[str, Any]]) -> list[dict[str, str]]:
     using_seed = any(article.get("provider") == "seed" for article in articles)
-    gdelt_status = "partial" if using_seed else "healthy"
-    gdelt_message = "Using seed fallback; live call returned no data or failed" if using_seed else "Live API connected"
+    collector_status = NewsCollector.provider_status()
+    gdelt_status = collector_status["status"]
+    gdelt_message = collector_status["message"]
+    if gdelt_status not in {"healthy", "partial", "failed"}:
+        gdelt_status = "partial"
+    if using_seed and gdelt_status == "healthy":
+        gdelt_status = "partial"
+        gdelt_message = "Using seed fallback; live call returned no data"
     return [
         {"provider": "GDELT", "status": gdelt_status, "message": gdelt_message, "lastCheckedAt": _now_label()},
         {"provider": "NewsAPI", "status": "disabled", "message": "API key pending"},

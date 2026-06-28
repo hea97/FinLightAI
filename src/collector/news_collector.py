@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -11,6 +13,9 @@ from config.settings import get_settings
 
 class NewsCollector:
     DEFAULT_KEYWORDS = ["AI", "semiconductor", "policy", "export control", "NVIDIA", "Samsung Electronics"]
+    _cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+    _cache_lock = threading.Lock()
+    _last_status: dict[str, str] = {"status": "unknown", "message": "Not checked yet"}
 
     def collect_from_gdelt(
         self,
@@ -22,6 +27,12 @@ class NewsCollector:
         safe_days = max(1, min(days, 3))
         safe_max_records = max(1, min(max_records, 200))
         query = self._build_gdelt_query(selected)
+        cache_key = f"{query}|{safe_days}|{safe_max_records}"
+        settings = get_settings()
+        cached = self._get_cached(cache_key, settings.external_api_cache_seconds)
+        if cached is not None:
+            type(self)._last_status = {"status": "healthy", "message": "Live API cache hit"}
+            return cached
         params = {
             "query": query,
             "mode": "artlist",
@@ -32,17 +43,46 @@ class NewsCollector:
         }
 
         try:
-            settings = get_settings()
-            response = httpx.get(settings.gdelt_base_url, params=params, timeout=10)
+            response = httpx.get(
+                settings.gdelt_base_url,
+                params=params,
+                timeout=settings.external_api_timeout_seconds,
+            )
             response.raise_for_status()
             data = response.json()
             articles = data.get("articles", [])
             if articles:
-                return [self._normalize_gdelt_article(article) for article in articles]
+                normalized = [self._normalize_gdelt_article(article) for article in articles]
+                self._set_cached(cache_key, normalized)
+                type(self)._last_status = {"status": "healthy", "message": "Live API connected"}
+                return normalized
+            type(self)._last_status = {"status": "partial", "message": "Live API returned no articles; using seed fallback"}
+        except httpx.TimeoutException:
+            type(self)._last_status = {"status": "failed", "message": "Live API timed out; using seed fallback"}
         except (httpx.HTTPError, ValueError, TypeError):
-            pass
+            type(self)._last_status = {"status": "failed", "message": "Live API request failed; using seed fallback"}
 
         return self._seed_articles(selected)
+
+    @classmethod
+    def provider_status(cls) -> dict[str, str]:
+        return dict(cls._last_status)
+
+    @classmethod
+    def _get_cached(cls, key: str, ttl_seconds: int) -> list[dict[str, Any]] | None:
+        if ttl_seconds <= 0:
+            return None
+        with cls._cache_lock:
+            cached = cls._cache.get(key)
+            if not cached or time.monotonic() - cached[0] > ttl_seconds:
+                cls._cache.pop(key, None)
+                return None
+            return [dict(article) for article in cached[1]]
+
+    @classmethod
+    def _set_cached(cls, key: str, articles: list[dict[str, Any]]) -> None:
+        with cls._cache_lock:
+            cls._cache[key] = (time.monotonic(), [dict(article) for article in articles])
 
     def _build_gdelt_query(self, keywords: list[str]) -> str:
         terms = []

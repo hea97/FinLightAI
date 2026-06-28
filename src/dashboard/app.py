@@ -1,25 +1,50 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from config.settings import get_settings
+from src.dashboard.database import create_tables
 from src.dashboard.routes.api import router as api_router
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+
 app = FastAPI(title="FinLightAI", version="0.1.0")
+settings = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(api_router, prefix="/api")
-app.mount("/static", StaticFiles(directory="src/dashboard/static"), name="static")
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="frontend-assets")
+app.mount(
+    "/static",
+    StaticFiles(directory=PROJECT_ROOT / "src" / "dashboard" / "static"),
+    name="static",
+)
+create_tables()
 
 
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse("src/dashboard/static/index.html")
+    frontend_index = FRONTEND_DIST / "index.html"
+    return FileResponse(frontend_index if frontend_index.exists() else PROJECT_ROOT / "src" / "dashboard" / "static" / "index.html")
 
 
 @app.get("/login")
 def login() -> FileResponse:
-    return FileResponse("src/dashboard/static/login.html")
+    frontend_index = FRONTEND_DIST / "index.html"
+    return FileResponse(frontend_index if frontend_index.exists() else PROJECT_ROOT / "src" / "dashboard" / "static" / "login.html")
 
 
 @app.get("/auth/kakao/start")

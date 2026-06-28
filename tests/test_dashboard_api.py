@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
 from src.collector.news_collector import NewsCollector
@@ -48,3 +50,84 @@ def test_core_real_api_transition_endpoints(monkeypatch):
 
         assert response.status_code == 200
         assert response.json()
+
+
+def test_portfolio_crud_is_scoped_to_user():
+    client = TestClient(app)
+    user_id = f"test-{uuid4().hex}"
+    other_user_id = f"test-{uuid4().hex}"
+    headers = {"X-User-ID": user_id}
+    payload = {
+        "assetName": "Test Asset",
+        "symbol": f"T{uuid4().hex[:7].upper()}",
+        "market": "US",
+        "industry": "AI/IT",
+        "quantity": 2,
+        "averageBuyPrice": 100,
+        "currentPrice": 110,
+        "currency": "USD",
+        "status": "holding",
+        "decisionMemo": "API integration test",
+    }
+
+    created = client.post("/api/portfolio", headers=headers, json=payload)
+    assert created.status_code == 201
+    asset = created.json()
+    assert asset["symbol"] == payload["symbol"]
+
+    duplicate = client.post("/api/portfolio", headers=headers, json=payload)
+    assert duplicate.status_code == 409
+
+    hidden = client.patch(
+        f"/api/portfolio/{asset['id']}",
+        headers={"X-User-ID": other_user_id},
+        json={**payload, "currentPrice": 120},
+    )
+    assert hidden.status_code == 404
+
+    updated = client.patch(
+        f"/api/portfolio/{asset['id']}",
+        headers=headers,
+        json={**payload, "currentPrice": 120},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["currentPrice"] == 120
+
+    deleted = client.delete(f"/api/portfolio/{asset['id']}", headers=headers)
+    assert deleted.status_code == 204
+
+
+def test_user_settings_and_alert_rules_are_persisted():
+    client = TestClient(app)
+    user_id = f"test-{uuid4().hex}"
+    headers = {"X-User-ID": user_id}
+
+    settings = client.get("/api/settings", headers=headers)
+    assert settings.status_code == 200
+    payload = settings.json()
+    payload["notifications"][0]["enabled"] = False
+    writable = {
+        key: payload[key]
+        for key in ["dataCollection", "newsGuard", "notifications", "display", "misc"]
+    }
+
+    saved = client.put("/api/settings", headers=headers, json=writable)
+    assert saved.status_code == 200
+    assert saved.json()["notifications"][0]["enabled"] is False
+    assert client.get("/api/settings", headers=headers).json()["notifications"][0]["enabled"] is False
+
+    rule = client.patch(
+        "/api/kakao-alert/rules/daily-briefing",
+        headers=headers,
+        json={"enabled": False},
+    )
+    assert rule.status_code == 200
+    assert rule.json()["enabled"] is False
+
+    mypage = client.patch(
+        "/api/mypage",
+        headers=headers,
+        json={"interests": ["AI", "Semiconductor", "AI"]},
+    )
+    assert mypage.status_code == 200
+    assert mypage.json()["interests"] == ["AI", "Semiconductor"]

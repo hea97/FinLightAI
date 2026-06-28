@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import threading
+import time
 from typing import Any
 
 import httpx
@@ -10,11 +13,16 @@ from config.settings import get_settings
 
 class GeminiClient:
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+    _cache: dict[str, tuple[float, str]] = {}
+    _cache_lock = threading.Lock()
 
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         settings = get_settings()
         self.api_key = (api_key if api_key is not None else settings.gemini_api_key or "").strip()
         self.model = (model if model is not None else settings.gemini_model).strip()
+        self.timeout = settings.external_api_timeout_seconds
+        self.cache_seconds = settings.external_api_cache_seconds
+        self.last_status = "not_configured" if not self.api_key else "ready"
 
     @property
     def is_configured(self) -> bool:
@@ -22,7 +30,13 @@ class GeminiClient:
 
     def generate_text(self, prompt: str, temperature: float = 0.2, max_tokens: int = 512) -> str | None:
         if not self.is_configured:
+            self.last_status = "not_configured"
             return None
+        cache_key = hashlib.sha256(f"{self.model}|{temperature}|{max_tokens}|{prompt}".encode("utf-8")).hexdigest()
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            self.last_status = "cached"
+            return cached
 
         url = f"{self.BASE_URL}/models/{self.model}:generateContent"
         payload = {
@@ -34,11 +48,35 @@ class GeminiClient:
         }
 
         try:
-            response = httpx.post(url, params={"key": self.api_key}, json=payload, timeout=20)
+            response = httpx.post(url, params={"key": self.api_key}, json=payload, timeout=self.timeout)
             response.raise_for_status()
-            return self._extract_text(response.json())
-        except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            text = self._extract_text(response.json())
+            if text:
+                self._set_cached(cache_key, text)
+                self.last_status = "healthy"
+            else:
+                self.last_status = "empty_response"
+            return text
+        except httpx.TimeoutException:
+            self.last_status = "timeout"
             return None
+        except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            self.last_status = "failed"
+            return None
+
+    def _get_cached(self, key: str) -> str | None:
+        if self.cache_seconds <= 0:
+            return None
+        with self._cache_lock:
+            cached = self._cache.get(key)
+            if not cached or time.monotonic() - cached[0] > self.cache_seconds:
+                self._cache.pop(key, None)
+                return None
+            return cached[1]
+
+    def _set_cached(self, key: str, text: str) -> None:
+        with self._cache_lock:
+            self._cache[key] = (time.monotonic(), text)
 
     def generate_briefing(self, articles: list[dict[str, Any]]) -> dict[str, Any] | None:
         if not articles:

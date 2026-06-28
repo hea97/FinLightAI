@@ -7,8 +7,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_env: str = "local"
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/finlightai"
+    database_url: str = "sqlite:///./data/finlightai.db"
+    cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
     gdelt_base_url: str = "https://api.gdeltproject.org/api/v2/doc/doc"
+    external_api_timeout_seconds: float = Field(default=10, gt=0, le=60)
+    external_api_cache_seconds: int = Field(default=300, ge=0, le=3600)
     news_api_key: str | None = None
     guardian_api_key: str | None = None
     finnhub_api_key: str | None = None

@@ -9,6 +9,8 @@ references/
 data/raw/*
 data/processed/*
 data/models/*
+data/*.db
+data/*.db-*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/models/.gitkeep
