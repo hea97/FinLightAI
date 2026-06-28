@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     finnhub_api_key: str | None = None
     alpha_vantage_api_key: str | None = None
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-3.5-flash"
+    gemini_model: str = "gemini-2.5-flash"
     openai_api_key: str | None = None
     opendart_api_key: str | None = None
     kis_app_key: str | None = None
