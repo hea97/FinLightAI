@@ -1,17 +1,13 @@
-import { kakaoAlertMock } from "../data/kakaoAlert.mock";
-import type { KakaoAlertResponse } from "../types/kakaoAlert";
+import type { KakaoAlertResponse, KakaoAlertRule } from "../types/kakaoAlert";
+import { apiFetch } from "./apiClient";
 
-const USE_MOCK = true;
+export function fetchKakaoAlertData(): Promise<KakaoAlertResponse> {
+  return apiFetch("/api/kakao-alert");
+}
 
-export async function fetchKakaoAlertData(): Promise<KakaoAlertResponse> {
-  if (USE_MOCK) {
-    return kakaoAlertMock;
-  }
-
-  const response = await fetch("/api/kakao-alert");
-  if (!response.ok) {
-    throw new Error("카카오 알림 데이터를 불러오지 못했습니다.");
-  }
-
-  return response.json();
+export function updateKakaoAlertRule(ruleId: string, enabled: boolean): Promise<KakaoAlertRule> {
+  return apiFetch(`/api/kakao-alert/rules/${encodeURIComponent(ruleId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ enabled }),
+  });
 }

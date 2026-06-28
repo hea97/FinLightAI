@@ -95,6 +95,18 @@ button {
   backdrop-filter: blur(16px);
 }
 
+.api-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  border: 1px solid rgba(239, 103, 94, 0.45);
+  border-radius: 6px;
+  background: rgba(239, 103, 94, 0.1);
+  color: var(--red);
+  padding: 10px 12px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
 .brand-group,
 .header-actions,
 .main-nav {
@@ -1236,6 +1248,280 @@ button {
   display: grid;
   gap: 16px;
   align-self: start;
+}
+
+.briefing-readiness {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 18px;
+}
+
+.briefing-readiness-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.briefing-readiness-head span {
+  color: var(--mint);
+  font-size: var(--text-sm);
+  font-weight: 800;
+}
+
+.briefing-readiness-head h2,
+.briefing-readiness-head p {
+  margin: 0;
+}
+
+.briefing-readiness-head h2 {
+  margin-top: 6px;
+  font-size: var(--text-xl);
+  font-weight: 880;
+}
+
+.briefing-readiness-head p {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.readiness-score {
+  min-width: 160px;
+  border: 1px solid rgba(115, 215, 176, 0.28);
+  border-radius: 8px;
+  background: rgba(115, 215, 176, 0.08);
+  padding: 16px;
+  text-align: right;
+}
+
+.readiness-score strong {
+  font-family: var(--font-mono);
+  font-size: var(--text-kpi);
+  line-height: 1;
+}
+
+.readiness-score span {
+  color: var(--text-secondary);
+}
+
+.readiness-score em {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-style: normal;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.readiness-metric-grid,
+.readiness-body {
+  display: grid;
+  gap: 12px;
+}
+
+.readiness-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.readiness-metric,
+.readiness-block {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.readiness-metric {
+  min-height: 104px;
+  padding: 16px;
+}
+
+.readiness-metric span,
+.readiness-metric em {
+  display: block;
+}
+
+.readiness-metric span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 760;
+}
+
+.readiness-metric strong {
+  display: block;
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 860;
+}
+
+.readiness-metric em {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-style: normal;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.readiness-metric.ready strong {
+  color: var(--green);
+}
+
+.readiness-metric.watch strong {
+  color: var(--yellow);
+}
+
+.readiness-metric.blocked strong {
+  color: var(--red);
+}
+
+.readiness-body {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.readiness-block {
+  padding: 16px;
+}
+
+.readiness-block-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.readiness-block-title h3 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.readiness-block-title span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.source-coverage-list,
+.bias-check-list,
+.prompt-input-list {
+  display: grid;
+  gap: 10px;
+}
+
+.source-coverage-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.source-coverage-row div,
+.bias-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.source-coverage-row i,
+.bias-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.source-coverage-row i {
+  background: linear-gradient(90deg, var(--blue), var(--mint));
+}
+
+.source-coverage-row strong {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-align: right;
+}
+
+.bias-check-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(90px, 0.8fr) 42px;
+  align-items: center;
+  gap: 10px;
+}
+
+.bias-check-row strong,
+.bias-check-row span {
+  display: block;
+}
+
+.bias-check-row strong {
+  font-size: var(--text-sm);
+}
+
+.bias-check-row span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.bias-check-row.ready .bias-track i {
+  background: var(--green);
+}
+
+.bias-check-row.watch .bias-track i {
+  background: var(--yellow);
+}
+
+.bias-check-row.blocked .bias-track i {
+  background: var(--red);
+}
+
+.bias-check-row em {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  font-style: normal;
+  font-size: var(--text-xs);
+  font-weight: 800;
+  padding: 5px 8px;
+  text-align: center;
+}
+
+.prompt-input-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prompt-input-list li {
+  position: relative;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  line-height: 1.45;
+  padding-left: 16px;
+}
+
+.prompt-input-list li::before {
+  position: absolute;
+  top: 0.55em;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mint);
+  content: "";
+}
+
+.readiness-updated {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
 }
 
 .guard-panel {
@@ -4472,7 +4758,9 @@ button {
   .impact-industry-grid,
   .portfolio-summary-strip,
   .summary-strip,
-  .news-guard-kpis {
+  .news-guard-kpis,
+  .readiness-metric-grid,
+  .readiness-body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -4573,6 +4861,7 @@ button {
   .mypage-profile-card,
   .settings-hero,
   .settings-actions,
+  .briefing-readiness-head,
   .impact-panel-heading,
   .industry-detail-top,
   .impact-footnote,
@@ -4591,6 +4880,8 @@ button {
   .mypage-shortcut-grid,
   .settings-status-grid,
   .news-guard-mode-grid,
+  .readiness-metric-grid,
+  .readiness-body,
   .auth-signal-strip,
   .auth-stepper,
   .auth-industry-picker,
@@ -4610,8 +4901,15 @@ button {
   .mypage-toggle-row,
   .mypage-activity-list article,
   .settings-slider-row,
+  .bias-check-row,
+  .source-coverage-row,
   .kakao-channel-note {
     grid-template-columns: 1fr;
+  }
+
+  .readiness-score {
+    width: 100%;
+    text-align: left;
   }
 
   .mypage-top-row {

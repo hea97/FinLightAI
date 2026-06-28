@@ -33,6 +33,35 @@ export type MarketViewData = {
   highlightedIndustries: string[];
 };
 
+export type BriefingReadinessMetric = {
+  label: string;
+  value: string;
+  note: string;
+  status: "ready" | "watch" | "blocked";
+};
+
+export type BriefingCoverageSource = {
+  name: string;
+  ratio: number;
+};
+
+export type BriefingBiasCheck = {
+  label: string;
+  score: number;
+  note: string;
+  status: "ready" | "watch" | "blocked";
+};
+
+export type BriefingReadinessData = {
+  headline: string;
+  confidence: number;
+  updatedAt: string;
+  metrics: BriefingReadinessMetric[];
+  coverageSources: BriefingCoverageSource[];
+  biasChecks: BriefingBiasCheck[];
+  promptInputs: string[];
+};
+
 export type IndustryImpact = {
   id: string;
   name: string;
@@ -128,6 +157,36 @@ export const marketData: Record<MarketTab, MarketViewData> = {
     ],
     highlightedIndustries: ["semiconductor", "airline", "finance", "bio"],
   },
+};
+
+export const briefingReadiness: BriefingReadinessData = {
+  headline: "AI 브리핑은 6개 출처와 3개 시장 축을 교차 확인한 뒤 생성됩니다.",
+  confidence: 82,
+  updatedAt: "2026.06.23 09:30 KST",
+  metrics: [
+    { label: "수집 뉴스", value: "186건", note: "최근 24시간 기준", status: "ready" },
+    { label: "검증 통과", value: "129건", note: "중복/저신뢰 제외", status: "ready" },
+    { label: "출처 다양성", value: "6곳", note: "국내 2 · 해외 4", status: "ready" },
+    { label: "편향 주의", value: "2건", note: "반도체 쏠림 감지", status: "watch" },
+  ],
+  coverageSources: [
+    { name: "GDELT", ratio: 28 },
+    { name: "Guardian", ratio: 18 },
+    { name: "BBC RSS", ratio: 15 },
+    { name: "Finnhub", ratio: 14 },
+    { name: "국내 경제지", ratio: 13 },
+    { name: "공시/지표", ratio: 12 },
+  ],
+  biasChecks: [
+    { label: "출처 편중", score: 18, note: "단일 출처 비중 30% 미만", status: "ready" },
+    { label: "산업 편중", score: 42, note: "반도체 뉴스 비중이 높아 보정 필요", status: "watch" },
+    { label: "감성 편중", score: 24, note: "긍정/부정 기사 균형 양호", status: "ready" },
+  ],
+  promptInputs: [
+    "신뢰 통과 뉴스만 AI 브리핑 후보로 사용",
+    "동일 이슈는 중복 제거 후 대표 기사 1건으로 압축",
+    "산업별 영향도와 시장 지표를 함께 넣어 과장 표현 제한",
+  ],
 };
 
 export const industries: IndustryImpact[] = [

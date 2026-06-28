@@ -1,11 +1,24 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
-import { industries, marketData, tabs, type MarketTab, type MarketViewData, type NewsImpact, type Tone } from "./data/mockData";
+import {
+  briefingReadiness,
+  industries,
+  marketData,
+  tabs,
+  type BriefingBiasCheck,
+  type BriefingReadinessData,
+  type MarketTab,
+  type MarketViewData,
+  type NewsImpact,
+  type Tone,
+} from "./data/mockData";
+import { fetchBriefingData } from "./services/briefingApi";
 import { fetchIndustryImpactData } from "./services/industryImpactApi";
-import { fetchKakaoAlertData } from "./services/kakaoAlertApi";
-import { fetchMyPageData } from "./services/myPageApi";
+import { fetchKakaoAlertData, updateKakaoAlertRule } from "./services/kakaoAlertApi";
+import { fetchMyPageData, updateMyPageData } from "./services/myPageApi";
 import { fetchNewsGuardData } from "./services/newsGuardApi";
-import { fetchPortfolioData } from "./services/portfolioApi";
-import { fetchSettingsData } from "./services/settingsApi";
+import { createPortfolioAsset, deletePortfolioAsset, fetchPortfolioData, updatePortfolioAsset } from "./services/portfolioApi";
+import { fetchSettingsData, saveSettingsData } from "./services/settingsApi";
+import type { BriefingResponse } from "./types/briefing";
 import type { IndustryDetail, IndustryImpactResponse, IndustrySummary, RelatedNewsItem } from "./types/industryImpact";
 import type { KakaoAlertHistoryItem, KakaoAlertResponse, KakaoAlertRule, KakaoChatQuestion, KakaoFlowStep, KakaoIntegrationStatus, KakaoPreviewMessage } from "./types/kakaoAlert";
 import type { MyPageActivity, MyPageAlertSetting, MyPageConnection, MyPageMetric, MyPageProfile, MyPageResponse, MyPageShortcut } from "./types/myPage";
@@ -271,6 +284,26 @@ function BriefingDashboard({
   onMarketTabChange: (tab: MarketTab) => void;
   onViewChange: (view: ViewId) => void;
 }) {
+  const [briefingData, setBriefingData] = useState<BriefingResponse | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchBriefingData()
+      .then((data) => {
+        if (mounted) setBriefingData(data);
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const briefingSignal = briefingData?.signal ?? "YELLOW";
+  const briefingRisk = briefingData?.riskScore ?? currentMarket.risk;
+  const briefingTitle = briefingData?.headline ?? currentMarket.title;
+  const briefingSummary = briefingData?.summary.map((text) => ({ text, tone: "neutral" as Tone })) ?? currentMarket.briefing;
+  const briefingUpdatedAt = briefingData?.asOf ?? currentMarket.updatedAt;
+
   return (
     <main className="dashboard">
       <PageHeader title={viewCopy.briefing.title} description={viewCopy.briefing.subtitle} />
@@ -278,22 +311,22 @@ function BriefingDashboard({
       <section className="panel market-signal">
         <div className="section-title-row">
           <h2>오늘의 시장 신호</h2>
-          <span>업데이트 {currentMarket.updatedAt}</span>
+          <span>업데이트 {briefingUpdatedAt}</span>
         </div>
         <div className="signal-content">
           <div className="signal-badge" aria-label="주의 신호">
             <span>!</span>
-            <strong>YELLOW</strong>
+            <strong>{briefingSignal}</strong>
             <em>주의</em>
           </div>
           <div className="signal-copy">
-            <h3>{currentMarket.title}</h3>
+            <h3>{briefingTitle}</h3>
             <p>{currentMarket.description}</p>
             <div className="risk-row">
-              <div className="risk-track" aria-label={`위험도 ${currentMarket.risk}점`}>
-                <span style={{ width: `${currentMarket.risk}%` }} />
+              <div className="risk-track" aria-label={`위험도 ${briefingRisk}점`}>
+                <span style={{ width: `${briefingRisk}%` }} />
               </div>
-              <strong>위험도 {currentMarket.risk} / 100</strong>
+              <strong>위험도 {briefingRisk} / 100</strong>
             </div>
           </div>
         </div>
@@ -305,7 +338,7 @@ function BriefingDashboard({
           <span>3개 포인트</span>
         </div>
         <ul className="briefing-list">
-          {currentMarket.briefing.map((point) => (
+          {briefingSummary.map((point) => (
             <li key={point.text}>
               <span className={`briefing-dot ${point.tone}`} />
               {point.text}
@@ -379,6 +412,8 @@ function BriefingDashboard({
           <strong>{selectedIndustryName} {formatScore(selectedIndustryScore)}</strong>
         </section>
       </aside>
+
+      <BriefingReadinessPanel data={briefingReadiness} />
     </main>
   );
 }
@@ -403,6 +438,97 @@ function NewsTopPanel({ news }: { news: NewsImpact[] }) {
         ))}
       </ol>
     </section>
+  );
+}
+
+function BriefingReadinessPanel({ data }: { data: BriefingReadinessData }) {
+  return (
+    <section className="panel briefing-readiness" aria-label="AI 브리핑 준비도">
+      <div className="briefing-readiness-head">
+        <div>
+          <span>자체 금융 신호 알고리즘</span>
+          <h2>AI 브리핑 준비도</h2>
+          <p>{data.headline}</p>
+        </div>
+        <div className="readiness-score">
+          <strong>{data.confidence}</strong>
+          <span>/ 100</span>
+          <em>브리핑 신뢰 준비도</em>
+        </div>
+      </div>
+
+      <div className="readiness-metric-grid">
+        {data.metrics.map((metric) => (
+          <article className={`readiness-metric ${metric.status}`} key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{metric.value}</strong>
+            <em>{metric.note}</em>
+          </article>
+        ))}
+      </div>
+
+      <div className="readiness-body">
+        <section className="readiness-block">
+          <div className="readiness-block-title">
+            <h3>뉴스 출처 커버리지</h3>
+            <span>최근 24시간</span>
+          </div>
+          <div className="source-coverage-list">
+            {data.coverageSources.map((source) => (
+              <div className="source-coverage-row" key={source.name}>
+                <span>{source.name}</span>
+                <div aria-label={`${source.name} 비중 ${source.ratio}%`}>
+                  <i style={{ width: `${source.ratio}%` }} />
+                </div>
+                <strong>{source.ratio}%</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="readiness-block">
+          <div className="readiness-block-title">
+            <h3>편향 점검</h3>
+            <span>낮을수록 안정</span>
+          </div>
+          <div className="bias-check-list">
+            {data.biasChecks.map((check) => (
+              <BiasCheckRow check={check} key={check.label} />
+            ))}
+          </div>
+        </section>
+
+        <section className="readiness-block">
+          <div className="readiness-block-title">
+            <h3>AI 브리핑 입력 규칙</h3>
+            <span>Gemini 연결 예정</span>
+          </div>
+          <ul className="prompt-input-list">
+            {data.promptInputs.map((input) => (
+              <li key={input}>{input}</li>
+            ))}
+          </ul>
+          <p className="readiness-updated">업데이트 {data.updatedAt}</p>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function BiasCheckRow({ check }: { check: BriefingBiasCheck }) {
+  const statusLabel = check.status === "ready" ? "정상" : check.status === "watch" ? "주의" : "차단";
+
+  return (
+    <article className={`bias-check-row ${check.status}`}>
+      <div>
+        <strong>{check.label}</strong>
+        <span>{check.note}</span>
+      </div>
+      <div className="bias-track" aria-label={`${check.label} 편향 점수 ${check.score}점`}>
+        <i style={{ width: `${check.score}%` }} />
+      </div>
+      <em>{statusLabel}</em>
+    </article>
   );
 }
 
@@ -981,6 +1107,7 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
   const [draft, setDraft] = useState<PortfolioAssetDraft>(emptyAssetDraft);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -1032,25 +1159,38 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
     setDraft(emptyAssetDraft);
   }
 
-  function handleSaveAsset(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveAsset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextAsset = draftToAsset(draft, editingAssetId);
+    const { id: _id, relatedNewsCount: _related, cautionNewsCount: _caution, updatedAt: _updated, ...payload } = nextAsset;
 
-    setAssets((currentAssets) => {
-      if (editingAssetId) {
-        return currentAssets.map((asset) => (asset.id === editingAssetId ? { ...asset, ...nextAsset, id: editingAssetId } : asset));
-      }
-
-      return [nextAsset, ...currentAssets];
-    });
-
-    closeForm();
+    try {
+      setApiError(null);
+      const savedAsset = editingAssetId
+        ? await updatePortfolioAsset(editingAssetId, payload)
+        : await createPortfolioAsset(payload);
+      setAssets((currentAssets) => {
+        if (editingAssetId) {
+          return currentAssets.map((asset) => (asset.id === editingAssetId ? savedAsset : asset));
+        }
+        return [savedAsset, ...currentAssets];
+      });
+      closeForm();
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : "Portfolio update failed");
+    }
   }
 
-  function confirmDeleteAsset() {
+  async function confirmDeleteAsset() {
     if (!deleteTargetId) return;
-    setAssets((currentAssets) => currentAssets.filter((asset) => asset.id !== deleteTargetId));
-    setDeleteTargetId(null);
+    try {
+      setApiError(null);
+      await deletePortfolioAsset(deleteTargetId);
+      setAssets((currentAssets) => currentAssets.filter((asset) => asset.id !== deleteTargetId));
+      setDeleteTargetId(null);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : "Portfolio delete failed");
+    }
   }
 
   return (
@@ -1065,6 +1205,7 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
           </div>
         )}
       />
+      {apiError ? <p className="api-error" role="alert">{apiError}</p> : null}
 
       <PortfolioSummaryCards summary={summary} />
 
@@ -1464,6 +1605,7 @@ function KakaoAlertPage() {
   const [rules, setRules] = useState<KakaoAlertRule[]>([]);
   const [activeQuestionId, setActiveQuestionId] = useState("q1");
   const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -1491,13 +1633,25 @@ function KakaoAlertPage() {
     );
   }
 
-  function toggleRule(ruleId: KakaoAlertRule["id"]) {
-    setRules((currentRules) => currentRules.map((rule) => (rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule)));
+  async function toggleRule(ruleId: KakaoAlertRule["id"]) {
+    const currentRule = rules.find((rule) => rule.id === ruleId);
+    if (!currentRule) return;
+    const enabled = !currentRule.enabled;
+    setRules((currentRules) => currentRules.map((rule) => (rule.id === ruleId ? { ...rule, enabled } : rule)));
+    try {
+      setApiError(null);
+      const savedRule = await updateKakaoAlertRule(ruleId, enabled);
+      setRules((currentRules) => currentRules.map((rule) => (rule.id === ruleId ? savedRule : rule)));
+    } catch (error) {
+      setRules((currentRules) => currentRules.map((rule) => (rule.id === ruleId ? currentRule : rule)));
+      setApiError(error instanceof Error ? error.message : "Alert rule update failed");
+    }
   }
 
   return (
     <>
       <PageHeader title={viewCopy.kakao.title} description={viewCopy.kakao.subtitle} />
+      {apiError ? <p className="api-error" role="alert">{apiError}</p> : null}
       <KakaoSummaryCard badges={alertData.badges} />
 
       <section className="kakao-main-grid">
@@ -1709,6 +1863,7 @@ function MyPageDashboard({
   const [interests, setInterests] = useState<string[]>([]);
   const [isQuickPanelOpen, setIsQuickPanelOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
   const quickPanelRef = useRef<HTMLDivElement>(null);
   const quickPanelTriggerRef = useRef<HTMLButtonElement>(null);
 
@@ -1758,22 +1913,46 @@ function MyPageDashboard({
     );
   }
 
-  function toggleAlert(alertId: MyPageAlertSetting["id"]) {
-    setAlertSettings((current) => current.map((item) => (item.id === alertId ? { ...item, enabled: !item.enabled } : item)));
+  async function toggleAlert(alertId: MyPageAlertSetting["id"]) {
+    const previous = alertSettings;
+    const next = previous.map((item) => (item.id === alertId ? { ...item, enabled: !item.enabled } : item));
+    setAlertSettings(next);
+    try {
+      setApiError(null);
+      const saved = await updateMyPageData({ alertSettings: next });
+      setAlertSettings(saved.alertSettings);
+    } catch (error) {
+      setAlertSettings(previous);
+      setApiError(error instanceof Error ? error.message : "My page update failed");
+    }
+  }
+
+  async function persistInterests(next: string[]) {
+    const previous = interests;
+    setInterests(next);
+    try {
+      setApiError(null);
+      const saved = await updateMyPageData({ interests: next });
+      setInterests(saved.interests);
+    } catch (error) {
+      setInterests(previous);
+      setApiError(error instanceof Error ? error.message : "Interest update failed");
+    }
   }
 
   function removeInterest(interest: string) {
-    setInterests((current) => current.filter((item) => item !== interest));
+    void persistInterests(interests.filter((item) => item !== interest));
   }
 
   function addInterest() {
     const next = "전력 인프라";
-    setInterests((current) => (current.includes(next) ? current : [...current, next]));
+    if (!interests.includes(next)) void persistInterests([...interests, next]);
   }
 
   return (
     <>
       <PageHeader title={viewCopy.mypage.title} description={viewCopy.mypage.subtitle} />
+      {apiError ? <p className="api-error" role="alert">{apiError}</p> : null}
       <GuideCard body={myPageData.guide.body} ctaLabel={myPageData.guide.ctaLabel} title={myPageData.guide.title} />
       <section className="mypage-top-row">
         <MyPageProfileCard profile={myPageData.profile} />
@@ -2012,6 +2191,7 @@ function SettingsDashboard() {
   const [display, setDisplay] = useState<DisplaySettings | null>(null);
   const [misc, setMisc] = useState<MiscSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -2074,6 +2254,23 @@ function SettingsDashboard() {
     setNewsGuard((current) => (current ? { ...current, mode } : current));
   }
 
+  async function saveSettings() {
+    if (!dataCollection || !newsGuard || !display || !misc) return;
+    try {
+      setSaveStatus("Saving...");
+      const saved = await saveSettingsData({ dataCollection, newsGuard, notifications, display, misc });
+      setSettingsData(saved);
+      setDataCollection(saved.dataCollection);
+      setNewsGuard(saved.newsGuard);
+      setNotifications(saved.notifications);
+      setDisplay(saved.display);
+      setMisc(saved.misc);
+      setSaveStatus("Saved");
+    } catch (error) {
+      setSaveStatus(error instanceof Error ? error.message : "Settings save failed");
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -2082,7 +2279,8 @@ function SettingsDashboard() {
         action={(
           <div className="settings-actions">
             <button type="button" onClick={resetSettings}>설정 초기화</button>
-            <button type="button">설정 저장</button>
+            <button type="button" onClick={() => void saveSettings()}>설정 저장</button>
+            {saveStatus ? <span role="status">{saveStatus}</span> : null}
           </div>
         )}
       />
