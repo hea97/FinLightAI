@@ -1,3 +1,5 @@
+import httpx
+
 from src.processor.gemini_client import GeminiClient
 
 
@@ -53,3 +55,17 @@ def test_gemini_client_caches_successful_responses(monkeypatch):
     assert client.generate_text("same prompt") == "cached result"
     assert calls == 1
     assert client.last_status == "cached"
+
+
+def test_gemini_client_reports_rate_limit(monkeypatch):
+    request = httpx.Request("POST", "https://generativelanguage.googleapis.com")
+    response = httpx.Response(429, request=request)
+
+    def rate_limited(*args, **kwargs):
+        raise httpx.HTTPStatusError("rate limited", request=request, response=response)
+
+    monkeypatch.setattr("src.processor.gemini_client.httpx.post", rate_limited)
+    client = GeminiClient(api_key="test-key", model="gemini-test")
+
+    assert client.generate_text("prompt") is None
+    assert client.last_status == "rate_limited"

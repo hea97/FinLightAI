@@ -60,9 +60,24 @@ class GeminiClient:
         except httpx.TimeoutException:
             self.last_status = "timeout"
             return None
+        except httpx.HTTPStatusError as exc:
+            self.last_status = self._status_for_http_error(exc.response.status_code)
+            return None
         except (httpx.HTTPError, ValueError, KeyError, TypeError):
             self.last_status = "failed"
             return None
+
+    @staticmethod
+    def _status_for_http_error(status_code: int) -> str:
+        if status_code == 429:
+            return "rate_limited"
+        if status_code in {401, 403}:
+            return "authentication_failed"
+        if status_code == 404:
+            return "model_not_found"
+        if status_code >= 500:
+            return "provider_unavailable"
+        return "failed"
 
     def _get_cached(self, key: str) -> str | None:
         if self.cache_seconds <= 0:
