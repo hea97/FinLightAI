@@ -41,6 +41,7 @@ from src.dashboard.schemas import (
     SettingsUpdate,
 )
 from src.processor.event_score import EventScoreCalculator
+from src.processor.news_relevance import contains_term
 from src.signal.generator import SignalGenerator
 
 router = APIRouter()
@@ -187,18 +188,20 @@ def get_industry_impact(db: Session = Depends(get_db)) -> dict[str, Any]:
     ai_count = _count_mentions(articles, ["ai", "artificial intelligence", "gpu"])
     policy_count = _count_mentions(articles, ["policy", "export", "control", "regulation"])
 
-    market_adjustment = round(
-        sum(float(row.get("return_1d") or 0) for row in snapshot.market) * 100
-    )
+    semiconductor_adjustment = _industry_market_adjustment(snapshot.market, "semiconductor")
+    ai_adjustment = _industry_market_adjustment(snapshot.market, "it")
     summaries = [
-        _industry_summary("semiconductor", "Semiconductor", min(90, 45 + semiconductor_count * 4 + market_adjustment), semiconductor_count, "CHIP"),
-        _industry_summary("it", "AI/IT", min(85, 38 + ai_count * 4 + market_adjustment), ai_count, "AI"),
-        _industry_summary("policy", "Policy/Regulation", max(-70, -20 - policy_count * 5 - abs(market_adjustment)), policy_count, "POL"),
+        _industry_summary("semiconductor", "Semiconductor", _bounded_score(semiconductor_count * 8 + semiconductor_adjustment), semiconductor_count, "CHIP"),
+        _industry_summary("it", "AI/IT", _bounded_score(ai_count * 8 + ai_adjustment), ai_count, "AI"),
+        _industry_summary("policy", "Policy/Regulation", _bounded_score(-policy_count * 8), policy_count, "POL"),
     ]
 
     return {
         "industries": summaries,
-        "details": {summary["id"]: _industry_detail(summary, articles) for summary in summaries},
+        "details": {
+            summary["id"]: _industry_detail(summary, articles, bool(snapshot.market))
+            for summary in summaries
+        },
         **snapshot.metadata(),
     }
 
@@ -602,22 +605,38 @@ def _industry_summary(industry_id: str, name: str, score: int, news_count: int, 
     return {"id": industry_id, "name": name, "score": score, "tone": tone, "toneLabel": label, "newsCount": news_count, "icon": icon}
 
 
-def _industry_detail(summary: dict[str, Any], articles: list[dict[str, Any]]) -> dict[str, Any]:
-    top_news = [_to_related_news(index, article) for index, article in enumerate(articles[:5], start=1)]
+def _industry_detail(
+    summary: dict[str, Any],
+    articles: list[dict[str, Any]],
+    market_connected: bool,
+) -> dict[str, Any]:
+    matching_articles = _industry_articles(summary["id"], articles)
+    top_news = [
+        _to_related_news(index, article)
+        for index, article in enumerate(matching_articles[:5], start=1)
+    ]
+    market_description = (
+        "Latest yfinance market reactions are included."
+        if market_connected
+        else "Stored market reaction data is not available."
+    )
     return {
         "industryId": summary["id"],
         "title": f"{summary['name']} detail",
         "score": summary["score"],
         "statusLabel": summary["toneLabel"],
-        "description": f"{summary['name']} impact is calculated from GDELT news flow. Market price reaction can be added after price API setup.",
+        "description": (
+            f"{summary['name']} impact uses filtered matching news. "
+            f"{market_description}"
+        ),
         "relatedStocks": _related_stocks(summary["id"]),
         "newsCount": summary["newsCount"],
         "averageSentiment": round(summary["score"] / 100, 2),
         "riskPoints": 2 if summary["score"] < 0 else 1,
         "updatedAt": _now_label(),
         "reasons": {
-            "positive": ["Related news volume detected", "Core technology or policy keywords found"],
-            "caution": ["Price data not connected yet", "Additional source verification recommended"],
+            "positive": ["Filtered industry-matching evidence", "Related market reaction when available"],
+            "caution": ["Low-confidence articles are labeled", "Additional source verification recommended"],
         },
         "topNews": top_news,
     }
@@ -682,7 +701,33 @@ def _count_mentions(articles: list[dict[str, Any]], keywords: list[str]) -> int:
 
 def _mentions(article: dict[str, Any], keywords: list[str]) -> bool:
     text = _article_text(article)
-    return any(keyword in text for keyword in keywords)
+    return any(contains_term(text, keyword) for keyword in keywords)
+
+
+def _industry_articles(industry_id: str, articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    mapping = {
+        "semiconductor": ["semiconductor", "chip", "export control", "nvidia", "amd", "samsung", "sk hynix"],
+        "it": ["ai", "artificial intelligence", "gpu", "nvidia", "amd"],
+        "policy": ["policy", "regulation", "export control", "restriction"],
+    }
+    return [article for article in articles if _mentions(article, mapping.get(industry_id, []))]
+
+
+def _industry_market_adjustment(market: list[dict[str, Any]], industry_id: str) -> int:
+    tickers = {
+        "semiconductor": {"NVDA", "AMD", "005930.KS", "000660.KS"},
+        "it": {"NVDA", "AMD"},
+    }.get(industry_id, set())
+    returns = [
+        float(row.get("return_1d") or 0)
+        for row in market
+        if row.get("ticker") in tickers
+    ]
+    return round(sum(returns) / len(returns) * 100) if returns else 0
+
+
+def _bounded_score(score: int) -> int:
+    return max(-90, min(90, score))
 
 
 def _article_text(article: dict[str, Any]) -> str:
