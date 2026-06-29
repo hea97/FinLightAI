@@ -11,7 +11,7 @@ from src.dashboard.database import Base, get_db
 
 
 @pytest.fixture(autouse=True)
-def isolated_dashboard_database(tmp_path) -> Generator[None, None, None]:
+def isolated_dashboard_database(tmp_path) -> Generator[sessionmaker, None, None]:
     """Keep every FastAPI test request out of the development database."""
     database_path = tmp_path / "finlightai-test.db"
     engine = create_engine(
@@ -27,7 +27,7 @@ def isolated_dashboard_database(tmp_path) -> Generator[None, None, None]:
 
     app.dependency_overrides[get_db] = override_get_db
     try:
-        yield
+        yield test_session
     finally:
         app.dependency_overrides.pop(get_db, None)
         engine.dispose()

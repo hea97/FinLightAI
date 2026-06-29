@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from time import perf_counter
 from types import SimpleNamespace
 
 import pandas as pd
@@ -15,6 +16,7 @@ from src.dashboard.database import Base
 from src.dashboard.models import NewsFiltered, NewsRaw, Signal, StockPrice
 from src.dashboard.repository import persist_news_records, upsert_stock_prices
 from src.dashboard.services.data_pipeline import PipelineSnapshot, _persist_generated_signals
+from src.dashboard.routes.api import _industry_articles
 from src.processor.event_score import EventScoreCalculator
 from src.processor.market_metrics import calculate_market_metrics, safe_ratio
 from src.processor.news_filter import NewsFilter
@@ -105,6 +107,24 @@ def test_rss_normalization_and_missing_newsapi_key_are_graceful(monkeypatch) -> 
     )
     assert NewsCollector().collect_from_newsapi() == []
     assert NewsCollector.provider_statuses()["NewsAPI"]["status"] == "disabled"
+
+
+def test_rss_ai_keyword_uses_word_boundaries_and_rejects_unrelated_news(monkeypatch) -> None:
+    class Response:
+        content = b"""<rss><channel>
+        <item><title>Plane carrying skydivers crashes</title><description>Thailand media report</description>
+        <link>https://example.com/unrelated</link></item>
+        <item><title>AI chip export control update</title><description>NVIDIA semiconductor policy</description>
+        <link>https://example.com/relevant</link></item>
+        </channel></rss>"""
+
+        def raise_for_status(self) -> None:
+            return None
+
+    monkeypatch.setattr("src.collector.providers.rss.httpx.get", lambda *args, **kwargs: Response())
+    result = RssNewsProvider("https://example.com/rss").collect(["AI"])
+
+    assert [article["url"] for article in result.articles] == ["https://example.com/relevant"]
 
 
 def test_duplicate_titles_are_flagged_before_filtering() -> None:
@@ -208,3 +228,87 @@ def test_dashboard_pipeline_endpoints_expose_fallback_metadata(monkeypatch) -> N
         assert payload["providers"] == ["seed"]
         assert payload["warnings"]
         assert payload["lastUpdated"]
+
+
+def test_news_guard_uses_only_relevant_stored_filtered_news(isolated_dashboard_database) -> None:
+    trusted = {
+        "title": "NVIDIA AI semiconductor export control update",
+        "content": "Reuters reported an AI semiconductor chip export control update. " + ("verified detail " * 30),
+        "source": "Reuters",
+        "url": "https://reuters.example/verified-ai-news",
+        "published_utc": "2026-06-28T09:00:00+00:00",
+        "provider": "GDELT",
+    }
+    unrelated = {
+        "title": "Plane carrying skydivers crashes in France",
+        "content": "BBC international report about an aviation accident. " + ("unrelated detail " * 30),
+        "source": "BBC RSS",
+        "url": "https://bbc.example/unrelated",
+        "published_utc": "2026-06-28T08:00:00+00:00",
+        "provider": "BBC RSS",
+    }
+    with isolated_dashboard_database() as db:
+        persist_news_records(db, NewsFilter().prepare_records([trusted, unrelated]))
+
+    payload = TestClient(app).get("/api/news-guard").json()
+
+    assert payload["stats"]["collectedNewsCount"] == 1
+    assert payload["articles"][0]["title"] == trusted["title"]
+    assert payload["articles"][0]["qualityStatus"] == "verified"
+    assert payload["articles"][0]["provider"] == "GDELT"
+    assert payload["isFallback"] is False
+
+
+def test_provider_status_warnings_and_metadata_are_consistent(monkeypatch) -> None:
+    snapshot = PipelineSnapshot(
+        articles=[],
+        market=[],
+        data_source="mixed",
+        providers=["BBC RSS"],
+        is_fallback=False,
+        last_updated="2026-06-29T00:00:00+00:00",
+        warnings=["GDELT timed out; using latest stored news"],
+        provider_status={
+            "gdelt": "timeout",
+            "bbcrss": "connected",
+            "yfinance": "connected",
+            "gemini": "rate_limited",
+        },
+    )
+    monkeypatch.setattr("src.dashboard.routes.api.load_pipeline_snapshot", lambda db, max_news=50: snapshot)
+
+    payload = TestClient(app).get("/api/briefing").json()
+
+    assert payload["providerStatus"]["gdelt"] == "timeout"
+    assert payload["providerStatus"]["gemini"] == "rate_limited"
+    assert any("Gemini rate_limited" in warning for warning in payload["warnings"])
+    assert {"dataSource", "providers", "isFallback", "lastUpdated", "warnings"}.issubset(payload)
+
+
+def test_dashboard_requests_do_not_wait_for_external_providers() -> None:
+    client = TestClient(app)
+    started = perf_counter()
+
+    for path in ("/api/briefing", "/api/news-guard", "/api/industry-impact"):
+        assert client.get(path).status_code == 200
+
+    assert perf_counter() - started < 2.0
+
+
+def test_industry_evidence_excludes_unrelated_articles() -> None:
+    unrelated = {"title": "Plane carrying skydivers", "content": "France aviation report"}
+    relevant = {"title": "NVIDIA AI chip export control", "content": "Semiconductor policy update"}
+
+    assert _industry_articles("it", [unrelated, relevant]) == [relevant]
+    assert _industry_articles("semiconductor", [unrelated, relevant]) == [relevant]
+
+
+def test_empty_market_and_signal_endpoints_are_explicit() -> None:
+    client = TestClient(app)
+
+    market = client.get("/api/market").json()
+    signals = client.get("/api/signals").json()
+
+    assert market["dataSource"] == "not_connected"
+    assert market["warnings"]
+    assert signals == []
