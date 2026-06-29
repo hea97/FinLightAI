@@ -171,10 +171,35 @@ def refresh_pipeline_data(db: Session, max_news: int = 100) -> dict[str, Any]:
             "message": "yfinance returned no market rows",
         }
     update_provider_statuses(db, provider_states)
+    latest_market = latest_stock_prices(db, list(StockCollector.DEFAULT_TICKERS))
+    signal_market = [
+        {
+            "ticker": row.ticker,
+            "trade_date": row.trade_date.isoformat(),
+            "return_1d": row.return_1d,
+            "return_3d": row.return_3d,
+            "return_5d": row.return_5d,
+            "volume_ratio": row.volume_ratio,
+            "volatility_5d": row.volatility_5d,
+            "volatility_ratio": row.volatility_ratio,
+        }
+        for row in latest_market
+    ]
+    signal_articles = [
+        row
+        for row in prepared
+        if (
+            row.get("provider") != "seed"
+            and not row.get("duplicate_flag")
+            and row.get("relevance_score", 0) >= 2
+        )
+    ]
+    signal_count = _persist_generated_signals(db, signal_articles, signal_market)
     return {
         "news_rows": len(prepared),
         "verified_news_rows": sum(1 for row in prepared if row["passed_filter"]),
         "market_rows": len(market_rows),
+        "signal_rows": signal_count,
         "provider_status": provider_states,
     }
 
@@ -203,11 +228,12 @@ def _persist_generated_signals(
     db: Session,
     articles: list[dict[str, Any]],
     market_rows: list[dict[str, Any]],
-) -> None:
+) -> int:
     calculator = EventScoreCalculator()
     generator = SignalGenerator()
     sentiment_analyzer = SentimentAnalyzer()
     market_by_ticker = {row["ticker"]: row for row in market_rows}
+    persisted = 0
     for article in articles:
         if article.get("duplicate_flag"):
             continue
@@ -243,6 +269,8 @@ def _persist_generated_signals(
                     "data_source": "seed_fallback" if article.get("provider") == "seed" else "real",
                 },
             )
+            persisted += 1
+    return persisted
 
 
 def _published_date(article: dict[str, Any]) -> date | None:

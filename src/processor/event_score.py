@@ -41,7 +41,11 @@ class EventScoreCalculator:
 
     def evidence(self, article: dict[str, Any], market_reaction: dict[str, float]) -> dict[str, Any]:
         return {
+            "title": article.get("title", ""),
             "headline": article.get("title", ""),
+            "url": article.get("url", ""),
+            "published_utc": article.get("published_utc") or article.get("published_at", ""),
+            "source": article.get("source", ""),
             "provider": article.get("provider", "unknown"),
             "source_score": article.get("source_score"),
             "keyword_score": article.get("keyword_score"),
