@@ -84,23 +84,49 @@ class NewsCollector:
             response = httpx.get(
                 settings.gdelt_base_url,
                 params=params,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "FinLightAI/0.1 (+https://github.com/hea97/FinLightAI)",
+                },
                 timeout=settings.external_api_timeout_seconds,
             )
             response.raise_for_status()
             data = response.json()
+            if not isinstance(data, dict):
+                raise TypeError("GDELT response is not a JSON object")
             articles = data.get("articles", [])
+            if not isinstance(articles, list):
+                raise TypeError("GDELT articles field is not a list")
             if articles:
                 normalized = [self._normalize_gdelt_article(article) for article in articles]
                 self._set_cached(cache_key, normalized)
                 type(self)._last_status = {"status": "healthy", "message": "Live API connected"}
                 return normalized
-            type(self)._last_status = {"status": "partial", "message": "Live API returned no articles; using seed fallback"}
+            type(self)._last_status = {"status": "partial", "message": "GDELT returned no articles"}
         except httpx.TimeoutException:
-            type(self)._last_status = {"status": "failed", "message": "Live API timed out; using seed fallback"}
-        except (httpx.HTTPError, ValueError, TypeError):
-            type(self)._last_status = {"status": "failed", "message": "Live API request failed; using seed fallback"}
+            type(self)._last_status = {
+                "status": "failed",
+                "message": f"GDELT timed out after {settings.external_api_timeout_seconds:g}s",
+            }
+        except httpx.HTTPStatusError as exc:
+            status_code = exc.response.status_code
+            status = "rate_limited" if status_code == 429 else "failed"
+            type(self)._last_status = {
+                "status": status,
+                "message": f"GDELT returned HTTP {status_code}",
+            }
+        except httpx.HTTPError as exc:
+            type(self)._last_status = {
+                "status": "failed",
+                "message": f"GDELT network failure: {type(exc).__name__}",
+            }
+        except (ValueError, TypeError) as exc:
+            type(self)._last_status = {
+                "status": "failed",
+                "message": f"GDELT response parsing failed: {type(exc).__name__}",
+            }
 
-        return self._seed_articles(selected)
+        return []
 
     @classmethod
     def provider_status(cls) -> dict[str, str]:
