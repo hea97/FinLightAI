@@ -15,7 +15,11 @@ from src.collector.providers.rss import RssNewsProvider
 from src.dashboard.app import app
 from src.dashboard.database import Base
 from src.dashboard.models import NewsFiltered, NewsRaw, Signal, StockPrice
-from src.dashboard.repository import persist_news_records, upsert_stock_prices
+from src.dashboard.repository import (
+    persist_news_records,
+    reconcile_duplicate_news_titles,
+    upsert_stock_prices,
+)
 from src.dashboard.services.data_pipeline import PipelineSnapshot, _persist_generated_signals
 from src.dashboard.routes.api import _industry_articles
 from src.processor.event_score import EventScoreCalculator
@@ -220,6 +224,37 @@ def test_duplicate_titles_are_flagged_before_filtering() -> None:
     assert records[0]["duplicate_flag"] is False
     assert records[1]["duplicate_flag"] is True
     assert records[1]["passed_filter"] is False
+
+
+def test_duplicate_titles_are_suppressed_across_refreshes_while_raw_rows_remain() -> None:
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    base = {
+        "content": "Reuters AI semiconductor chip policy export " + ("detail " * 40),
+        "source": "Reuters",
+        "published_utc": "2026-06-26T09:00:00Z",
+        "provider": "Google News RSS",
+    }
+    first = NewsFilter().prepare_records(
+        [{**base, "title": "NVIDIA AI Chip Policy!", "url": "https://news.example/first"}]
+    )
+    second = NewsFilter().prepare_records(
+        [{**base, "title": "nvidia ai chip policy", "url": "https://news.example/second"}]
+    )
+
+    persist_news_records(session, first)
+    persist_news_records(session, second)
+    duplicates = reconcile_duplicate_news_titles(session)
+
+    filtered_rows = list(session.scalars(select(NewsFiltered).order_by(NewsFiltered.id)))
+    raw_rows = list(session.scalars(select(NewsRaw).order_by(NewsRaw.id)))
+    assert len(raw_rows) == 2
+    assert duplicates == 1
+    assert filtered_rows[0].duplicate_flag is False
+    assert filtered_rows[1].duplicate_flag is True
+    assert filtered_rows[1].passed_filter is False
+    assert "duplicate_title_across_refreshes" in raw_rows[1].raw_payload["_filter"]["reasons"]
 
 
 def test_signal_requires_market_confirmation_for_red() -> None:

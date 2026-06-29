@@ -14,6 +14,7 @@ from src.dashboard.repository import (
     latest_stored_news,
     latest_stock_prices,
     persist_news_records,
+    reconcile_duplicate_news_titles,
     update_provider_statuses,
     upsert_stock_prices,
     upsert_signal,
@@ -159,6 +160,7 @@ def refresh_pipeline_data(db: Session, max_news: int = 100) -> dict[str, Any]:
     collected = collector.deduplicate(news_result.articles)
     prepared = NewsFilter().prepare_records(collected)
     persist_news_records(db, prepared)
+    duplicate_news_rows = reconcile_duplicate_news_titles(db)
     provider_states = collector.provider_statuses()
 
     market_rows = StockCollector().collect_daily(period="1mo")
@@ -203,6 +205,7 @@ def refresh_pipeline_data(db: Session, max_news: int = 100) -> dict[str, Any]:
         "verified_news_rows": sum(1 for row in prepared if row["passed_filter"]),
         "market_rows": len(market_rows),
         "signal_rows": signal_count,
+        "duplicate_news_rows": duplicate_news_rows,
         "provider_status": provider_states,
     }
 

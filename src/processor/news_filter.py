@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from config.settings import get_settings
-from src.processor.news_relevance import contains_term, relevance_score
+from src.processor.news_relevance import contains_term, normalize_title, relevance_score
 
 
 class NewsFilter:
@@ -51,7 +50,7 @@ class NewsFilter:
             title = str(article.get("title") or "")
             content = str(article.get("content") or article.get("summary") or "")
             url = str(article.get("url") or "").strip().lower()
-            normalized_title = re.sub(r"[^a-z0-9가-힣]+", " ", title.lower()).strip()
+            normalized_title = normalize_title(title)
             duplicate = bool((url and url in seen_urls) or (normalized_title and normalized_title in seen_titles))
             if url:
                 seen_urls.add(url)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 
 RELEVANCE_TERMS = (
@@ -30,3 +31,10 @@ def matched_relevance_terms(text: str) -> list[str]:
 
 def relevance_score(text: str) -> int:
     return len(matched_relevance_terms(text))
+
+
+def normalize_title(title: str) -> str:
+    """Normalize exact syndicated headlines without discarding Unicode words."""
+    normalized = unicodedata.normalize("NFKC", title).casefold()
+    normalized = re.sub(r"[^\w\s]", " ", normalized, flags=re.UNICODE)
+    return " ".join(normalized.split())

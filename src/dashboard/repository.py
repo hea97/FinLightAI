@@ -20,6 +20,7 @@ from src.dashboard.models import (
     UserSettings,
 )
 from src.dashboard.schemas import PortfolioAssetInput, SettingsUpdate
+from src.processor.news_relevance import normalize_title
 
 
 DEFAULT_ALERT_SETTINGS = [
@@ -144,6 +145,37 @@ def persist_news_records(db: Session, records: list[dict]) -> int:
         persisted += 1
     db.commit()
     return persisted
+
+
+def reconcile_duplicate_news_titles(db: Session) -> int:
+    """Keep raw rows but suppress repeated normalized titles after any refresh."""
+    query = (
+        select(NewsRaw, NewsFiltered)
+        .join(NewsFiltered, NewsFiltered.raw_id == NewsRaw.id)
+        .order_by(NewsRaw.id.asc())
+    )
+    canonical_ids: dict[str, int] = {}
+    duplicate_count = 0
+    for raw, filtered in db.execute(query).all():
+        normalized = normalize_title(raw.title)
+        if not normalized:
+            continue
+        canonical_id = canonical_ids.setdefault(normalized, raw.id)
+        if canonical_id == raw.id:
+            continue
+        filtered.duplicate_flag = True
+        filtered.passed_filter = False
+        payload = dict(raw.raw_payload or {})
+        filter_metadata = dict(payload.get("_filter") or {})
+        reasons = list(filter_metadata.get("reasons") or [])
+        if "duplicate_title_across_refreshes" not in reasons:
+            reasons.append("duplicate_title_across_refreshes")
+        filter_metadata.update({"passed": False, "reasons": reasons})
+        payload["_filter"] = filter_metadata
+        raw.raw_payload = payload
+        duplicate_count += 1
+    db.commit()
+    return duplicate_count
 
 
 def update_provider_statuses(db: Session, statuses: dict[str, dict[str, str]]) -> None:
