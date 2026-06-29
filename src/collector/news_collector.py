@@ -9,6 +9,8 @@ from typing import Any
 import httpx
 
 from config.settings import get_settings
+from src.collector.providers import NewsProviderResult, RssNewsProvider
+from src.collector.providers.base import normalized_article
 
 
 class NewsCollector:
@@ -16,6 +18,42 @@ class NewsCollector:
     _cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
     _cache_lock = threading.Lock()
     _last_status: dict[str, str] = {"status": "unknown", "message": "Not checked yet"}
+    _provider_statuses: dict[str, dict[str, str]] = {}
+
+    def collect_all(
+        self,
+        keywords: list[str] | None = None,
+        days: int = 1,
+        max_records: int = 50,
+    ) -> NewsProviderResult:
+        selected = keywords or self.DEFAULT_KEYWORDS
+        gdelt_articles = self.collect_from_gdelt(selected, days, max_records)
+        gdelt_status = self.provider_status()
+        rss_result = RssNewsProvider(
+            get_settings().bbc_rss_url,
+            get_settings().external_api_timeout_seconds,
+        ).collect(selected, max_records)
+        type(self)._provider_statuses["GDELT"] = gdelt_status
+        type(self)._provider_statuses[rss_result.provider] = {
+            "status": rss_result.status,
+            "message": rss_result.message,
+        }
+        articles = self.deduplicate(gdelt_articles + rss_result.articles)
+        real_count = sum(article.get("provider") != "seed" for article in articles)
+        if real_count == len(articles) and articles:
+            source = "real"
+        elif real_count:
+            source = "mixed"
+        else:
+            source = "seed_fallback"
+        return NewsProviderResult(
+            provider="multi",
+            articles=articles,
+            status=source,
+            message="; ".join(
+                f"{provider}: {status['message']}" for provider, status in type(self)._provider_statuses.items()
+            ),
+        )
 
     def collect_from_gdelt(
         self,
@@ -69,6 +107,10 @@ class NewsCollector:
         return dict(cls._last_status)
 
     @classmethod
+    def provider_statuses(cls) -> dict[str, dict[str, str]]:
+        return {provider: dict(status) for provider, status in cls._provider_statuses.items()}
+
+    @classmethod
     def _get_cached(cls, key: str, ttl_seconds: int) -> list[dict[str, Any]] | None:
         if ttl_seconds <= 0:
             return None
@@ -97,19 +139,21 @@ class NewsCollector:
         title = article.get("title") or "Untitled GDELT article"
         domain = article.get("domain") or article.get("sourceCommonName") or article.get("source") or "GDELT"
         published_at = article.get("seendate") or datetime.now(timezone.utc).isoformat()
-        return {
-            "source": domain,
-            "title": title,
-            "content": article.get("description") or title,
-            "author": "GDELT",
-            "url": article.get("url", ""),
-            "published_at": published_at,
-            "domain": domain,
-            "image_url": article.get("socialimage", ""),
-            "language": article.get("language", ""),
-            "source_country": article.get("sourceCountry", ""),
-            "provider": "GDELT",
-        }
+        return normalized_article(
+            source=domain,
+            title=title,
+            content=article.get("description") or title,
+            published_utc=published_at,
+            provider="GDELT",
+            keyword="",
+            raw_payload=article,
+            url=article.get("url", ""),
+            author="GDELT",
+            domain=domain,
+            image_url=article.get("socialimage", ""),
+            language=article.get("language", ""),
+            source_country=article.get("sourceCountry", ""),
+        )
 
     def _seed_articles(self, selected: list[str]) -> list[dict[str, Any]]:
         return [
@@ -124,30 +168,58 @@ class NewsCollector:
                 ),
                 "author": "FinLightAI Seed",
                 "url": "https://www.reuters.com/technology/semiconductor-policy-ai-chip-supply",
+                "published_utc": datetime.now(timezone.utc).isoformat(),
                 "published_at": datetime.now(timezone.utc).isoformat(),
                 "domain": "reuters.com",
                 "language": "English",
                 "source_country": "US",
                 "provider": "seed",
+                "keyword": selected[0],
+                "raw_payload": None,
             }
         ]
 
     def collect_from_newsapi(self, keywords: list[str] | None = None, from_date: str | None = None) -> list[dict[str, Any]]:
-        selected = keywords or self.DEFAULT_KEYWORDS
-        return [
-            {
-                "source": "AP News",
-                "title": f"AI chip makers watch policy headlines: {selected[-1]}",
-                "content": (
-                    "Multiple AI chip makers are monitoring semiconductor policy headlines while investors assess volume "
-                    "and volatility. The report describes export control risk, GPU supply conditions, and market reaction "
-                    "among chip suppliers. It gives additional coverage of the same policy event without issuing investment advice."
-                ),
-                "author": "FinLightAI Seed",
-                "url": "https://apnews.com/article/ai-chip-policy-market",
-                "published_at": datetime.now(timezone.utc).isoformat(),
+        settings = get_settings()
+        if not settings.news_api_key:
+            type(self)._provider_statuses["NewsAPI"] = {
+                "status": "disabled",
+                "message": "NEWS_API_KEY is not configured",
             }
-        ]
+            return []
+        selected = keywords or self.DEFAULT_KEYWORDS
+        try:
+            response = httpx.get(
+                "https://newsapi.org/v2/everything",
+                params={"q": " OR ".join(selected), "from": from_date, "sortBy": "publishedAt", "pageSize": 100},
+                headers={"X-Api-Key": settings.news_api_key},
+                timeout=settings.external_api_timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            articles = [
+                normalized_article(
+                    title=item.get("title") or "",
+                    content=item.get("content") or item.get("description") or "",
+                    source=(item.get("source") or {}).get("name") or "NewsAPI",
+                    url=item.get("url") or "",
+                    published_utc=item.get("publishedAt") or datetime.now(timezone.utc).isoformat(),
+                    provider="NewsAPI",
+                    raw_payload=item,
+                )
+                for item in payload.get("articles", [])
+            ]
+            type(self)._provider_statuses["NewsAPI"] = {
+                "status": "healthy" if articles else "partial",
+                "message": f"Collected {len(articles)} articles",
+            }
+            return articles
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            type(self)._provider_statuses["NewsAPI"] = {
+                "status": "failed",
+                "message": f"NewsAPI collection failed: {type(exc).__name__}",
+            }
+            return []
 
     def deduplicate(self, articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen: set[str] = set()
