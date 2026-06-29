@@ -142,3 +142,22 @@ class DataProviderStatus(Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     message: Mapped[str] = mapped_column(Text, default="")
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class Signal(Base):
+    __tablename__ = "signals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    trade_date: Mapped[date] = mapped_column(Date, nullable=False)
+    event_score: Mapped[float] = mapped_column(Float, nullable=False)
+    market_reaction_score: Mapped[float] = mapped_column(Float, nullable=False)
+    signal: Mapped[str] = mapped_column(String(10), nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    data_source: Mapped[str] = mapped_column(String(30), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("event_key", "ticker", "trade_date", name="uq_signal_event_ticker_date"),
+    )

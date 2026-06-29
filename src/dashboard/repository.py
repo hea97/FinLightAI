@@ -14,6 +14,7 @@ from src.dashboard.models import (
     NewsFiltered,
     NewsRaw,
     PortfolioAsset,
+    Signal,
     StockPrice,
     User,
     UserSettings,
@@ -167,6 +168,37 @@ def latest_filtered_news(db: Session, limit: int = 50) -> list[tuple[NewsRaw, Ne
 def _news_fingerprint(record: dict) -> str:
     raw = f"{record.get('url', '')}|{record.get('title', '')}".strip().lower()
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def upsert_signal(db: Session, payload: dict) -> Signal:
+    signal = db.scalar(
+        select(Signal).where(
+            Signal.event_key == payload["event_key"],
+            Signal.ticker == payload["ticker"],
+            Signal.trade_date == payload["trade_date"],
+        )
+    )
+    values = {
+        "event_score": payload["event_score"],
+        "market_reaction_score": payload["market_reaction_score"],
+        "signal": payload["signal"],
+        "evidence": payload.get("evidence", {}),
+        "data_source": payload["data_source"],
+    }
+    if signal:
+        for field, value in values.items():
+            setattr(signal, field, value)
+    else:
+        signal = Signal(
+            event_key=payload["event_key"],
+            ticker=payload["ticker"],
+            trade_date=payload["trade_date"],
+            **values,
+        )
+        db.add(signal)
+    db.commit()
+    db.refresh(signal)
+    return signal
 
 
 def ensure_user(db: Session, user_id: str) -> User:
