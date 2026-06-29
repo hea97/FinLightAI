@@ -330,6 +330,41 @@ def test_generated_signal_is_persisted_without_future_market_leakage() -> None:
     assert stored.evidence["provider"] == "GDELT"
 
 
+def test_signal_api_exposes_verified_real_news_evidence(isolated_dashboard_database) -> None:
+    article = {
+        "title": "NVIDIA AI chip export policy",
+        "content": "Semiconductor export control affects NVIDIA market supply.",
+        "url": "https://news.google.com/rss/articles/verified-signal",
+        "published_utc": "2026-06-25T09:00:00+00:00",
+        "provider": "Google News RSS",
+        "source": "Reuters",
+        "source_score": 0.9,
+        "keyword_score": 4,
+        "duplicate_flag": False,
+    }
+    market = [
+        {
+            "ticker": "NVDA",
+            "trade_date": "2026-06-26",
+            "return_1d": -0.01,
+            "volume_ratio": 1.2,
+            "volatility_5d": 0.02,
+            "volatility_ratio": 1.0,
+        }
+    ]
+    with isolated_dashboard_database() as db:
+        _persist_generated_signals(db, [article], market)
+
+    payload = TestClient(app).get("/api/signals").json()
+
+    assert len(payload) == 1
+    assert payload[0]["is_verified"] is True
+    assert payload[0]["data_source"] == "real"
+    assert payload[0]["evidence"]["url"] == article["url"]
+    assert payload[0]["evidence"]["source"] == "Reuters"
+    assert payload[0]["evidence"]["provider"] == "Google News RSS"
+
+
 def test_dashboard_pipeline_endpoints_expose_fallback_metadata(monkeypatch) -> None:
     article = {
         "title": "AI semiconductor export policy",

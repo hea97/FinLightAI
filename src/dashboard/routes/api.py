@@ -61,13 +61,21 @@ def get_current_user_id(x_user_id: str = Header(default="demo-user")) -> str:
 def get_signals(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
     return [
         {
+            "event_key": row.event_key,
             "ticker": row.ticker,
             "trade_date": row.trade_date.isoformat(),
             "signal": row.signal,
             "event_score": row.event_score,
             "market_reaction_score": row.market_reaction_score,
             "data_source": row.data_source,
+            "is_verified": bool(
+                row.data_source == "real"
+                and row.evidence.get("url")
+                and row.evidence.get("source")
+                and row.evidence.get("provider")
+            ),
             "evidence": row.evidence,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
         }
         for row in latest_signals(db)
     ]
@@ -884,6 +892,7 @@ def _provider_health(snapshot: PipelineSnapshot) -> list[dict[str, str]]:
         {"provider": "Guardian", "status": "connected" if settings.guardian_api_key else "disabled", "message": "Configured" if settings.guardian_api_key else "API key pending"},
         {"provider": "Finnhub", "status": "connected" if settings.finnhub_api_key else "disabled", "message": "Configured" if settings.finnhub_api_key else "API key pending"},
         {"provider": "BBC RSS", "status": status.get("bbcrss", "error"), "message": _status_message(status.get("bbcrss", "error")), "lastCheckedAt": snapshot.last_updated},
+        {"provider": "Google News RSS", "status": status.get("googlenewsrss", "error"), "message": _status_message(status.get("googlenewsrss", "error")), "lastCheckedAt": snapshot.last_updated},
     ]
 
 
