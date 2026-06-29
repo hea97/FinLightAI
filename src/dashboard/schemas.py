@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -15,6 +15,26 @@ class PipelineMetadata(ApiModel):
     is_fallback: bool = Field(alias="isFallback")
     last_updated: str = Field(alias="lastUpdated")
     warnings: list[str]
+
+
+class SignalItem(ApiModel):
+    event_key: str
+    ticker: str
+    trade_date: str
+    signal: Literal["RED", "YELLOW", "GREEN"]
+    event_score: float
+    market_reaction_score: float
+    data_source: str
+    is_verified: bool
+    evidence: dict[str, Any]
+    created_at: str | None
+
+
+class SignalsResponse(PipelineMetadata):
+    provider_status: dict[str, str] = Field(alias="providerStatus")
+    signal_count: int = Field(alias="signalCount")
+    verified_signal_count: int = Field(alias="verifiedSignalCount")
+    signals: list[SignalItem]
 
 
 class BriefingNews(ApiModel):

@@ -436,12 +436,21 @@ def test_signal_api_exposes_verified_real_news_evidence(isolated_dashboard_datab
 
     payload = TestClient(app).get("/api/signals").json()
 
-    assert len(payload) == 1
-    assert payload[0]["is_verified"] is True
-    assert payload[0]["data_source"] == "real"
-    assert payload[0]["evidence"]["url"] == article["url"]
-    assert payload[0]["evidence"]["source"] == "Reuters"
-    assert payload[0]["evidence"]["provider"] == "Google News RSS"
+    assert payload["signalCount"] == 1
+    assert payload["verifiedSignalCount"] == 1
+    assert payload["signals"][0]["is_verified"] is True
+    assert payload["signals"][0]["data_source"] == "real"
+    assert payload["signals"][0]["evidence"]["url"] == article["url"]
+    assert payload["signals"][0]["evidence"]["source"] == "Reuters"
+    assert payload["signals"][0]["evidence"]["provider"] == "Google News RSS"
+    assert {
+        "dataSource",
+        "providers",
+        "isFallback",
+        "lastUpdated",
+        "warnings",
+        "providerStatus",
+    }.issubset(payload)
 
 
 def test_signal_refresh_snapshot_clears_stale_market_dates() -> None:
@@ -619,4 +628,7 @@ def test_empty_market_and_signal_endpoints_are_explicit() -> None:
 
     assert market["dataSource"] == "not_connected"
     assert market["warnings"]
-    assert signals == []
+    assert signals["signalCount"] == 0
+    assert signals["verifiedSignalCount"] == 0
+    assert signals["signals"] == []
+    assert {"dataSource", "providers", "isFallback", "lastUpdated", "warnings", "providerStatus"}.issubset(signals)

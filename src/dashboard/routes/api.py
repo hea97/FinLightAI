@@ -41,6 +41,7 @@ from src.dashboard.schemas import (
     PortfolioResponse,
     SettingsResponse,
     SettingsUpdate,
+    SignalsResponse,
 )
 from src.processor.event_score import EventScoreCalculator
 from src.processor.news_relevance import contains_term
@@ -57,9 +58,10 @@ def get_current_user_id(x_user_id: str = Header(default="demo-user")) -> str:
     return user_id
 
 
-@router.get("/signals")
-def get_signals(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
-    return [
+@router.get("/signals", response_model=SignalsResponse)
+def get_signals(db: Session = Depends(get_db)) -> dict[str, Any]:
+    snapshot = load_pipeline_snapshot(db)
+    signals = [
         {
             "event_key": row.event_key,
             "ticker": row.ticker,
@@ -79,6 +81,13 @@ def get_signals(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
         }
         for row in latest_signals(db)
     ]
+    return {
+        **snapshot.metadata(),
+        "providerStatus": snapshot.provider_status,
+        "signalCount": len(signals),
+        "verifiedSignalCount": sum(bool(signal["is_verified"]) for signal in signals),
+        "signals": signals,
+    }
 
 
 @router.get("/news")
