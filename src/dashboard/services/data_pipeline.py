@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 from src.collector.news_collector import NewsCollector
 from src.collector.stock_collector import StockCollector
 from src.dashboard.repository import (
+    latest_provider_statuses,
+    latest_stored_news,
     latest_stock_prices,
     persist_news_records,
     update_provider_statuses,
@@ -45,15 +47,62 @@ class PipelineSnapshot:
 def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
     warnings: list[str] = []
     collector = NewsCollector()
-    news_result = collector.collect_all(max_records=max_news)
-    articles = collector.deduplicate(news_result.articles)
-    prepared = NewsFilter().prepare_records(articles)
-    try:
-        persist_news_records(db, prepared)
-        update_provider_statuses(db, collector.provider_statuses())
-    except Exception as exc:
-        db.rollback()
-        warnings.append(f"News persistence unavailable: {type(exc).__name__}")
+    news_filter = NewsFilter()
+    stored = latest_stored_news(db, max(max_news * 4, 100))
+    stored_prepared = news_filter.prepare_records(stored)
+    verified_stored = [
+        record
+        for record in stored_prepared
+        if record["passed_filter"] and record.get("provider") != "seed"
+    ]
+    reviewable_stored = [
+        record
+        for record in stored_prepared
+        if (
+            not record["duplicate_flag"]
+            and record["relevance_score"] >= 1
+            and record.get("provider") != "seed"
+        )
+    ]
+    provider_states = latest_provider_statuses(db)
+    if verified_stored:
+        prepared = verified_stored[:max_news]
+        for record in prepared:
+            record["quality_status"] = "verified"
+        news_origin = "stored_verified"
+    elif reviewable_stored:
+        prepared = reviewable_stored[:max_news]
+        for record in prepared:
+            record["quality_status"] = "low_confidence"
+        news_origin = "stored_reviewable"
+        warnings.append("No verified stored news is available; showing relevant stored news as low confidence")
+    else:
+        news_result = collector.collect_all(max_records=max_news)
+        collected = collector.deduplicate(news_result.articles)
+        collected_prepared = news_filter.prepare_records(collected)
+        verified_collected = [record for record in collected_prepared if record["passed_filter"]]
+        relevant_collected = [
+            record
+            for record in collected_prepared
+            if not record["duplicate_flag"] and record["relevance_score"] >= 1
+        ]
+        prepared = (verified_collected or relevant_collected)[:max_news]
+        for record in prepared:
+            if record.get("provider") == "seed":
+                record["quality_status"] = "seed_fallback"
+            else:
+                record["quality_status"] = "verified" if record["passed_filter"] else "low_confidence"
+        news_origin = "provider"
+        provider_states = collector.provider_statuses()
+        try:
+            persist_news_records(db, collected_prepared)
+            update_provider_statuses(db, provider_states)
+        except Exception as exc:
+            db.rollback()
+            warnings.append(f"News persistence unavailable: {type(exc).__name__}")
+        if news_result.message and news_result.status != "real":
+            warnings.append(news_result.message)
+    articles = prepared
 
     market_rows = latest_stock_prices(db, list(StockCollector.DEFAULT_TICKERS))
     if not market_rows:
@@ -85,7 +134,12 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
         for row in market_rows
     ]
     try:
-        _persist_generated_signals(db, prepared, market)
+        signal_articles = [
+            article
+            for article in prepared
+            if article.get("quality_status") == "verified" and article.get("provider") != "seed"
+        ]
+        _persist_generated_signals(db, signal_articles, market)
     except Exception as exc:
         db.rollback()
         warnings.append(f"Signal persistence unavailable: {type(exc).__name__}")
@@ -101,18 +155,23 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
         data_source = "mixed"
     else:
         data_source = "real"
-    if news_result.message and news_result.status != "real":
-        warnings.append(news_result.message)
     if has_seed:
         warnings.append("Seed news is explicitly labeled and used only as fallback")
-    now = datetime.now(timezone.utc).isoformat()
+    stored_updates = [str(article.get("fetched_at") or article.get("published_utc") or "") for article in articles]
+    last_updated = max((value for value in stored_updates if value), default=datetime.now(timezone.utc).isoformat())
+    if news_origin.startswith("stored") and provider_states:
+        warnings.extend(
+            state["message"]
+            for state in provider_states.values()
+            if state.get("status") in {"failed", "timeout", "error"}
+        )
     return PipelineSnapshot(
         articles=articles,
         market=market,
         data_source=data_source,
         providers=providers,
         is_fallback=has_seed,
-        last_updated=now,
+        last_updated=last_updated,
         warnings=list(dict.fromkeys(warnings)),
     )
 

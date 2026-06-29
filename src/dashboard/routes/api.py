@@ -559,6 +559,7 @@ def _to_news_guard_article(article: dict[str, Any]) -> dict[str, Any]:
         "tags": _tags_for_article(article),
         "originalUrl": article.get("url", ""),
         "reasons": _reasons_for_score(score),
+        "qualityStatus": article.get("quality_status", "low_confidence"),
     }
 
 
@@ -641,6 +642,11 @@ def _score_article(article: dict[str, Any]) -> float:
         score += 0.08
     if article.get("provider") == "GDELT":
         score += 0.02
+    quality_status = article.get("quality_status")
+    if article.get("provider") == "seed" or quality_status == "seed_fallback":
+        score = min(score, 0.5)
+    elif quality_status == "low_confidence":
+        score = min(score, 0.69)
     return round(min(score, 0.96), 2)
 
 

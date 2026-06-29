@@ -36,7 +36,8 @@ def test_news_guard_endpoint_returns_view_model(monkeypatch):
     payload = response.json()
     assert payload["stats"]["collectedNewsCount"] == 1
     assert payload["providerHealth"][0]["provider"] == "GDELT"
-    assert payload["articles"][0]["reliabilityLevel"] == "trusted"
+    assert payload["articles"][0]["reliabilityLevel"] == "watch"
+    assert payload["articles"][0]["qualityStatus"] == "low_confidence"
 
 
 def test_core_real_api_transition_endpoints(monkeypatch):

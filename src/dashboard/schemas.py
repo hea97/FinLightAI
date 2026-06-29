@@ -89,6 +89,10 @@ class NewsGuardArticle(ApiModel):
     tags: list[str]
     original_url: str = Field(default="", alias="originalUrl")
     reasons: list[str]
+    quality_status: Literal["verified", "low_confidence", "seed_fallback"] = Field(
+        default="low_confidence",
+        alias="qualityStatus",
+    )
 
 
 class NewsGuardResponse(PipelineMetadata):

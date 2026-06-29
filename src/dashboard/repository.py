@@ -165,6 +165,51 @@ def latest_filtered_news(db: Session, limit: int = 50) -> list[tuple[NewsRaw, Ne
     return list(db.execute(query).all())
 
 
+def latest_stored_news(db: Session, limit: int = 200) -> list[dict]:
+    query = (
+        select(NewsRaw, NewsFiltered)
+        .join(NewsFiltered, NewsFiltered.raw_id == NewsRaw.id)
+        .order_by(NewsRaw.published_utc.desc())
+        .limit(limit)
+    )
+    records: list[dict] = []
+    for raw, filtered in db.execute(query).all():
+        records.append(
+            {
+                "id": raw.id,
+                "title": raw.title,
+                "content": raw.content,
+                "summary": raw.content,
+                "source": raw.source,
+                "url": raw.url,
+                "published_utc": raw.published_utc,
+                "published_at": raw.published_utc,
+                "provider": raw.provider,
+                "keyword": raw.keyword,
+                "raw_payload": raw.raw_payload,
+                "fetched_at": raw.fetched_at.isoformat() if raw.fetched_at else "",
+                "source_score": filtered.source_score,
+                "keyword_score": filtered.keyword_score,
+                "duplicate_flag": filtered.duplicate_flag,
+                "content_length": filtered.content_length,
+                "passed_filter": filtered.passed_filter,
+                "reliability_score": filtered.reliability_score,
+            }
+        )
+    return records
+
+
+def latest_provider_statuses(db: Session) -> dict[str, dict[str, str]]:
+    statuses = {}
+    for row in db.scalars(select(DataProviderStatus)):
+        statuses[row.provider] = {
+            "status": row.status,
+            "message": row.message,
+            "fetched_at": row.fetched_at.isoformat() if row.fetched_at else "",
+        }
+    return statuses
+
+
 def _news_fingerprint(record: dict) -> str:
     raw = f"{record.get('url', '')}|{record.get('title', '')}".strip().lower()
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()

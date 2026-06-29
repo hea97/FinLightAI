@@ -52,6 +52,7 @@ export interface NewsArticle {
   tags: string[];
   originalUrl?: string;
   reasons: string[];
+  qualityStatus: "verified" | "low_confidence" | "seed_fallback";
 }
 
 export interface QuickFilter {
