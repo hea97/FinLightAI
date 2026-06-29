@@ -333,11 +333,15 @@ function BriefingDashboard({
   const briefingTitle = briefingData?.headline ?? currentMarket.title;
   const briefingSummary = briefingData?.summary.map((text) => ({ text, tone: "neutral" as Tone })) ?? currentMarket.briefing;
   const briefingUpdatedAt = briefingData?.lastUpdated ?? briefingData?.asOf ?? currentMarket.updatedAt;
+  const briefingDescription = briefingData?.summary[0] ?? currentMarket.description;
 
   return (
     <main className="dashboard">
       <PageHeader title={viewCopy.briefing.title} description={viewCopy.briefing.subtitle} />
       <PipelineStatusBar metadata={briefingFailed ? null : briefingData} />
+      <p className="mock-disclosure">
+        시장 지표 카드, 뉴스 TOP 5, 요약 히트맵과 준비도 패널은 아직 mock 참고 데이터입니다.
+      </p>
 
       <section className="panel market-signal">
         <div className="section-title-row">
@@ -352,7 +356,7 @@ function BriefingDashboard({
           </div>
           <div className="signal-copy">
             <h3>{briefingTitle}</h3>
-            <p>{currentMarket.description}</p>
+            <p>{briefingDescription}</p>
             <div className="risk-row">
               <div className="risk-track" aria-label={`위험도 ${briefingRisk}점`}>
                 <span style={{ width: `${briefingRisk}%` }} />
@@ -928,6 +932,7 @@ function IndustryImpactPage({
         <IndustryImpactHeatmapPanel
           activeIndustryId={activeDetail.industryId}
           industries={industryData.industries}
+          lastUpdated={industryData.lastUpdated}
           onIndustryClick={handleSelectIndustry}
         />
         <aside className="industry-impact-side">
@@ -942,10 +947,12 @@ function IndustryImpactPage({
 function IndustryImpactHeatmapPanel({
   activeIndustryId,
   industries,
+  lastUpdated,
   onIndustryClick,
 }: {
   activeIndustryId: string;
   industries: IndustrySummary[];
+  lastUpdated?: string;
   onIndustryClick: (industryId: string) => void;
 }) {
   return (
@@ -974,7 +981,7 @@ function IndustryImpactHeatmapPanel({
       </div>
       <div className="impact-footnote">
         <span>ⓘ 영향도 점수 범위: -100 (최대 악화) ~ +100 (최대 강화)</span>
-        <span>업데이트: 2025.05.24 09:30 ↻</span>
+        <span>업데이트: {lastUpdated ?? "not available"}</span>
       </div>
     </section>
   );

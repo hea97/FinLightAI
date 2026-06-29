@@ -5075,3 +5075,9 @@ button {
   margin: 0;
   color: var(--yellow-text);
 }
+
+.mock-disclosure {
+  margin: -8px 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
