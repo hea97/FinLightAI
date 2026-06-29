@@ -24,17 +24,17 @@
 
 ### Planned replacements
 
-- [ ] Collect daily OHLCV for NVDA, AMD, 005930.KS, and 000660.KS with
+- [x] Collect daily OHLCV for NVDA, AMD, 005930.KS, and 000660.KS with
   yfinance; calculate returns, volume ratio, and volatility safely.
-- [ ] Persist stock rows by `(ticker, trade_date)` upsert and query the latest
+- [x] Persist stock rows by `(ticker, trade_date)` upsert and query the latest
   market reaction.
-- [ ] Normalize GDELT and BBC RSS through provider adapters, retain explicit
+- [x] Normalize GDELT and BBC RSS through provider adapters, retain explicit
   provider failures, and keep seed fallback visibly labeled.
-- [ ] Persist raw and filtered news, including source/keyword scores,
+- [x] Persist raw and filtered news, including source/keyword scores,
   duplicate state, and content length.
-- [ ] Map news to affected tickers, combine news evidence with subsequent
+- [x] Map news to affected tickers, combine news evidence with subsequent
   market reactions, persist signals, and prevent news-only RED signals.
-- [ ] Add backward-compatible response metadata to the three dashboard APIs:
+- [x] Add backward-compatible response metadata to the three dashboard APIs:
   `data_source`, `providers`, `is_fallback`, `last_updated`, and `warnings`.
 
 ### Time and data-integrity rules
@@ -46,6 +46,33 @@
 - Seed records must carry `provider=seed` and `data_source=seed_fallback`.
 - Trading-calendar-aware next-session matching remains a documented follow-up;
   the first implementation isolates date matching so a calendar can replace it.
+
+### Provider status
+
+| Provider | Status | Behavior |
+| --- | --- | --- |
+| GDELT | Implemented | Keyless live collection, cache, explicit seed fallback |
+| BBC RSS | Implemented | Live RSS normalization and isolated failure status |
+| NewsAPI | Optional | Enabled by `NEWS_API_KEY`; missing key returns disabled status |
+| Guardian | Deferred | Credential setting exists; adapter remains TODO |
+| Finnhub | Deferred | Credential setting exists; news adapter remains TODO |
+| yfinance | Implemented | US/KR daily OHLCV for the four required tickers |
+| pykrx | Deferred | `.KS` yfinance support is the current Korean-market path |
+
+### Verification
+
+- `python -m pytest -q`: 24 passed (one upstream Starlette/httpx deprecation warning).
+- `npm.cmd run build`: TypeScript and Vite production build passed.
+- Live collection check: 28 GDELT/BBC RSS articles and market rows for NVDA,
+  AMD, 005930.KS, and 000660.KS; snapshot classified as `real`.
+
+### Remaining pipeline TODO
+
+- [ ] Add an exchange-calendar implementation for exact next-trading-session matching.
+- [ ] Add Guardian and Finnhub provider adapters when their credentials are provisioned.
+- [ ] Add pykrx as an optional Korean-market provider and compare adjustment semantics.
+- [ ] Move schema evolution from `create_all` to versioned migrations before production.
+- [ ] Schedule collection outside request handling for production-scale latency control.
 
 ## Done
 
@@ -64,11 +91,11 @@
 
 ## Next
 
-- [ ] 실제 GDELT API 연동
-- [ ] NewsAPI 연동 및 API 키 누락 시 graceful fallback 구현
-- [ ] yfinance/pykrx 실제 데이터 수집 구현
-- [ ] SQLAlchemy ORM 모델과 repository 계층 추가
-- [ ] 파이프라인 결과 DB 저장
+- [x] 실제 GDELT API 연동
+- [x] NewsAPI 연동 및 API 키 누락 시 graceful fallback 구현
+- [x] yfinance 기반 실제 데이터 수집 구현 (`pykrx`는 선택 TODO)
+- [x] SQLAlchemy ORM 모델과 repository 계층 추가
+- [x] 파이프라인 결과 DB 저장
 - [ ] Discord 실제 Webhook URL로 샌드박스 채널 전송 테스트
 - [ ] Email 뉴스레터 템플릿과 SMTP 통합 테스트
 - [ ] Plotly.js 차트와 WebSocket 실시간 업데이트 추가
