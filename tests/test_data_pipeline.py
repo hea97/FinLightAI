@@ -17,6 +17,7 @@ from src.dashboard.app import app
 from src.dashboard.database import Base
 from src.dashboard.models import NewsFiltered, NewsRaw, Signal, StockPrice
 from src.dashboard.repository import (
+    clear_signals,
     persist_news_records,
     reconcile_duplicate_news_titles,
     upsert_stock_prices,
@@ -382,6 +383,39 @@ def test_signal_api_exposes_verified_real_news_evidence(isolated_dashboard_datab
     assert payload[0]["evidence"]["url"] == article["url"]
     assert payload[0]["evidence"]["source"] == "Reuters"
     assert payload[0]["evidence"]["provider"] == "Google News RSS"
+
+
+def test_signal_refresh_snapshot_clears_stale_market_dates() -> None:
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    article = {
+        "title": "NVIDIA AI chip export policy",
+        "content": "Semiconductor export control affects NVIDIA.",
+        "url": "https://news.google.com/rss/articles/snapshot",
+        "published_utc": "2026-06-25T09:00:00+00:00",
+        "provider": "Google News RSS",
+        "source": "Reuters",
+        "source_score": 0.9,
+        "duplicate_flag": False,
+    }
+    stale_market = [{
+        "ticker": "NVDA",
+        "trade_date": "2026-06-26",
+        "return_1d": 0.0,
+        "volume_ratio": 1.0,
+        "volatility_5d": 0.01,
+        "volatility_ratio": 1.0,
+    }]
+    current_market = [{**stale_market[0], "trade_date": "2026-06-29"}]
+    _persist_generated_signals(session, [article], stale_market)
+
+    assert clear_signals(session) == 1
+    _persist_generated_signals(session, [article], current_market)
+
+    stored = list(session.scalars(select(Signal)))
+    assert len(stored) == 1
+    assert stored[0].trade_date == date(2026, 6, 29)
 
 
 def test_dashboard_pipeline_endpoints_expose_fallback_metadata(monkeypatch) -> None:

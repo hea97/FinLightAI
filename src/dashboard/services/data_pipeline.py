@@ -10,11 +10,11 @@ from sqlalchemy.orm import Session
 from src.collector.news_collector import NewsCollector
 from src.collector.stock_collector import StockCollector
 from src.dashboard.repository import (
+    clear_signals,
     latest_provider_statuses,
     latest_stored_news,
     latest_stock_prices,
     persist_news_records,
-    prune_signals,
     reconcile_duplicate_news_titles,
     remove_weekend_stock_prices,
     update_provider_statuses,
@@ -194,13 +194,7 @@ def refresh_pipeline_data(db: Session, max_news: int = 100) -> dict[str, Any]:
         for row in latest_market
     ]
     signal_articles = _eligible_signal_articles(prepared)
-    valid_event_keys = {
-        hashlib.sha256(
-            f"{article.get('url', '')}|{article.get('title', '')}".lower().encode("utf-8")
-        ).hexdigest()
-        for article in signal_articles
-    }
-    prune_signals(db, valid_event_keys)
+    clear_signals(db)
     signal_count = _persist_generated_signals(db, signal_articles, signal_market)
     return {
         "news_rows": len(prepared),

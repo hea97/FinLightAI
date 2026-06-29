@@ -300,11 +300,8 @@ def latest_signals(db: Session, limit: int = 50) -> list[Signal]:
     return list(db.scalars(query))
 
 
-def prune_signals(db: Session, valid_event_keys: set[str]) -> int:
-    query = delete(Signal)
-    if valid_event_keys:
-        query = query.where(Signal.event_key.not_in(valid_event_keys))
-    result = db.execute(query)
+def clear_signals(db: Session) -> int:
+    result = db.execute(delete(Signal))
     db.commit()
     return int(result.rowcount or 0)
 
