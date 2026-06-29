@@ -62,11 +62,10 @@
 
 ### Stabilization decision
 
-- The pipeline is safe to freeze as `v0.1.0-data-pipeline`.
-- The next feature phase may begin, while provider availability and the lack
-  of currently verified real news remain visible operational limitations.
-- Current signal count is zero by design: the last refresh returned no
-  qualifying non-seed article, so no synthetic signal was created.
+- The stabilization branch is preserved remotely, but no stable tag has been
+  created.
+- Authentication work remains deferred until the real-news recovery branch is
+  re-reviewed.
 
 ### Time and data-integrity rules
 
@@ -82,22 +81,49 @@
 
 | Provider | Status | Behavior |
 | --- | --- | --- |
-| GDELT | Implemented | Keyless live collection, cache, explicit seed fallback |
+| GDELT | Degraded | HTTP 429/timeouts are classified explicitly; no seed is disguised as GDELT data |
 | BBC RSS | Implemented | Live RSS normalization and isolated failure status |
+| Google News RSS | Implemented | Keyless finance-news search fallback with source and relevance metadata |
 | NewsAPI | Optional | Enabled by `NEWS_API_KEY`; missing key returns disabled status |
 | Guardian | Deferred | Credential setting exists; adapter remains TODO |
 | Finnhub | Deferred | Credential setting exists; news adapter remains TODO |
 | yfinance | Implemented | US/KR daily OHLCV for the four required tickers |
 | pykrx | Deferred | `.KS` yfinance support is the current Korean-market path |
 
-### Verification
+## Real news provider recovery (2026-06-29)
 
-- `python -m pytest -q`: 31 passed (one upstream Starlette/httpx deprecation warning).
-- `npm.cmd run build`: TypeScript and Vite production build passed.
-- Dashboard briefing response: approximately 0.24 seconds from stored data.
-- Latest explicit refresh: yfinance stored 86 rows; GDELT was unavailable,
-  BBC RSS returned no relevant matches, and seed remained explicitly labeled.
-- Development DB after cleanup: fixture URL 0, signals 0.
+### Completed
+
+- [x] Classified GDELT HTTP 429, timeout, network, and response parsing failures.
+- [x] Added keyless Google News RSS as an alternative provider.
+- [x] Normalized source, URL, publication time, raw payload, matched keywords,
+  and relevance score across RSS articles.
+- [x] Calibrated RSS summary length separately from full-article content while
+  preserving source and keyword thresholds.
+- [x] Stored filter pass/rejection reasons in raw payload metadata.
+- [x] Preserved raw syndicated articles while suppressing repeated normalized
+  titles from filtered/display results across refreshes.
+- [x] Limited signal generation to verified, non-seed, non-duplicate articles
+  with traceable URL/source/provider evidence.
+- [x] Preserved exchange-local trade dates and replaced stale signal snapshots
+  during refresh.
+- [x] Exposed verification state and evidence through `/api/signals`.
+
+### Latest verification
+
+- Backend test suite: 39 passed (one upstream Starlette/httpx deprecation warning).
+- Frontend TypeScript and Vite production build passed.
+- Explicit refresh: 90 collected articles, 12 verified articles, 86 downloaded
+  market rows, and 26 generated signals.
+- Stored DB: 90 stock rows, 174 raw/filtered news rows, and 26 signals.
+- Signals: 23 GREEN, 3 YELLOW, 0 RED; fixture/example.com evidence 0.
+- Missing signal URL/source/provider evidence: 0.
+- Duplicate URL groups: 0; duplicate titles exposed by the filtered layer: 0.
+- Dashboard APIs report `dataSource=real`, providers `Google News RSS` and
+  `yfinance`, and `isFallback=false`.
+- GDELT remains degraded and is reported as HTTP 429 or timeout; Google News
+  RSS remains the healthy live news path.
+- Stable tag and main merge remain prohibited until review approval.
 
 ### Remaining pipeline TODO
 
