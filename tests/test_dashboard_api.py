@@ -1,9 +1,12 @@
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 
 from src.collector.news_collector import NewsCollector
 from src.dashboard.app import app
+from src.dashboard.database import SessionLocal
+from src.dashboard.models import NewsRaw, Signal
 from src.processor.gemini_client import GeminiClient
 
 
@@ -131,3 +134,26 @@ def test_user_settings_and_alert_rules_are_persisted():
     )
     assert mypage.status_code == 200
     assert mypage.json()["interests"] == ["AI", "Semiconductor"]
+
+
+def test_dashboard_requests_do_not_mutate_development_database(monkeypatch):
+    with SessionLocal() as development_db:
+        before = (
+            development_db.scalar(select(func.count()).select_from(NewsRaw)),
+            development_db.scalar(select(func.count()).select_from(Signal)),
+        )
+
+    monkeypatch.setattr(
+        NewsCollector,
+        "collect_from_gdelt",
+        lambda self, days=1, max_records=50, keywords=None: _sample_articles(),
+    )
+    response = TestClient(app).get("/api/news-guard")
+
+    assert response.status_code == 200
+    with SessionLocal() as development_db:
+        after = (
+            development_db.scalar(select(func.count()).select_from(NewsRaw)),
+            development_db.scalar(select(func.count()).select_from(Signal)),
+        )
+    assert after == before
