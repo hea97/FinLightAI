@@ -111,7 +111,7 @@
 
 ### Latest verification
 
-- Backend test suite: 39 passed (one upstream Starlette/httpx deprecation warning).
+- Backend test suite: 42 passed (one upstream Starlette/httpx deprecation warning).
 - Frontend TypeScript and Vite production build passed.
 - Explicit refresh: 90 collected articles, 12 verified articles, 86 downloaded
   market rows, and 26 generated signals.
@@ -124,6 +124,31 @@
 - GDELT remains degraded and is reported as HTTP 429 or timeout; Google News
   RSS remains the healthy live news path.
 - Stable tag and main merge remain prohibited until review approval.
+
+## Final stable consistency corrections (2026-06-29)
+
+- [x] Dashboard reads honor persisted `news_filtered.passed_filter` and
+  `duplicate_flag`; News Guard displays the same 12 valid rows stored in DB.
+- [x] Google News RSS articles distinguish the collection provider from the
+  original publisher and no longer claim they were collected by GDELT.
+- [x] Unconnected briefing demo panels are hidden, fixed mock timestamps are
+  removed, and the static Gemini fallback remains explicitly labeled.
+- [x] Portfolio prices expose `priceDataSource`, `priceProvider`,
+  `priceStatusLabel`, and `priceAsOf`; yfinance prices no longer carry
+  contradictory Finnhub/KIS temporary-price messages.
+- [x] `/api/signals` now returns the dashboard metadata envelope plus
+  `signalCount`, `verifiedSignalCount`, and the evidence-bearing signal list.
+- [x] Browser verification confirmed News Guard count 12, corrected provider
+  text, hidden briefing mock values, yfinance labels on both demo assets, and
+  no console errors.
+
+### Stable candidate decision
+
+- The five display and contract blockers are resolved.
+- `v0.1.0-real-news-signal` is the recommended candidate tag after explicit
+  final approval.
+- No stable tag, main merge, or authentication work was performed in this
+  correction step.
 
 ### Remaining pipeline TODO
 
