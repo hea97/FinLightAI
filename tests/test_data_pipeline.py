@@ -27,7 +27,7 @@ from src.dashboard.services.data_pipeline import (
     _eligible_signal_articles,
     _persist_generated_signals,
 )
-from src.dashboard.routes.api import _industry_articles
+from src.dashboard.routes.api import _industry_articles, _to_news_guard_article
 from src.processor.event_score import EventScoreCalculator
 from src.processor.market_metrics import calculate_market_metrics, safe_ratio
 from src.processor.news_filter import NewsFilter
@@ -197,6 +197,26 @@ def test_google_news_rss_normalizes_keyless_finance_news(monkeypatch) -> None:
         "matched_keywords",
         "relevance_score",
     }.issubset(result.articles[0])
+
+
+def test_news_guard_labels_original_source_and_collection_provider() -> None:
+    article = _to_news_guard_article(
+        {
+            "title": "NVIDIA AI semiconductor update",
+            "content": "AI semiconductor chip market update",
+            "source": "Reuters",
+            "provider": "Google News RSS",
+            "url": "https://news.google.com/rss/articles/verified",
+            "published_at": "2026-06-28T09:00:00+00:00",
+            "quality_status": "verified",
+        }
+    )
+
+    assert article["source"] == "Reuters"
+    assert article["provider"] == "Google News RSS"
+    assert "Collected via Google News RSS from Reuters" in article["summary"]
+    assert "Collected by GDELT" not in article["summary"]
+    assert "Provider: Google News RSS" in article["reasons"]
 
 
 def test_finance_rss_filter_accepts_relevant_short_summary_and_traces_rejections() -> None:

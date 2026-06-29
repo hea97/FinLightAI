@@ -614,6 +614,8 @@ def _strongest_market_reaction(rows: list[dict[str, Any]]) -> dict[str, float]:
 
 def _to_news_guard_article(article: dict[str, Any]) -> dict[str, Any]:
     score = _score_article(article)
+    source = str(article.get("source") or article.get("domain") or "Unknown source")
+    provider = str(article.get("provider") or "unknown")
     if score >= 0.78:
         level = "trusted"
     elif score >= 0.5:
@@ -624,10 +626,13 @@ def _to_news_guard_article(article: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": _article_id(article),
         "title": article.get("title", "Untitled"),
-        "source": article.get("source") or article.get("domain") or "GDELT",
-        "provider": article.get("provider") or "unknown",
+        "source": source,
+        "provider": provider,
         "publishedAgo": _published_label(article.get("published_at")),
-        "summary": "Collected by GDELT. Full-body verification can be added with additional providers.",
+        "summary": (
+            f"Collected via {provider} from {source}. "
+            "Full-body verification can be added with additional providers."
+        ),
         "reliabilityLevel": level,
         "reliabilityScore": score,
         "impactScore": _impact_score(article),
@@ -635,7 +640,7 @@ def _to_news_guard_article(article: dict[str, Any]) -> dict[str, Any]:
         "industries": _industries_for_article(article),
         "tags": _tags_for_article(article),
         "originalUrl": article.get("url", ""),
-        "reasons": _reasons_for_score(score),
+        "reasons": _reasons_for_score(score, source, provider),
         "qualityStatus": article.get("quality_status", "low_confidence"),
     }
 
@@ -820,11 +825,11 @@ def _tags_for_article(article: dict[str, Any]) -> list[str]:
     return tags or ["News"]
 
 
-def _reasons_for_score(score: float) -> list[str]:
+def _reasons_for_score(score: float, source: str, provider: str) -> list[str]:
     if score >= 0.78:
-        return ["URL present", "Source domain present", "Collected by GDELT"]
+        return ["URL present", f"Original source: {source}", f"Provider: {provider}"]
     if score >= 0.5:
-        return ["Collected by GDELT", "Needs cross-source verification"]
+        return [f"Provider: {provider}", "Needs cross-source verification"]
     return ["Weak source evidence", "Full-body analysis needed"]
 
 
