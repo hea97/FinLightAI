@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any
 
@@ -33,6 +33,7 @@ class PipelineSnapshot:
     is_fallback: bool
     last_updated: str
     warnings: list[str]
+    provider_status: dict[str, str] = field(default_factory=dict)
 
     def metadata(self) -> dict[str, Any]:
         return {
@@ -165,6 +166,15 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
             for state in provider_states.values()
             if state.get("status") in {"failed", "timeout", "error"}
         )
+    provider_status = {
+        _provider_key(provider): _normalize_provider_status(state.get("status"), state.get("message"))
+        for provider, state in provider_states.items()
+    }
+    for provider in providers:
+        provider_status.setdefault(_provider_key(provider), "connected")
+    provider_status["yfinance"] = "connected" if market else "error"
+    if has_seed:
+        provider_status["seed"] = "fallback"
     return PipelineSnapshot(
         articles=articles,
         market=market,
@@ -173,7 +183,28 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
         is_fallback=has_seed,
         last_updated=last_updated,
         warnings=list(dict.fromkeys(warnings)),
+        provider_status=provider_status,
     )
+
+
+def _provider_key(provider: str) -> str:
+    return provider.lower().replace(" ", "").replace("_", "")
+
+
+def _normalize_provider_status(status: str | None, message: str | None = None) -> str:
+    normalized = (status or "").lower()
+    lowered_message = (message or "").lower()
+    if "timeout" in lowered_message or normalized == "timeout":
+        return "timeout"
+    if normalized in {"healthy", "connected", "cached"}:
+        return "connected"
+    if normalized == "disabled":
+        return "disabled"
+    if normalized in {"partial", "fallback"}:
+        return "fallback"
+    if normalized == "rate_limited":
+        return "rate_limited"
+    return "error"
 
 
 def _persist_generated_signals(

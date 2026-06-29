@@ -107,20 +107,31 @@ def get_briefing(db: Session = Depends(get_db)) -> dict[str, Any]:
     gemini = GeminiClient()
     ai_briefing = gemini.generate_briefing(top_articles)
     fallback_summary = [
-        "Recent global AI and semiconductor news was collected from GDELT DOC 2.0.",
-        "News Guard currently scores source, URL, and publish-time availability.",
-        "Gemini, Finnhub, and KIS can enrich summaries, price reaction, and portfolio risk.",
+        "Recent relevant AI and semiconductor news was loaded from the available pipeline data.",
+        "News quality, provider state, and market reaction are shown separately.",
+        "This fallback summary is used because the AI briefing provider is unavailable.",
     ]
+    metadata = snapshot.metadata()
+    provider_status = _provider_status(snapshot, gemini.last_status)
+    if gemini.last_status not in {"healthy", "cached"}:
+        metadata["warnings"] = list(
+            dict.fromkeys(
+                [
+                    *metadata["warnings"],
+                    f"Gemini {provider_status['gemini']}; using static briefing fallback",
+                ]
+            )
+        )
 
     return {
         "asOf": _now_label(),
         "signal": signal,
         "riskScore": risk_score,
-        "headline": ai_briefing["headline"] if ai_briefing else "GDELT-based market briefing is ready.",
+        "headline": ai_briefing["headline"] if ai_briefing else "Market briefing fallback is ready.",
         "summary": ai_briefing["summary"] if ai_briefing else fallback_summary,
         "keyNews": [_to_briefing_news(article) for article in top_articles],
-        "providerStatus": _provider_status(gemini.last_status),
-        **snapshot.metadata(),
+        "providerStatus": provider_status,
+        **metadata,
     }
 
 
@@ -163,7 +174,7 @@ def get_news_guard(filter: str = "all", db: Session = Depends(get_db)) -> dict[s
             {"id": "ai", "label": "AI", "count": _count_mentions(raw_articles, ["ai", "artificial intelligence", "gpu"])},
             {"id": "policy", "label": "Policy", "count": _count_mentions(raw_articles, ["policy", "export", "control", "regulation"])},
         ],
-        "providerHealth": _provider_health(raw_articles),
+        "providerHealth": _provider_health(snapshot),
         "articles": articles,
         **snapshot.metadata(),
     }
@@ -737,38 +748,54 @@ def _published_label(value: Any) -> str:
     return str(value)
 
 
-def _provider_status(gemini_status: str | None = None) -> dict[str, str]:
+def _provider_status(snapshot: PipelineSnapshot, gemini_status: str | None = None) -> dict[str, str]:
     settings = get_settings()
-    return {
-        "gdelt": "connected",
-        "newsapi": "connected" if settings.news_api_key else "waiting_for_api_key",
-        "guardian": "connected" if settings.guardian_api_key else "waiting_for_api_key",
-        "finnhub": "connected" if settings.finnhub_api_key else "waiting_for_api_key",
-        "alphaVantage": "connected" if settings.alpha_vantage_api_key else "waiting_for_api_key",
-        "gemini": gemini_status or ("configured" if settings.gemini_api_key else "waiting_for_api_key"),
-        "kis": "connected" if settings.kis_app_key and settings.kis_app_secret else "waiting_for_api_key",
-        "openai": "connected" if settings.openai_api_key else "waiting_for_api_key",
-        "kakao": "connected" if settings.kakao_rest_api_key else "waiting_for_api_key",
+    result = dict(snapshot.provider_status)
+    result.update(
+        {
+            "newsapi": result.get("newsapi", "connected" if settings.news_api_key else "disabled"),
+            "guardian": result.get("guardian", "connected" if settings.guardian_api_key else "disabled"),
+            "finnhub": result.get("finnhub", "connected" if settings.finnhub_api_key else "disabled"),
+            "alphaVantage": "connected" if settings.alpha_vantage_api_key else "disabled",
+            "kis": "connected" if settings.kis_app_key and settings.kis_app_secret else "disabled",
+            "openai": "connected" if settings.openai_api_key else "disabled",
+            "kakao": "connected" if settings.kakao_rest_api_key else "disabled",
+        }
+    )
+    gemini_mapping = {
+        "healthy": "connected",
+        "cached": "connected",
+        "ready": "connected",
+        "not_configured": "disabled",
+        "rate_limited": "rate_limited",
+        "timeout": "timeout",
     }
+    result["gemini"] = gemini_mapping.get(gemini_status or "", "error")
+    return result
 
 
-def _provider_health(articles: list[dict[str, Any]]) -> list[dict[str, str]]:
-    using_seed = any(article.get("provider") == "seed" for article in articles)
-    collector_status = NewsCollector.provider_status()
-    gdelt_status = collector_status["status"]
-    gdelt_message = collector_status["message"]
-    if gdelt_status not in {"healthy", "partial", "failed"}:
-        gdelt_status = "partial"
-    if using_seed and gdelt_status == "healthy":
-        gdelt_status = "partial"
-        gdelt_message = "Using seed fallback; live call returned no data"
+def _provider_health(snapshot: PipelineSnapshot) -> list[dict[str, str]]:
+    settings = get_settings()
+    status = snapshot.provider_status
     return [
-        {"provider": "GDELT", "status": gdelt_status, "message": gdelt_message, "lastCheckedAt": _now_label()},
-        {"provider": "NewsAPI", "status": "disabled", "message": "API key pending"},
-        {"provider": "Guardian", "status": "disabled", "message": "API key pending"},
-        {"provider": "Finnhub", "status": "disabled", "message": "API key pending"},
-        {"provider": "BBC RSS", "status": "partial", "message": "Backup provider candidate"},
+        {"provider": "GDELT", "status": status.get("gdelt", "error"), "message": _status_message(status.get("gdelt", "error")), "lastCheckedAt": snapshot.last_updated},
+        {"provider": "NewsAPI", "status": status.get("newsapi", "connected" if settings.news_api_key else "disabled"), "message": _status_message(status.get("newsapi", "disabled"))},
+        {"provider": "Guardian", "status": "connected" if settings.guardian_api_key else "disabled", "message": "Configured" if settings.guardian_api_key else "API key pending"},
+        {"provider": "Finnhub", "status": "connected" if settings.finnhub_api_key else "disabled", "message": "Configured" if settings.finnhub_api_key else "API key pending"},
+        {"provider": "BBC RSS", "status": status.get("bbcrss", "error"), "message": _status_message(status.get("bbcrss", "error")), "lastCheckedAt": snapshot.last_updated},
     ]
+
+
+def _status_message(status: str) -> str:
+    messages = {
+        "connected": "Connected",
+        "timeout": "Timed out; using stored or fallback data",
+        "rate_limited": "Rate limited",
+        "disabled": "Not configured",
+        "fallback": "Fallback data active",
+        "error": "Provider unavailable",
+    }
+    return messages.get(status, "Provider state unknown")
 
 
 def _now_label() -> str:

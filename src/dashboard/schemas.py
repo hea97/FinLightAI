@@ -70,7 +70,7 @@ class QuickFilter(ApiModel):
 
 class ProviderHealth(ApiModel):
     provider: str
-    status: Literal["healthy", "partial", "disabled", "failed"]
+    status: Literal["connected", "timeout", "rate_limited", "disabled", "fallback", "error"]
     message: str
     last_checked_at: str | None = Field(default=None, alias="lastCheckedAt")
 

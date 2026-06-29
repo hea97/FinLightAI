@@ -2,7 +2,7 @@ export type NewsGuardFilter = "all" | "trusted" | "watch" | "blocked";
 
 export type ReliabilityLevel = "trusted" | "watch" | "blocked";
 
-export type ProviderStatus = "healthy" | "partial" | "disabled" | "failed";
+export type ProviderStatus = "connected" | "timeout" | "rate_limited" | "disabled" | "fallback" | "error";
 
 export interface ProviderHealth {
   provider: "GDELT" | "NewsAPI" | "Guardian" | "Finnhub" | "BBC RSS";
