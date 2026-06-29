@@ -1,5 +1,52 @@
 # TODO
 
+## Real data integration audit (2026-06-29)
+
+### Current structure
+
+- Collectors live in `src/collector`; processing and scoring live in
+  `src/processor` and `src/signal`.
+- SQLAlchemy models and repositories live in `src/dashboard`.
+- `/api/briefing`, `/api/news-guard`, and `/api/industry-impact` currently
+  consume GDELT articles directly from the route layer.
+
+### Hardcoded, mock, and seed inventory
+
+- `src/collector/stock_collector.py` returns a fixed OHLCV sample.
+- `src/collector/news_collector.py` uses one explicit seed article when GDELT
+  is unavailable and exposes a placeholder NewsAPI response.
+- `src/dashboard/routes/api.py` contains fixed `/market` and `/signals`
+  responses and derives dashboard scores from news counts only.
+- `src/dashboard/repository.py` creates demo portfolio assets with temporary
+  reference prices. These remain demo-user onboarding data, not market data.
+- Frontend `*.mock.ts` files remain development fixtures and are outside this
+  backend data-pipeline change.
+
+### Planned replacements
+
+- [ ] Collect daily OHLCV for NVDA, AMD, 005930.KS, and 000660.KS with
+  yfinance; calculate returns, volume ratio, and volatility safely.
+- [ ] Persist stock rows by `(ticker, trade_date)` upsert and query the latest
+  market reaction.
+- [ ] Normalize GDELT and BBC RSS through provider adapters, retain explicit
+  provider failures, and keep seed fallback visibly labeled.
+- [ ] Persist raw and filtered news, including source/keyword scores,
+  duplicate state, and content length.
+- [ ] Map news to affected tickers, combine news evidence with subsequent
+  market reactions, persist signals, and prevent news-only RED signals.
+- [ ] Add backward-compatible response metadata to the three dashboard APIs:
+  `data_source`, `providers`, `is_fallback`, `last_updated`, and `warnings`.
+
+### Time and data-integrity rules
+
+- Persist timestamps in UTC and preserve ticker market suffixes.
+- A news event may map to multiple tickers; matching uses the latest market
+  row on or after publication day when available, never a future return
+  presented as contemporaneous evidence.
+- Seed records must carry `provider=seed` and `data_source=seed_fallback`.
+- Trading-calendar-aware next-session matching remains a documented follow-up;
+  the first implementation isolates date matching so a calendar can replace it.
+
 ## Done
 
 - [x] 문서 기반 프로젝트 구조 생성
