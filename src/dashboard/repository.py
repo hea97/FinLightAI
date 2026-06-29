@@ -246,6 +246,11 @@ def upsert_signal(db: Session, payload: dict) -> Signal:
     return signal
 
 
+def latest_signals(db: Session, limit: int = 50) -> list[Signal]:
+    query = select(Signal).order_by(Signal.created_at.desc()).limit(limit)
+    return list(db.scalars(query))
+
+
 def ensure_user(db: Session, user_id: str) -> User:
     user = db.get(User, user_id)
     if user:

@@ -173,6 +173,8 @@ class PortfolioAsset(PortfolioAssetInput):
     related_news_count: int = Field(default=0, alias="relatedNewsCount")
     caution_news_count: int = Field(default=0, alias="cautionNewsCount")
     updated_at: str = Field(alias="updatedAt")
+    price_data_source: Literal["real", "mock", "not_connected"] = Field(alias="priceDataSource")
+    price_as_of: str | None = Field(default=None, alias="priceAsOf")
 
 
 class PortfolioSummary(ApiModel):

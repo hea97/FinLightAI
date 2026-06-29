@@ -19,6 +19,8 @@ from src.dashboard.repository import (
     ensure_user,
     get_kakao_rules,
     get_user_settings,
+    latest_signals,
+    latest_stock_prices,
     list_assets,
     save_user_settings,
     update_asset,
@@ -56,16 +58,18 @@ def get_current_user_id(x_user_id: str = Header(default="demo-user")) -> str:
 
 
 @router.get("/signals")
-def get_signals() -> list[dict[str, str | float]]:
+def get_signals(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
     return [
         {
-            "ticker": "005930.KS",
-            "signal": "YELLOW",
-            "headline": "Semiconductor policy update affects AI chip supply",
-            "reliability_score": 0.88,
-            "return_1d": 0.021,
-            "volume_ratio": 2.4,
+            "ticker": row.ticker,
+            "trade_date": row.trade_date.isoformat(),
+            "signal": row.signal,
+            "event_score": row.event_score,
+            "market_reaction_score": row.market_reaction_score,
+            "data_source": row.data_source,
+            "evidence": row.evidence,
         }
+        for row in latest_signals(db)
     ]
 
 
@@ -84,8 +88,35 @@ def get_news() -> list[dict[str, str | float]]:
 
 
 @router.get("/market")
-def get_market() -> dict[str, float | str]:
-    return {"ticker": "005930.KS", "return_1d": 0.021, "volume_ratio": 2.4, "volatility_5d": 0.018}
+def get_market(
+    ticker: str = "005930.KS",
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    rows = latest_stock_prices(db, [ticker])
+    if not rows:
+        return {
+            "ticker": ticker,
+            "dataSource": "not_connected",
+            "provider": None,
+            "lastUpdated": None,
+            "warnings": ["No stored market data is available"],
+        }
+    row = rows[0]
+    return {
+        "ticker": row.ticker,
+        "trade_date": row.trade_date.isoformat(),
+        "close": row.close,
+        "return_1d": row.return_1d,
+        "return_3d": row.return_3d,
+        "return_5d": row.return_5d,
+        "volume_ratio": row.volume_ratio,
+        "volatility_5d": row.volatility_5d,
+        "volatility_ratio": row.volatility_ratio,
+        "dataSource": row.data_source,
+        "provider": row.provider,
+        "lastUpdated": row.fetched_at.isoformat() if row.fetched_at else row.trade_date.isoformat(),
+        "warnings": [],
+    }
 
 
 @router.get("/briefing", response_model=BriefingResponse)
@@ -211,7 +242,9 @@ def get_portfolio(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    return _portfolio_response(list_assets(db, user_id))
+    records = list_assets(db, user_id)
+    market_rows = latest_stock_prices(db)
+    return _portfolio_response(records, market_rows, latest_signals(db, limit=20))
 
 
 @router.post("/portfolio", response_model=PortfolioAsset, status_code=status.HTTP_201_CREATED)
@@ -457,8 +490,16 @@ def put_settings(
     return get_settings_view(user_id, db)
 
 
-def _portfolio_response(records: list[PortfolioAssetRecord]) -> dict[str, Any]:
-    assets = [_portfolio_asset_dict(record) for record in records]
+def _portfolio_response(
+    records: list[PortfolioAssetRecord],
+    market_rows: list[Any] | None = None,
+    signal_rows: list[Any] | None = None,
+) -> dict[str, Any]:
+    market_by_ticker = {row.ticker: row for row in market_rows or []}
+    assets = []
+    for record in records:
+        market_ticker = f"{record.symbol}.KS" if record.market == "KR" and "." not in record.symbol else record.symbol
+        assets.append(_portfolio_asset_dict(record, market_by_ticker.get(market_ticker)))
     rates = {"KRW": 1.0, "USD": 1382.0, "TWD": 43.0}
     total_input = sum(asset["quantity"] * asset["averageBuyPrice"] * rates[asset["currency"]] for asset in assets)
     total_current = sum(asset["quantity"] * asset["currentPrice"] * rates[asset["currency"]] for asset in assets)
@@ -491,21 +532,11 @@ def _portfolio_response(records: list[PortfolioAssetRecord]) -> dict[str, Any]:
             }
             for industry, count in industries.items()
         ],
-        "linkedSignals": [
-            {
-                "id": "signal-gdelt",
-                "industryName": next(iter(industries), "Market"),
-                "time": updated_at[-5:],
-                "title": "GDELT market-news signal",
-                "summary": "News-based risk signal is active until market data APIs are connected.",
-                "relatedAssetCount": len(assets),
-                "tone": "caution",
-            }
-        ] if assets else [],
+        "linkedSignals": [_portfolio_signal_dict(row, assets) for row in (signal_rows or [])[:5]],
     }
 
 
-def _portfolio_asset_dict(record: PortfolioAssetRecord) -> dict[str, Any]:
+def _portfolio_asset_dict(record: PortfolioAssetRecord, market_row: Any | None = None) -> dict[str, Any]:
     return {
         "id": record.id,
         "assetName": record.asset_name,
@@ -514,14 +545,38 @@ def _portfolio_asset_dict(record: PortfolioAssetRecord) -> dict[str, Any]:
         "industry": record.industry,
         "quantity": record.quantity,
         "averageBuyPrice": record.average_buy_price,
-        "currentPrice": record.current_price,
+        "currentPrice": market_row.close if market_row else record.current_price,
         "recentSellPrice": record.recent_sell_price,
         "currency": record.currency,
         "status": record.status,
         "decisionMemo": record.decision_memo,
         "relatedNewsCount": record.related_news_count,
         "cautionNewsCount": record.caution_news_count,
-        "updatedAt": _format_datetime(record.updated_at),
+        "updatedAt": (
+            market_row.fetched_at.isoformat()
+            if market_row and market_row.fetched_at
+            else _format_datetime(record.updated_at)
+        ),
+        "priceDataSource": "real" if market_row else "mock",
+        "priceAsOf": market_row.trade_date.isoformat() if market_row else None,
+    }
+
+
+def _portfolio_signal_dict(row: Any, assets: list[dict[str, Any]]) -> dict[str, Any]:
+    related = [
+        asset
+        for asset in assets
+        if asset["symbol"] == row.ticker or f"{asset['symbol']}.KS" == row.ticker
+    ]
+    evidence = row.evidence or {}
+    return {
+        "id": f"signal-{row.id}",
+        "industryName": related[0]["industry"] if related else "Market",
+        "time": row.trade_date.isoformat(),
+        "title": evidence.get("title") or evidence.get("headline") or f"{row.ticker} market signal",
+        "summary": f"{row.signal} · event score {row.event_score:.2f}",
+        "relatedAssetCount": len(related),
+        "tone": "negative" if row.signal == "RED" else "caution" if row.signal == "YELLOW" else "neutral",
     }
 
 
