@@ -27,9 +27,7 @@ def _sample_articles():
     ]
 
 
-def test_news_guard_endpoint_returns_view_model(monkeypatch):
-    monkeypatch.setattr(NewsCollector, "collect_from_gdelt", lambda self, days=1, max_records=50, keywords=None: _sample_articles())
-
+def test_news_guard_endpoint_returns_seed_metadata_when_db_is_empty():
     response = TestClient(app).get("/api/news-guard")
 
     assert response.status_code == 200
@@ -37,7 +35,9 @@ def test_news_guard_endpoint_returns_view_model(monkeypatch):
     assert payload["stats"]["collectedNewsCount"] == 1
     assert payload["providerHealth"][0]["provider"] == "GDELT"
     assert payload["articles"][0]["reliabilityLevel"] == "watch"
-    assert payload["articles"][0]["qualityStatus"] == "low_confidence"
+    assert payload["articles"][0]["qualityStatus"] == "seed_fallback"
+    assert payload["dataSource"] == "seed_fallback"
+    assert payload["isFallback"] is True
 
 
 def test_core_real_api_transition_endpoints(monkeypatch):

@@ -40,7 +40,6 @@ from src.dashboard.schemas import (
     SettingsResponse,
     SettingsUpdate,
 )
-from src.processor.gemini_client import GeminiClient
 from src.processor.event_score import EventScoreCalculator
 from src.signal.generator import SignalGenerator
 
@@ -104,16 +103,16 @@ def get_briefing(db: Session = Depends(get_db)) -> dict[str, Any]:
     )
     market["sentiment_score"] = min((_sentiment_score(article) for article in top_articles), default=0)
     signal = SignalGenerator().generate(event_score, market)
-    gemini = GeminiClient()
-    ai_briefing = gemini.generate_briefing(top_articles)
+    ai_briefing = None
+    gemini_status = snapshot.provider_status.get("gemini", "fallback")
     fallback_summary = [
         "Recent relevant AI and semiconductor news was loaded from the available pipeline data.",
         "News quality, provider state, and market reaction are shown separately.",
         "This fallback summary is used because the AI briefing provider is unavailable.",
     ]
     metadata = snapshot.metadata()
-    provider_status = _provider_status(snapshot, gemini.last_status)
-    if gemini.last_status not in {"healthy", "cached"}:
+    provider_status = _provider_status(snapshot, gemini_status)
+    if gemini_status not in {"healthy", "cached", "connected"}:
         metadata["warnings"] = list(
             dict.fromkeys(
                 [
@@ -769,6 +768,7 @@ def _provider_status(snapshot: PipelineSnapshot, gemini_status: str | None = Non
         "not_configured": "disabled",
         "rate_limited": "rate_limited",
         "timeout": "timeout",
+        "fallback": "fallback",
     }
     result["gemini"] = gemini_mapping.get(gemini_status or "", "error")
     return result

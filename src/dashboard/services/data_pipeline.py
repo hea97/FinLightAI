@@ -78,45 +78,17 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
         news_origin = "stored_reviewable"
         warnings.append("No verified stored news is available; showing relevant stored news as low confidence")
     else:
-        news_result = collector.collect_all(max_records=max_news)
-        collected = collector.deduplicate(news_result.articles)
-        collected_prepared = news_filter.prepare_records(collected)
-        verified_collected = [record for record in collected_prepared if record["passed_filter"]]
-        relevant_collected = [
-            record
-            for record in collected_prepared
-            if not record["duplicate_flag"] and record["relevance_score"] >= 1
-        ]
-        prepared = (verified_collected or relevant_collected)[:max_news]
+        stored_seed = [record for record in stored_prepared if record.get("provider") == "seed"]
+        prepared = (stored_seed or news_filter.prepare_records(collector.fallback_articles()))[:max_news]
         for record in prepared:
-            if record.get("provider") == "seed":
-                record["quality_status"] = "seed_fallback"
-            else:
-                record["quality_status"] = "verified" if record["passed_filter"] else "low_confidence"
-        news_origin = "provider"
-        provider_states = collector.provider_statuses()
-        try:
-            persist_news_records(db, collected_prepared)
-            update_provider_statuses(db, provider_states)
-        except Exception as exc:
-            db.rollback()
-            warnings.append(f"News persistence unavailable: {type(exc).__name__}")
-        if news_result.message and news_result.status != "real":
-            warnings.append(news_result.message)
+            record["quality_status"] = "seed_fallback"
+        news_origin = "stored_seed" if stored_seed else "local_seed"
+        warnings.append("No relevant stored news is available; run the pipeline refresh command")
     articles = prepared
 
     market_rows = latest_stock_prices(db, list(StockCollector.DEFAULT_TICKERS))
     if not market_rows:
-        try:
-            collected = StockCollector().collect_daily(period="1mo")
-            if collected:
-                upsert_stock_prices(db, collected)
-                market_rows = latest_stock_prices(db, list(StockCollector.DEFAULT_TICKERS))
-            else:
-                warnings.append("yfinance returned no market rows")
-        except Exception as exc:
-            db.rollback()
-            warnings.append(f"Market collection unavailable: {type(exc).__name__}")
+        warnings.append("No stored market rows are available; run the pipeline refresh command")
 
     market = [
         {
@@ -134,16 +106,6 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
         }
         for row in market_rows
     ]
-    try:
-        signal_articles = [
-            article
-            for article in prepared
-            if article.get("quality_status") == "verified" and article.get("provider") != "seed"
-        ]
-        _persist_generated_signals(db, signal_articles, market)
-    except Exception as exc:
-        db.rollback()
-        warnings.append(f"Signal persistence unavailable: {type(exc).__name__}")
     providers = sorted({str(article.get("provider") or "unknown") for article in articles})
     if market:
         providers.append("yfinance")
@@ -185,6 +147,36 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
         warnings=list(dict.fromkeys(warnings)),
         provider_status=provider_status,
     )
+
+
+def refresh_pipeline_data(db: Session, max_news: int = 100) -> dict[str, Any]:
+    """Explicitly refresh external data; dashboard GET requests never call this."""
+    collector = NewsCollector()
+    news_result = collector.collect_all(max_records=max_news)
+    collected = collector.deduplicate(news_result.articles)
+    prepared = NewsFilter().prepare_records(collected)
+    persist_news_records(db, prepared)
+    provider_states = collector.provider_statuses()
+
+    market_rows = StockCollector().collect_daily(period="1mo")
+    if market_rows:
+        upsert_stock_prices(db, market_rows)
+        provider_states["yfinance"] = {
+            "status": "healthy",
+            "message": f"Collected {len(market_rows)} daily market rows",
+        }
+    else:
+        provider_states["yfinance"] = {
+            "status": "failed",
+            "message": "yfinance returned no market rows",
+        }
+    update_provider_statuses(db, provider_states)
+    return {
+        "news_rows": len(prepared),
+        "verified_news_rows": sum(1 for row in prepared if row["passed_filter"]),
+        "market_rows": len(market_rows),
+        "provider_status": provider_states,
+    }
 
 
 def _provider_key(provider: str) -> str:

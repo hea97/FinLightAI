@@ -110,6 +110,9 @@ class NewsCollector:
     def provider_statuses(cls) -> dict[str, dict[str, str]]:
         return {provider: dict(status) for provider, status in cls._provider_statuses.items()}
 
+    def fallback_articles(self, keywords: list[str] | None = None) -> list[dict[str, Any]]:
+        return self._seed_articles(keywords or self.DEFAULT_KEYWORDS)
+
     @classmethod
     def _get_cached(cls, key: str, ttl_seconds: int) -> list[dict[str, Any]] | None:
         if ttl_seconds <= 0:
