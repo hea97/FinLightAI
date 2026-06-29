@@ -14,4 +14,9 @@ export interface BriefingResponse {
   summary: string[];
   keyNews: BriefingNews[];
   providerStatus: Record<string, string>;
+  dataSource?: "real" | "mixed" | "seed_fallback";
+  providers?: string[];
+  isFallback?: boolean;
+  lastUpdated?: string;
+  warnings?: string[];
 }

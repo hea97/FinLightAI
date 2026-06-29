@@ -11,6 +11,7 @@ from config.settings import get_settings
 from src.collector.news_collector import NewsCollector
 from src.dashboard.database import get_db
 from src.dashboard.models import PortfolioAsset as PortfolioAssetRecord
+from src.dashboard.services.data_pipeline import PipelineSnapshot, load_pipeline_snapshot
 from src.dashboard.repository import (
     DuplicatePortfolioAssetError,
     create_asset,
@@ -40,6 +41,8 @@ from src.dashboard.schemas import (
     SettingsUpdate,
 )
 from src.processor.gemini_client import GeminiClient
+from src.processor.event_score import EventScoreCalculator
+from src.signal.generator import SignalGenerator
 
 router = APIRouter()
 KST = timezone(timedelta(hours=9))
@@ -86,11 +89,21 @@ def get_market() -> dict[str, float | str]:
 
 
 @router.get("/briefing", response_model=BriefingResponse)
-def get_briefing() -> dict[str, Any]:
-    articles = _load_gdelt_articles(max_records=30)
+def get_briefing(db: Session = Depends(get_db)) -> dict[str, Any]:
+    snapshot = load_pipeline_snapshot(db, max_news=30)
+    articles = snapshot.articles
     top_articles = articles[:5]
     caution_count = sum(1 for article in top_articles if _score_article(article) < 0.7)
-    risk_score = min(100, 42 + caution_count * 9 + len(top_articles) * 2)
+    market = _strongest_market_reaction(snapshot.market)
+    market_score = EventScoreCalculator.market_reaction_score(market)
+    risk_score = min(100, round(32 + caution_count * 9 + len(top_articles) * 2 + market_score * 36))
+    event_score = EventScoreCalculator().calculate(
+        max((_score_article(article) for article in top_articles), default=0),
+        min((_sentiment_score(article) for article in top_articles), default=0),
+        market,
+    )
+    market["sentiment_score"] = min((_sentiment_score(article) for article in top_articles), default=0)
+    signal = SignalGenerator().generate(event_score, market)
     gemini = GeminiClient()
     ai_briefing = gemini.generate_briefing(top_articles)
     fallback_summary = [
@@ -101,18 +114,20 @@ def get_briefing() -> dict[str, Any]:
 
     return {
         "asOf": _now_label(),
-        "signal": "YELLOW" if risk_score >= 60 else "GREEN",
+        "signal": signal,
         "riskScore": risk_score,
         "headline": ai_briefing["headline"] if ai_briefing else "GDELT-based market briefing is ready.",
         "summary": ai_briefing["summary"] if ai_briefing else fallback_summary,
         "keyNews": [_to_briefing_news(article) for article in top_articles],
         "providerStatus": _provider_status(gemini.last_status),
+        **snapshot.metadata(),
     }
 
 
 @router.get("/news-guard", response_model=NewsGuardResponse)
-def get_news_guard(filter: str = "all") -> dict[str, Any]:
-    raw_articles = _load_gdelt_articles(max_records=50)
+def get_news_guard(filter: str = "all", db: Session = Depends(get_db)) -> dict[str, Any]:
+    snapshot = load_pipeline_snapshot(db, max_news=50)
+    raw_articles = snapshot.articles
     all_articles = [_to_news_guard_article(article) for article in raw_articles]
     articles = all_articles
     if filter in {"trusted", "watch", "blocked"}:
@@ -150,25 +165,31 @@ def get_news_guard(filter: str = "all") -> dict[str, Any]:
         ],
         "providerHealth": _provider_health(raw_articles),
         "articles": articles,
+        **snapshot.metadata(),
     }
 
 
 @router.get("/industry-impact", response_model=IndustryImpactResponse)
-def get_industry_impact() -> dict[str, Any]:
-    articles = _load_gdelt_articles(max_records=50)
+def get_industry_impact(db: Session = Depends(get_db)) -> dict[str, Any]:
+    snapshot = load_pipeline_snapshot(db, max_news=50)
+    articles = snapshot.articles
     semiconductor_count = _count_mentions(articles, ["semiconductor", "chip", "nvidia", "samsung", "tsmc", "hynix"])
     ai_count = _count_mentions(articles, ["ai", "artificial intelligence", "gpu"])
     policy_count = _count_mentions(articles, ["policy", "export", "control", "regulation"])
 
+    market_adjustment = round(
+        sum(float(row.get("return_1d") or 0) for row in snapshot.market) * 100
+    )
     summaries = [
-        _industry_summary("semiconductor", "Semiconductor", min(90, 45 + semiconductor_count * 4), semiconductor_count, "CHIP"),
-        _industry_summary("it", "AI/IT", min(85, 38 + ai_count * 4), ai_count, "AI"),
-        _industry_summary("policy", "Policy/Regulation", max(-70, -20 - policy_count * 5), policy_count, "POL"),
+        _industry_summary("semiconductor", "Semiconductor", min(90, 45 + semiconductor_count * 4 + market_adjustment), semiconductor_count, "CHIP"),
+        _industry_summary("it", "AI/IT", min(85, 38 + ai_count * 4 + market_adjustment), ai_count, "AI"),
+        _industry_summary("policy", "Policy/Regulation", max(-70, -20 - policy_count * 5 - abs(market_adjustment)), policy_count, "POL"),
     ]
 
     return {
         "industries": summaries,
         "details": {summary["id"]: _industry_detail(summary, articles) for summary in summaries},
+        **snapshot.metadata(),
     }
 
 
@@ -500,6 +521,19 @@ def _format_datetime(value: datetime) -> str:
 def _load_gdelt_articles(max_records: int = 50) -> list[dict[str, Any]]:
     collector = NewsCollector()
     return collector.deduplicate(collector.collect_from_gdelt(days=1, max_records=max_records))
+
+
+def _strongest_market_reaction(rows: list[dict[str, Any]]) -> dict[str, float]:
+    if not rows:
+        return {}
+    return max(
+        rows,
+        key=lambda row: (
+            abs(float(row.get("return_1d") or 0)),
+            float(row.get("volume_ratio") or 0),
+            float(row.get("volatility_ratio") or 0),
+        ),
+    )
 
 
 def _to_news_guard_article(article: dict[str, Any]) -> dict[str, Any]:

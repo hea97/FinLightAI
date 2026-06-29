@@ -9,6 +9,14 @@ class ApiModel(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class PipelineMetadata(ApiModel):
+    data_source: Literal["real", "mixed", "seed_fallback"] = Field(alias="dataSource")
+    providers: list[str]
+    is_fallback: bool = Field(alias="isFallback")
+    last_updated: str = Field(alias="lastUpdated")
+    warnings: list[str]
+
+
 class BriefingNews(ApiModel):
     title: str
     source: str
@@ -17,7 +25,7 @@ class BriefingNews(ApiModel):
     reliability_score: float = Field(alias="reliabilityScore")
 
 
-class BriefingResponse(ApiModel):
+class BriefingResponse(PipelineMetadata):
     as_of: str = Field(alias="asOf")
     signal: Literal["RED", "YELLOW", "GREEN"]
     risk_score: int = Field(alias="riskScore", ge=0, le=100)
@@ -83,7 +91,7 @@ class NewsGuardArticle(ApiModel):
     reasons: list[str]
 
 
-class NewsGuardResponse(ApiModel):
+class NewsGuardResponse(PipelineMetadata):
     stats: NewsGuardStats
     distribution: ReliabilityDistribution
     block_reasons: list[BlockReason] = Field(alias="blockReasons")
@@ -131,7 +139,7 @@ class IndustryDetail(ApiModel):
     top_news: list[RelatedNews] = Field(alias="topNews")
 
 
-class IndustryImpactResponse(ApiModel):
+class IndustryImpactResponse(PipelineMetadata):
     industries: list[IndustrySummary]
     details: dict[str, IndustryDetail]
 
