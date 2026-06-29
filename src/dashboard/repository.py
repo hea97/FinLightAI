@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -7,7 +8,16 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.dashboard.models import KakaoAlertRule, PortfolioAsset, StockPrice, User, UserSettings
+from src.dashboard.models import (
+    DataProviderStatus,
+    KakaoAlertRule,
+    NewsFiltered,
+    NewsRaw,
+    PortfolioAsset,
+    StockPrice,
+    User,
+    UserSettings,
+)
 from src.dashboard.schemas import PortfolioAssetInput, SettingsUpdate
 
 
@@ -83,6 +93,80 @@ def latest_stock_prices(db: Session, tickers: list[str] | None = None) -> list[S
         if row:
             latest.append(row)
     return latest
+
+
+def persist_news_records(db: Session, records: list[dict]) -> int:
+    persisted = 0
+    for record in records:
+        fingerprint = _news_fingerprint(record)
+        raw = db.scalar(select(NewsRaw).where(NewsRaw.fingerprint == fingerprint))
+        raw_values = {
+            "title": str(record.get("title") or "Untitled"),
+            "content": str(record.get("content") or record.get("summary") or ""),
+            "source": str(record.get("source") or record.get("provider") or "unknown"),
+            "url": str(record.get("url") or ""),
+            "published_utc": str(record.get("published_utc") or record.get("published_at") or ""),
+            "provider": str(record.get("provider") or "unknown"),
+            "keyword": str(record.get("keyword") or ""),
+            "raw_payload": record.get("raw_payload"),
+        }
+        if raw:
+            for field, value in raw_values.items():
+                setattr(raw, field, value)
+        else:
+            raw = NewsRaw(fingerprint=fingerprint, **raw_values)
+            db.add(raw)
+            db.flush()
+
+        filtered = db.scalar(select(NewsFiltered).where(NewsFiltered.raw_id == raw.id))
+        filter_values = {
+            "source_score": float(record.get("source_score") or 0),
+            "keyword_score": int(record.get("keyword_score") or 0),
+            "duplicate_flag": bool(record.get("duplicate_flag")),
+            "content_length": int(record.get("content_length") or 0),
+            "passed_filter": bool(record.get("passed_filter")),
+            "reliability_score": record.get("reliability_score"),
+        }
+        if filtered:
+            for field, value in filter_values.items():
+                setattr(filtered, field, value)
+        else:
+            db.add(NewsFiltered(raw_id=raw.id, **filter_values))
+        persisted += 1
+    db.commit()
+    return persisted
+
+
+def update_provider_statuses(db: Session, statuses: dict[str, dict[str, str]]) -> None:
+    for provider, state in statuses.items():
+        stored = db.get(DataProviderStatus, provider)
+        values = {
+            "status": state.get("status", "unknown"),
+            "message": state.get("message", ""),
+            "fetched_at": datetime.now(timezone.utc),
+        }
+        if stored:
+            for field, value in values.items():
+                setattr(stored, field, value)
+        else:
+            db.add(DataProviderStatus(provider=provider, **values))
+    db.commit()
+
+
+def latest_filtered_news(db: Session, limit: int = 50) -> list[tuple[NewsRaw, NewsFiltered]]:
+    query = (
+        select(NewsRaw, NewsFiltered)
+        .join(NewsFiltered, NewsFiltered.raw_id == NewsRaw.id)
+        .where(NewsFiltered.passed_filter.is_(True))
+        .order_by(NewsRaw.published_utc.desc())
+        .limit(limit)
+    )
+    return list(db.execute(query).all())
+
+
+def _news_fingerprint(record: dict) -> str:
+    raw = f"{record.get('url', '')}|{record.get('title', '')}".strip().lower()
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def ensure_user(db: Session, user_id: str) -> User:
