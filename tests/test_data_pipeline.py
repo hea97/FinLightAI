@@ -12,9 +12,9 @@ from src.collector.news_collector import NewsCollector
 from src.collector.providers.rss import RssNewsProvider
 from src.dashboard.app import app
 from src.dashboard.database import Base
-from src.dashboard.models import NewsFiltered, NewsRaw, StockPrice
+from src.dashboard.models import NewsFiltered, NewsRaw, Signal, StockPrice
 from src.dashboard.repository import persist_news_records, upsert_stock_prices
-from src.dashboard.services.data_pipeline import PipelineSnapshot
+from src.dashboard.services.data_pipeline import PipelineSnapshot, _persist_generated_signals
 from src.processor.event_score import EventScoreCalculator
 from src.processor.market_metrics import calculate_market_metrics, safe_ratio
 from src.processor.news_filter import NewsFilter
@@ -142,6 +142,40 @@ def test_signal_requires_market_confirmation_for_red() -> None:
     assert SignalGenerator().generate(0.9, strong_market) == "RED"
     assert SignalGenerator().generate(0.9, {"sentiment_score": -0.8}) == "GREEN"
     assert SignalGenerator().generate(0.4, {"return_1d": 0.01, "volume_ratio": 1.1}) == "GREEN"
+
+
+def test_generated_signal_is_persisted_without_future_market_leakage() -> None:
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    article = {
+        "title": "NVIDIA AI chip export policy",
+        "content": "Semiconductor export control risk affects NVIDIA.",
+        "url": "https://example.com/event",
+        "published_utc": "2026-06-25T09:00:00+00:00",
+        "provider": "GDELT",
+        "source_score": 0.9,
+        "duplicate_flag": False,
+    }
+    market = [
+        {
+            "ticker": "NVDA",
+            "trade_date": "2026-06-26",
+            "return_1d": -0.04,
+            "volume_ratio": 2.3,
+            "volatility_5d": 0.07,
+            "volatility_ratio": 1.5,
+        }
+    ]
+
+    _persist_generated_signals(session, [article], market)
+    _persist_generated_signals(session, [article], market)
+
+    assert session.scalar(select(func.count()).select_from(Signal)) == 1
+    stored = session.scalar(select(Signal))
+    assert stored is not None
+    assert stored.trade_date >= date(2026, 6, 25)
+    assert stored.evidence["provider"] == "GDELT"
 
 
 def test_dashboard_pipeline_endpoints_expose_fallback_metadata(monkeypatch) -> None:

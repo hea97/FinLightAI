@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -13,8 +14,12 @@ from src.dashboard.repository import (
     persist_news_records,
     update_provider_statuses,
     upsert_stock_prices,
+    upsert_signal,
 )
+from src.processor.event_score import EventScoreCalculator
 from src.processor.news_filter import NewsFilter
+from src.processor.sentiment import SentimentAnalyzer
+from src.signal.generator import SignalGenerator
 
 
 @dataclass
@@ -79,6 +84,11 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
         }
         for row in market_rows
     ]
+    try:
+        _persist_generated_signals(db, prepared, market)
+    except Exception as exc:
+        db.rollback()
+        warnings.append(f"Signal persistence unavailable: {type(exc).__name__}")
     providers = sorted({str(article.get("provider") or "unknown") for article in articles})
     if market:
         providers.append("yfinance")
@@ -105,3 +115,64 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
         last_updated=now,
         warnings=list(dict.fromkeys(warnings)),
     )
+
+
+def _persist_generated_signals(
+    db: Session,
+    articles: list[dict[str, Any]],
+    market_rows: list[dict[str, Any]],
+) -> None:
+    calculator = EventScoreCalculator()
+    generator = SignalGenerator()
+    sentiment_analyzer = SentimentAnalyzer()
+    market_by_ticker = {row["ticker"]: row for row in market_rows}
+    for article in articles:
+        if article.get("duplicate_flag"):
+            continue
+        published_date = _published_date(article)
+        text = f"{article.get('title', '')} {article.get('content', '')}"
+        sentiment = sentiment_analyzer.analyze(text)
+        for ticker in calculator.affected_tickers(article):
+            market = market_by_ticker.get(ticker)
+            if not market:
+                continue
+            trade_date = date.fromisoformat(market["trade_date"])
+            if published_date and trade_date < published_date:
+                continue
+            market_with_sentiment = {**market, "sentiment_score": float(sentiment["score"])}
+            event_score = calculator.calculate(
+                float(article.get("reliability_score") or article.get("source_score") or 0),
+                float(sentiment["score"]),
+                market_with_sentiment,
+            )
+            event_key = hashlib.sha256(
+                f"{article.get('url', '')}|{article.get('title', '')}".lower().encode("utf-8")
+            ).hexdigest()
+            upsert_signal(
+                db,
+                {
+                    "event_key": event_key,
+                    "ticker": ticker,
+                    "trade_date": trade_date,
+                    "event_score": event_score,
+                    "market_reaction_score": calculator.market_reaction_score(market_with_sentiment),
+                    "signal": generator.generate(event_score, market_with_sentiment),
+                    "evidence": calculator.evidence(article, market_with_sentiment),
+                    "data_source": "seed_fallback" if article.get("provider") == "seed" else "real",
+                },
+            )
+
+
+def _published_date(article: dict[str, Any]) -> date | None:
+    raw = str(article.get("published_utc") or article.get("published_at") or "")
+    if not raw:
+        return None
+    try:
+        if raw.endswith("Z"):
+            raw = f"{raw[:-1]}+00:00"
+        return datetime.fromisoformat(raw).date()
+    except ValueError:
+        try:
+            return datetime.strptime(raw[:8], "%Y%m%d").date()
+        except ValueError:
+            return None
