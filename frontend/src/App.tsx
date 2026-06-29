@@ -334,13 +334,14 @@ function BriefingDashboard({
   const briefingSummary = briefingData?.summary.map((text) => ({ text, tone: "neutral" as Tone })) ?? currentMarket.briefing;
   const briefingUpdatedAt = briefingData?.lastUpdated ?? briefingData?.asOf ?? currentMarket.updatedAt;
   const briefingDescription = briefingData?.summary[0] ?? currentMarket.description;
+  const showMockReferencePanels = false;
 
   return (
     <main className="dashboard">
       <PageHeader title={viewCopy.briefing.title} description={viewCopy.briefing.subtitle} />
       <PipelineStatusBar metadata={briefingFailed ? null : briefingData} />
       <p className="mock-disclosure">
-        시장 지표 카드, 뉴스 TOP 5, 요약 히트맵과 준비도 패널은 아직 mock 참고 데이터입니다.
+        실제 API 데이터와 static briefing fallback만 표시합니다. 연결되지 않은 demo/mock 시장 패널은 숨겨져 있습니다.
       </p>
 
       <section className="panel market-signal">
@@ -382,6 +383,8 @@ function BriefingDashboard({
         </ul>
       </section>
 
+      {showMockReferencePanels ? (
+        <>
       <section className="panel market-panel">
         <div className="market-tabs" role="tablist" aria-label="시장 구분">
           {tabs.map((tab) => (
@@ -449,6 +452,14 @@ function BriefingDashboard({
       </aside>
 
       <BriefingReadinessPanel data={briefingReadiness} />
+        </>
+      ) : (
+        <section className="panel mock-disclosure" aria-label="연결 대기 중인 브리핑 패널">
+          <strong>추가 시장 패널 연결 대기 중</strong>
+          <p>Demo/mock 수치는 실제 시장 데이터로 오해되지 않도록 표시하지 않습니다.</p>
+          <time>실제 파이프라인 마지막 업데이트: {briefingUpdatedAt}</time>
+        </section>
+      )}
     </main>
   );
 }
