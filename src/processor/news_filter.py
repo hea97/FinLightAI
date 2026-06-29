@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from config.settings import get_settings
+from src.processor.news_relevance import contains_term, relevance_score
 
 
 class NewsFilter:
@@ -28,8 +29,7 @@ class NewsFilter:
         return filtered
 
     def _keyword_score(self, text: str) -> int:
-        lowered = text.lower()
-        return sum(1 for keyword in self.KEYWORDS if keyword in lowered)
+        return sum(1 for keyword in self.KEYWORDS if contains_term(text, keyword))
 
     def prepare_records(self, articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen_urls: set[str] = set()
@@ -48,12 +48,14 @@ class NewsFilter:
             source = str(article.get("source") or article.get("domain") or "")
             source_score = 0.9 if any(name in source.lower() for name in self.TRUSTED_SOURCES) else 0.65
             keyword_score = self._keyword_score(f"{title} {content}")
+            article_relevance_score = relevance_score(f"{title} {content}")
             reliability = article.get("reliability") or {}
             reliability_score = reliability.get("final_score")
             passed = (
                 not duplicate
                 and source_score >= self.settings.min_source_score
                 and keyword_score >= self.settings.min_keyword_score
+                and article_relevance_score >= 1
                 and len(content) >= self.settings.min_content_length
             )
             records.append(
@@ -61,6 +63,7 @@ class NewsFilter:
                     **article,
                     "source_score": source_score,
                     "keyword_score": keyword_score,
+                    "relevance_score": article_relevance_score,
                     "duplicate_flag": duplicate,
                     "content_length": len(content),
                     "passed_filter": passed,

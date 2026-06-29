@@ -7,6 +7,7 @@ from xml.etree import ElementTree
 import httpx
 
 from src.collector.providers.base import NewsProviderResult, normalized_article
+from src.processor.news_relevance import matched_relevance_terms
 
 
 class RssNewsProvider:
@@ -31,13 +32,12 @@ class RssNewsProvider:
             )
 
         selected: list[dict] = []
-        lowered_keywords = [keyword.lower() for keyword in keywords if keyword.strip()]
         for item in root.findall(".//item"):
             title = item.findtext("title", default="")
             description = item.findtext("description", default="")
-            text = f"{title} {description}".lower()
-            matched = next((keyword for keyword in lowered_keywords if keyword in text), "")
-            if lowered_keywords and not matched:
+            text = f"{title} {description}"
+            matches = matched_relevance_terms(text)
+            if not matches:
                 continue
             published = self._published_utc(item.findtext("pubDate", default=""))
             selected.append(
@@ -48,7 +48,7 @@ class RssNewsProvider:
                     url=item.findtext("link", default=""),
                     published_utc=published,
                     provider=self.name,
-                    keyword=matched,
+                    keyword=", ".join(matches),
                 )
             )
             if len(selected) >= max_records:
