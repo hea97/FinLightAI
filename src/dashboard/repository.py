@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.dashboard.models import KakaoAlertRule, PortfolioAsset, User, UserSettings
+from src.dashboard.models import KakaoAlertRule, PortfolioAsset, StockPrice, User, UserSettings
 from src.dashboard.schemas import PortfolioAssetInput, SettingsUpdate
 
 
@@ -31,6 +31,58 @@ DEFAULT_KAKAO_RULES = [
 
 class DuplicatePortfolioAssetError(Exception):
     pass
+
+
+STOCK_PRICE_FIELDS = {
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "return_1d",
+    "return_3d",
+    "return_5d",
+    "volume_ratio",
+    "volatility_5d",
+    "volatility_ratio",
+    "provider",
+    "data_source",
+    "fetched_at",
+}
+
+
+def upsert_stock_prices(db: Session, rows: list[dict]) -> int:
+    persisted = 0
+    for row in rows:
+        ticker = str(row["ticker"])
+        trade_date = row["trade_date"]
+        stock = db.scalar(
+            select(StockPrice).where(StockPrice.ticker == ticker, StockPrice.trade_date == trade_date)
+        )
+        values = {field: row.get(field) for field in STOCK_PRICE_FIELDS if field in row}
+        if stock:
+            for field, value in values.items():
+                setattr(stock, field, value)
+        else:
+            db.add(StockPrice(ticker=ticker, trade_date=trade_date, **values))
+        persisted += 1
+    db.commit()
+    return persisted
+
+
+def latest_stock_prices(db: Session, tickers: list[str] | None = None) -> list[StockPrice]:
+    selected = tickers or list({row[0] for row in db.execute(select(StockPrice.ticker)).all()})
+    latest: list[StockPrice] = []
+    for ticker in selected:
+        row = db.scalar(
+            select(StockPrice)
+            .where(StockPrice.ticker == ticker)
+            .order_by(StockPrice.trade_date.desc())
+            .limit(1)
+        )
+        if row:
+            latest.append(row)
+    return latest
 
 
 def ensure_user(db: Session, user_id: str) -> User:

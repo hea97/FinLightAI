@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.dashboard.database import Base
@@ -79,3 +79,27 @@ class AlertHistory(Base):
     trigger: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(40), nullable=False)
     tone: Mapped[str] = mapped_column(String(30), nullable=False)
+
+
+class StockPrice(Base):
+    __tablename__ = "stock_prices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    trade_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    open: Mapped[float | None] = mapped_column(Float)
+    high: Mapped[float | None] = mapped_column(Float)
+    low: Mapped[float | None] = mapped_column(Float)
+    close: Mapped[float] = mapped_column(Float, nullable=False)
+    volume: Mapped[float | None] = mapped_column(Float)
+    return_1d: Mapped[float | None] = mapped_column(Float)
+    return_3d: Mapped[float | None] = mapped_column(Float)
+    return_5d: Mapped[float | None] = mapped_column(Float)
+    volume_ratio: Mapped[float | None] = mapped_column(Float)
+    volatility_5d: Mapped[float | None] = mapped_column(Float)
+    volatility_ratio: Mapped[float | None] = mapped_column(Float)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    data_source: Mapped[str] = mapped_column(String(30), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (UniqueConstraint("ticker", "trade_date", name="uq_stock_price_ticker_trade_date"),)
