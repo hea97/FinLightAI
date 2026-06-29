@@ -562,6 +562,7 @@ def _to_news_guard_article(article: dict[str, Any]) -> dict[str, Any]:
         "id": _article_id(article),
         "title": article.get("title", "Untitled"),
         "source": article.get("source") or article.get("domain") or "GDELT",
+        "provider": article.get("provider") or "unknown",
         "publishedAgo": _published_label(article.get("published_at")),
         "summary": "Collected by GDELT. Full-body verification can be added with additional providers.",
         "reliabilityLevel": level,

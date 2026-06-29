@@ -265,6 +265,33 @@ function PageHeader({ title, description, action }: { title: string; description
   );
 }
 
+type PipelineMetadataView = {
+  dataSource?: string;
+  providers?: string[];
+  isFallback?: boolean;
+  lastUpdated?: string;
+  warnings?: string[];
+};
+
+function PipelineStatusBar({ metadata }: { metadata: PipelineMetadataView | null }) {
+  const source = metadata?.dataSource ?? "mock";
+  const warnings = metadata?.warnings ?? (metadata ? [] : ["API data unavailable; labeled mock data is displayed"]);
+  const providers = metadata?.providers?.length ? metadata.providers.join(", ") : "mock";
+  const updated = metadata?.lastUpdated ?? "not available";
+
+  return (
+    <section className={`pipeline-status pipeline-status--${source}`} aria-label="데이터 파이프라인 상태">
+      <div>
+        <strong>{source}</strong>
+        {metadata?.isFallback ? <span>fallback active</span> : null}
+        <span>providers: {providers}</span>
+        <time>{updated}</time>
+      </div>
+      {warnings.map((warning) => <p key={warning}>{warning}</p>)}
+    </section>
+  );
+}
+
 function BriefingDashboard({
   currentMarket,
   marketTab,
@@ -285,6 +312,7 @@ function BriefingDashboard({
   onViewChange: (view: ViewId) => void;
 }) {
   const [briefingData, setBriefingData] = useState<BriefingResponse | null>(null);
+  const [briefingFailed, setBriefingFailed] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -292,7 +320,9 @@ function BriefingDashboard({
       .then((data) => {
         if (mounted) setBriefingData(data);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (mounted) setBriefingFailed(true);
+      });
     return () => {
       mounted = false;
     };
@@ -302,11 +332,12 @@ function BriefingDashboard({
   const briefingRisk = briefingData?.riskScore ?? currentMarket.risk;
   const briefingTitle = briefingData?.headline ?? currentMarket.title;
   const briefingSummary = briefingData?.summary.map((text) => ({ text, tone: "neutral" as Tone })) ?? currentMarket.briefing;
-  const briefingUpdatedAt = briefingData?.asOf ?? currentMarket.updatedAt;
+  const briefingUpdatedAt = briefingData?.lastUpdated ?? briefingData?.asOf ?? currentMarket.updatedAt;
 
   return (
     <main className="dashboard">
       <PageHeader title={viewCopy.briefing.title} description={viewCopy.briefing.subtitle} />
+      <PipelineStatusBar metadata={briefingFailed ? null : briefingData} />
 
       <section className="panel market-signal">
         <div className="section-title-row">
@@ -570,6 +601,7 @@ function NewsGuardPage() {
       <section className="news-guard-main">
         <PageHeader title="뉴스 가드" description="뉴스 신뢰도를 검증하고 저신뢰 뉴스를 걸러냅니다." />
 
+        <PipelineStatusBar metadata={data} />
         <NewsGuardKpiGrid data={data} />
 
         <section className="news-list-panel" aria-label="뉴스 가드 목록">
@@ -658,7 +690,7 @@ function NewsGuardArticleCard({ article }: { article: NewsArticle }) {
       <div className="news-card-body">
         <h2>{article.title}</h2>
         <div className="news-meta">
-          <span>{article.source}</span>
+          <span>{article.source} · {article.provider ?? article.source} · {article.qualityStatus ?? "mock"}</span>
           <span>·</span>
           <span>{article.publishedAgo}</span>
         </div>
@@ -890,6 +922,7 @@ function IndustryImpactPage({
   return (
     <>
       <PageHeader title={viewCopy.industry.title} description={viewCopy.industry.subtitle} />
+      <PipelineStatusBar metadata={industryData} />
       <IndustryImpactSummaryPanel detail={activeDetail} />
       <section className="industry-impact-layout">
         <IndustryImpactHeatmapPanel

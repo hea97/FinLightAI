@@ -5036,3 +5036,42 @@ button {
     margin: 0 14px;
   }
 }
+
+.pipeline-status {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.pipeline-status > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.pipeline-status strong {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(64, 214, 170, 0.14);
+  color: var(--mint);
+  text-transform: uppercase;
+}
+
+.pipeline-status--mixed strong,
+.pipeline-status--seed_fallback strong,
+.pipeline-status--mock strong {
+  background: rgba(255, 190, 92, 0.14);
+  color: var(--yellow-text);
+}
+
+.pipeline-status p {
+  margin: 0;
+  color: var(--yellow-text);
+}

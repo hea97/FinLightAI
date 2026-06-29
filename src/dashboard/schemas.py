@@ -79,6 +79,7 @@ class NewsGuardArticle(ApiModel):
     id: str
     title: str
     source: str
+    provider: str
     published_ago: str = Field(alias="publishedAgo")
     summary: str
     reliability_level: Literal["trusted", "watch", "blocked"] = Field(alias="reliabilityLevel")
