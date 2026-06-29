@@ -1383,7 +1383,16 @@ function AssetTable({
               <td>{asset.symbol}</td>
               <td>{asset.quantity.toLocaleString()}주</td>
               <td>{formatAssetCurrency(asset.averageBuyPrice, asset.currency)}</td>
-              <td>{formatAssetCurrency(asset.currentPrice, asset.currency)}</td>
+              <td>
+                <strong>{formatAssetCurrency(asset.currentPrice, asset.currency)}</strong>
+                <span className="asset-memo-preview">
+                  {asset.priceStatusLabel ?? (
+                    asset.priceDataSource === "real"
+                      ? `Latest ${asset.priceProvider ?? "market"} price`
+                      : "Stored reference price (mock)"
+                  )}
+                </span>
+              </td>
               <td>{asset.recentSellPrice ? formatAssetCurrency(asset.recentSellPrice, asset.currency) : "-"}</td>
               <td><StatusBadge status={asset.status} /></td>
               <td>

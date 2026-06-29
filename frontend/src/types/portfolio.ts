@@ -20,6 +20,8 @@ export interface PortfolioAsset {
   cautionNewsCount: number;
   updatedAt: string;
   priceDataSource?: "real" | "mock" | "not_connected";
+  priceProvider?: string;
+  priceStatusLabel?: string;
   priceAsOf?: string;
 }
 

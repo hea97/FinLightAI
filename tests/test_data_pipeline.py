@@ -27,7 +27,11 @@ from src.dashboard.services.data_pipeline import (
     _eligible_signal_articles,
     _persist_generated_signals,
 )
-from src.dashboard.routes.api import _industry_articles, _to_news_guard_article
+from src.dashboard.routes.api import (
+    _industry_articles,
+    _portfolio_asset_dict,
+    _to_news_guard_article,
+)
 from src.processor.event_score import EventScoreCalculator
 from src.processor.market_metrics import calculate_market_metrics, safe_ratio
 from src.processor.news_filter import NewsFilter
@@ -101,6 +105,41 @@ def test_stock_and_news_upserts_do_not_create_duplicates() -> None:
     assert session.scalar(select(StockPrice.close)) == 101.0
     assert session.scalar(select(func.count()).select_from(NewsRaw)) == 1
     assert session.scalar(select(func.count()).select_from(NewsFiltered)) == 1
+
+
+def test_portfolio_real_price_messaging_matches_yfinance_provider() -> None:
+    record = SimpleNamespace(
+        id="asset-nvda",
+        asset_name="NVIDIA",
+        symbol="NVDA",
+        market="US",
+        industry="AI/IT",
+        quantity=5,
+        average_buy_price=124.2,
+        current_price=132.8,
+        recent_sell_price=None,
+        currency="USD",
+        status="holding",
+        decision_memo="Finnhub or Alpha Vantage can replace this with live or delayed price data.",
+        related_news_count=14,
+        caution_news_count=3,
+        updated_at=datetime.now(timezone.utc),
+    )
+    market = SimpleNamespace(
+        close=192.53,
+        provider="yfinance",
+        trade_date=date(2026, 6, 29),
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    payload = _portfolio_asset_dict(record, market)
+
+    assert payload["currentPrice"] == 192.53
+    assert payload["priceDataSource"] == "real"
+    assert payload["priceProvider"] == "yfinance"
+    assert payload["priceStatusLabel"] == "Latest persisted yfinance market price"
+    assert "Finnhub" not in payload["decisionMemo"]
+    assert "Temporary reference" not in payload["decisionMemo"]
 
 
 def test_rss_normalization_and_missing_newsapi_key_are_graceful(monkeypatch) -> None:

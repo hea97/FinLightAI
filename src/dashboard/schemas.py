@@ -174,6 +174,8 @@ class PortfolioAsset(PortfolioAssetInput):
     caution_news_count: int = Field(default=0, alias="cautionNewsCount")
     updated_at: str = Field(alias="updatedAt")
     price_data_source: Literal["real", "mock", "not_connected"] = Field(alias="priceDataSource")
+    price_provider: str | None = Field(default=None, alias="priceProvider")
+    price_status_label: str = Field(alias="priceStatusLabel")
     price_as_of: str | None = Field(default=None, alias="priceAsOf")
 
 

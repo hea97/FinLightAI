@@ -545,6 +545,14 @@ def _portfolio_response(
 
 
 def _portfolio_asset_dict(record: PortfolioAssetRecord, market_row: Any | None = None) -> dict[str, Any]:
+    legacy_provider_memos = {
+        "KIS price data is pending. Temporary reference price is displayed.",
+        "Finnhub or Alpha Vantage can replace this with live or delayed price data.",
+    }
+    has_real_market_price = market_row is not None
+    decision_memo = record.decision_memo
+    if has_real_market_price and decision_memo in legacy_provider_memos:
+        decision_memo = "Current price is based on latest persisted yfinance market data."
     return {
         "id": record.id,
         "assetName": record.asset_name,
@@ -557,7 +565,7 @@ def _portfolio_asset_dict(record: PortfolioAssetRecord, market_row: Any | None =
         "recentSellPrice": record.recent_sell_price,
         "currency": record.currency,
         "status": record.status,
-        "decisionMemo": record.decision_memo,
+        "decisionMemo": decision_memo,
         "relatedNewsCount": record.related_news_count,
         "cautionNewsCount": record.caution_news_count,
         "updatedAt": (
@@ -565,7 +573,13 @@ def _portfolio_asset_dict(record: PortfolioAssetRecord, market_row: Any | None =
             if market_row and market_row.fetched_at
             else _format_datetime(record.updated_at)
         ),
-        "priceDataSource": "real" if market_row else "mock",
+        "priceDataSource": "real" if has_real_market_price else "mock",
+        "priceProvider": market_row.provider if has_real_market_price else None,
+        "priceStatusLabel": (
+            f"Latest persisted {market_row.provider} market price"
+            if has_real_market_price
+            else "Stored reference price (mock); live market data unavailable"
+        ),
         "priceAsOf": market_row.trade_date.isoformat() if market_row else None,
     }
 
