@@ -7,20 +7,19 @@
 - Collectors live in `src/collector`; processing and scoring live in
   `src/processor` and `src/signal`.
 - SQLAlchemy models and repositories live in `src/dashboard`.
-- `/api/briefing`, `/api/news-guard`, and `/api/industry-impact` currently
-  consume GDELT articles directly from the route layer.
+- `/api/briefing`, `/api/news-guard`, and `/api/industry-impact` read the
+  latest relevant filtered records from SQLite. External collection is only
+  performed by `scripts/refresh_pipeline_data.py`.
 
 ### Hardcoded, mock, and seed inventory
 
-- `src/collector/stock_collector.py` returns a fixed OHLCV sample.
-- `src/collector/news_collector.py` uses one explicit seed article when GDELT
-  is unavailable and exposes a placeholder NewsAPI response.
-- `src/dashboard/routes/api.py` contains fixed `/market` and `/signals`
-  responses and derives dashboard scores from news counts only.
+- `src/collector/news_collector.py` keeps one explicitly labeled seed article
+  as the last fallback tier.
+- `/api/market` and `/api/signals` now read stored database rows.
 - `src/dashboard/repository.py` creates demo portfolio assets with temporary
-  reference prices. These remain demo-user onboarding data, not market data.
-- Frontend `*.mock.ts` files remain development fixtures and are outside this
-  backend data-pipeline change.
+  reference prices, but portfolio GET responses replace supported symbols with
+  yfinance rows and label unmatched values as `mock`.
+- Frontend overview-only mock panels remain and are visibly disclosed as mock.
 
 ### Planned replacements
 
@@ -34,8 +33,40 @@
   duplicate state, and content length.
 - [x] Map news to affected tickers, combine news evidence with subsequent
   market reactions, persist signals, and prevent news-only RED signals.
-- [x] Add backward-compatible response metadata to the three dashboard APIs:
-  `data_source`, `providers`, `is_fallback`, `last_updated`, and `warnings`.
+- [x] Add backward-compatible camelCase response metadata to the three
+  dashboard APIs: `dataSource`, `providers`, `isFallback`, `lastUpdated`, and
+  `warnings`.
+
+## Data pipeline stabilization (2026-06-29)
+
+### Resolved blockers
+
+- [x] All FastAPI tests use isolated temporary SQLite databases.
+- [x] Fixture news and the four derived fixture signals were removed from the
+  development database with an allowlisted cleanup command.
+- [x] `AI` and other relevance terms use token/phrase boundaries.
+- [x] Dashboard APIs prefer relevant stored news and never wait for external
+  provider calls.
+- [x] Low-confidence and seed records cannot be presented as trusted news.
+- [x] Provider statuses, fallback metadata, and warnings use the same state.
+- [x] Gemini/provider fallback is explicit; dashboard GET requests use a
+  static briefing fallback rather than blocking on AI generation.
+- [x] Industry evidence is restricted to matching sector articles and market
+  tickers.
+- [x] Signal evidence includes title, URL, source, provider, and publication
+  time. No signal is generated when there is no qualifying real article.
+- [x] The UI displays data source, providers, fallback state, last update, and
+  warnings. Remaining overview mocks are visibly disclosed.
+- [x] `/api/market`, `/api/signals`, and portfolio prices no longer silently
+  present fixed values as real.
+
+### Stabilization decision
+
+- The pipeline is safe to freeze as `v0.1.0-data-pipeline`.
+- The next feature phase may begin, while provider availability and the lack
+  of currently verified real news remain visible operational limitations.
+- Current signal count is zero by design: the last refresh returned no
+  qualifying non-seed article, so no synthetic signal was created.
 
 ### Time and data-integrity rules
 
@@ -61,10 +92,12 @@
 
 ### Verification
 
-- `python -m pytest -q`: 24 passed (one upstream Starlette/httpx deprecation warning).
+- `python -m pytest -q`: 31 passed (one upstream Starlette/httpx deprecation warning).
 - `npm.cmd run build`: TypeScript and Vite production build passed.
-- Live collection check: 28 GDELT/BBC RSS articles and market rows for NVDA,
-  AMD, 005930.KS, and 000660.KS; snapshot classified as `real`.
+- Dashboard briefing response: approximately 0.24 seconds from stored data.
+- Latest explicit refresh: yfinance stored 86 rows; GDELT was unavailable,
+  BBC RSS returned no relevant matches, and seed remained explicitly labeled.
+- Development DB after cleanup: fixture URL 0, signals 0.
 
 ### Remaining pipeline TODO
 
@@ -72,7 +105,7 @@
 - [ ] Add Guardian and Finnhub provider adapters when their credentials are provisioned.
 - [ ] Add pykrx as an optional Korean-market provider and compare adjustment semantics.
 - [ ] Move schema evolution from `create_all` to versioned migrations before production.
-- [ ] Schedule collection outside request handling for production-scale latency control.
+- [ ] Schedule the explicit refresh command outside request handling.
 
 ## Done
 
