@@ -479,6 +479,35 @@ def test_news_guard_uses_only_relevant_stored_filtered_news(isolated_dashboard_d
     assert payload["isFallback"] is False
 
 
+def test_news_guard_honors_persisted_filter_decision_without_runtime_recalculation(
+    isolated_dashboard_database,
+) -> None:
+    accepted = {
+        "title": "NVIDIA AI semiconductor export control accepted",
+        "content": "Reuters AI semiconductor chip export policy " + ("verified detail " * 30),
+        "source": "Reuters",
+        "url": "https://news.example/accepted",
+        "published_utc": "2026-06-28T09:00:00+00:00",
+        "provider": "Google News RSS",
+    }
+    rejected = {
+        **accepted,
+        "title": "NVIDIA AI semiconductor export control rejected",
+        "url": "https://news.example/rejected",
+    }
+    accepted_record, rejected_record = NewsFilter().prepare_records([accepted, rejected])
+    rejected_record["passed_filter"] = False
+    rejected_record["filter_reasons"] = ["manual_persisted_rejection"]
+
+    with isolated_dashboard_database() as db:
+        persist_news_records(db, [accepted_record, rejected_record])
+
+    payload = TestClient(app).get("/api/news-guard").json()
+
+    assert payload["stats"]["collectedNewsCount"] == 1
+    assert [article["title"] for article in payload["articles"]] == [accepted["title"]]
+
+
 def test_provider_status_warnings_and_metadata_are_consistent(monkeypatch) -> None:
     snapshot = PipelineSnapshot(
         articles=[],

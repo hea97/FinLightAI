@@ -23,6 +23,7 @@ from src.dashboard.repository import (
 )
 from src.processor.event_score import EventScoreCalculator
 from src.processor.news_filter import NewsFilter
+from src.processor.news_relevance import relevance_score
 from src.processor.sentiment import SentimentAnalyzer
 from src.signal.generator import SignalGenerator
 
@@ -53,11 +54,23 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
     collector = NewsCollector()
     news_filter = NewsFilter()
     stored = latest_stored_news(db, max(max_news * 4, 100))
-    stored_prepared = news_filter.prepare_records(stored)
+    stored_prepared = [
+        {
+            **record,
+            "relevance_score": relevance_score(
+                f"{record.get('title', '')} {record.get('content', '')}"
+            ),
+        }
+        for record in stored
+    ]
     verified_stored = [
         record
         for record in stored_prepared
-        if record["passed_filter"] and record.get("provider") != "seed"
+        if (
+            record["passed_filter"]
+            and not record["duplicate_flag"]
+            and record.get("provider") != "seed"
+        )
     ]
     reviewable_stored = [
         record
