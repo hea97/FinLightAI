@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     min_source_score: float = Field(default=0.8, ge=0, le=1)
     min_keyword_score: int = Field(default=2, ge=0)
     min_content_length: int = Field(default=200, ge=0)
+    min_rss_content_length: int = Field(default=60, ge=0)
     red_volume_ratio: float = 2.0
     red_sentiment_score: float = -0.3
     volatility_multiplier: float = 2.0

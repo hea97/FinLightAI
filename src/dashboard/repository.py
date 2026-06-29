@@ -101,6 +101,14 @@ def persist_news_records(db: Session, records: list[dict]) -> int:
     for record in records:
         fingerprint = _news_fingerprint(record)
         raw = db.scalar(select(NewsRaw).where(NewsRaw.fingerprint == fingerprint))
+        raw_payload = dict(record.get("raw_payload") or {})
+        raw_payload["_filter"] = {
+            "passed": bool(record.get("passed_filter")),
+            "reasons": list(record.get("filter_reasons") or []),
+            "source_score": float(record.get("source_score") or 0),
+            "keyword_score": int(record.get("keyword_score") or 0),
+            "content_length": int(record.get("content_length") or 0),
+        }
         raw_values = {
             "title": str(record.get("title") or "Untitled"),
             "content": str(record.get("content") or record.get("summary") or ""),
@@ -109,7 +117,7 @@ def persist_news_records(db: Session, records: list[dict]) -> int:
             "published_utc": str(record.get("published_utc") or record.get("published_at") or ""),
             "provider": str(record.get("provider") or "unknown"),
             "keyword": str(record.get("keyword") or ""),
-            "raw_payload": record.get("raw_payload"),
+            "raw_payload": raw_payload,
         }
         if raw:
             for field, value in raw_values.items():

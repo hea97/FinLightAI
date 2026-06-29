@@ -171,6 +171,37 @@ def test_google_news_rss_normalizes_keyless_finance_news(monkeypatch) -> None:
     }.issubset(result.articles[0])
 
 
+def test_finance_rss_filter_accepts_relevant_short_summary_and_traces_rejections() -> None:
+    relevant = {
+        "title": "NVIDIA AI chip demand lifts semiconductor outlook",
+        "content": "Reuters says export control changes could affect NVIDIA chip demand and market supply.",
+        "source": "Reuters",
+        "url": "https://news.google.com/rss/articles/relevant",
+        "published_utc": "2026-06-26T09:00:00Z",
+        "provider": "Google News RSS",
+    }
+    unrelated = {
+        "title": "Weekend travel outlook",
+        "content": "A short general travel report.",
+        "source": "Unknown blog",
+        "url": "https://news.google.com/rss/articles/unrelated",
+        "published_utc": "2026-06-26T09:00:00Z",
+        "provider": "Google News RSS",
+    }
+
+    relevant_record, unrelated_record = NewsFilter().prepare_records([relevant, unrelated])
+
+    assert relevant_record["passed_filter"] is True
+    assert relevant_record["filter_reasons"] == []
+    assert unrelated_record["passed_filter"] is False
+    assert {
+        "source_score_below_threshold",
+        "keyword_score_below_threshold",
+        "no_relevant_finance_terms",
+        "content_too_short",
+    }.issubset(unrelated_record["filter_reasons"])
+
+
 def test_duplicate_titles_are_flagged_before_filtering() -> None:
     base = {
         "title": "AI Chip Policy!",
