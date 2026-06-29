@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     kakao_redirect_uri: str | None = None
     kakao_channel_id: str | None = None
     bbc_rss_url: str = "https://feeds.bbci.co.uk/news/world/rss.xml"
+    google_news_rss_url: str = "https://news.google.com/rss/search"
     discord_webhook_url: str | None = None
     smtp_host: str | None = None
     smtp_port: int = 587

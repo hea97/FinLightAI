@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 
 from config.settings import get_settings
-from src.collector.providers import NewsProviderResult, RssNewsProvider
+from src.collector.providers import GoogleNewsRssProvider, NewsProviderResult, RssNewsProvider
 from src.collector.providers.base import normalized_article
 
 
@@ -33,12 +33,22 @@ class NewsCollector:
             get_settings().bbc_rss_url,
             get_settings().external_api_timeout_seconds,
         ).collect(selected, max_records)
+        google_result = GoogleNewsRssProvider(
+            get_settings().google_news_rss_url,
+            get_settings().external_api_timeout_seconds,
+        ).collect(selected, max_records, days=max(days, 7))
         type(self)._provider_statuses["GDELT"] = gdelt_status
         type(self)._provider_statuses[rss_result.provider] = {
             "status": rss_result.status,
             "message": rss_result.message,
         }
-        articles = self.deduplicate(gdelt_articles + rss_result.articles)
+        type(self)._provider_statuses[google_result.provider] = {
+            "status": google_result.status,
+            "message": google_result.message,
+        }
+        articles = self.deduplicate(gdelt_articles + rss_result.articles + google_result.articles)
+        if not articles:
+            articles = self._seed_articles(selected)
         real_count = sum(article.get("provider") != "seed" for article in articles)
         if real_count == len(articles) and articles:
             source = "real"

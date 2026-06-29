@@ -49,6 +49,12 @@ class RssNewsProvider:
                     published_utc=published,
                     provider=self.name,
                     keyword=", ".join(matches),
+                    raw_payload={
+                        "feed_url": self.url,
+                        "published": item.findtext("pubDate", default=""),
+                    },
+                    matched_keywords=matches,
+                    relevance_score=len(matches),
                 )
             )
             if len(selected) >= max_records:

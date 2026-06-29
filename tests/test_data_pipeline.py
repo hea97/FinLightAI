@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
 from src.collector.news_collector import NewsCollector
+from src.collector.providers.google_news_rss import GoogleNewsRssProvider
 from src.collector.providers.rss import RssNewsProvider
 from src.dashboard.app import app
 from src.dashboard.database import Base
@@ -125,6 +126,49 @@ def test_rss_ai_keyword_uses_word_boundaries_and_rejects_unrelated_news(monkeypa
     result = RssNewsProvider("https://example.com/rss").collect(["AI"])
 
     assert [article["url"] for article in result.articles] == ["https://example.com/relevant"]
+
+
+def test_google_news_rss_normalizes_keyless_finance_news(monkeypatch) -> None:
+    class Response:
+        content = b"""<rss><channel><item>
+        <title>NVIDIA AI chip demand lifts semiconductor outlook</title>
+        <description><![CDATA[<p>Artificial intelligence chip demand supports NVIDIA suppliers.</p>]]></description>
+        <link>https://news.google.com/rss/articles/real-news-id</link>
+        <guid>real-news-id</guid>
+        <pubDate>Fri, 26 Jun 2026 09:00:00 GMT</pubDate>
+        <source>Reuters</source>
+        </item></channel></rss>"""
+
+        def raise_for_status(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "src.collector.providers.google_news_rss.httpx.get",
+        lambda *args, **kwargs: Response(),
+    )
+
+    result = GoogleNewsRssProvider("https://news.google.com/rss/search").collect(
+        ["AI", "semiconductor"],
+        days=7,
+    )
+
+    assert result.status == "healthy"
+    assert result.provider == "Google News RSS"
+    assert result.articles[0]["source"] == "Reuters"
+    assert result.articles[0]["matched_keywords"] == ["AI", "artificial intelligence", "semiconductor", "chip", "NVIDIA"]
+    assert result.articles[0]["relevance_score"] == 5
+    assert "<p>" not in result.articles[0]["content"]
+    assert {
+        "title",
+        "content",
+        "source",
+        "url",
+        "published_utc",
+        "provider",
+        "raw_payload",
+        "matched_keywords",
+        "relevance_score",
+    }.issubset(result.articles[0])
 
 
 def test_duplicate_titles_are_flagged_before_filtering() -> None:
