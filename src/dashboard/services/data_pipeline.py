@@ -14,6 +14,7 @@ from src.dashboard.repository import (
     latest_stored_news,
     latest_stock_prices,
     persist_news_records,
+    prune_signals,
     reconcile_duplicate_news_titles,
     update_provider_statuses,
     upsert_stock_prices,
@@ -190,15 +191,14 @@ def refresh_pipeline_data(db: Session, max_news: int = 100) -> dict[str, Any]:
         }
         for row in latest_market
     ]
-    signal_articles = [
-        row
-        for row in prepared
-        if (
-            row.get("provider") != "seed"
-            and not row.get("duplicate_flag")
-            and row.get("relevance_score", 0) >= 2
-        )
-    ]
+    signal_articles = _eligible_signal_articles(prepared)
+    valid_event_keys = {
+        hashlib.sha256(
+            f"{article.get('url', '')}|{article.get('title', '')}".lower().encode("utf-8")
+        ).hexdigest()
+        for article in signal_articles
+    }
+    prune_signals(db, valid_event_keys)
     signal_count = _persist_generated_signals(db, signal_articles, signal_market)
     return {
         "news_rows": len(prepared),
@@ -212,6 +212,21 @@ def refresh_pipeline_data(db: Session, max_news: int = 100) -> dict[str, Any]:
 
 def _provider_key(provider: str) -> str:
     return provider.lower().replace(" ", "").replace("_", "")
+
+
+def _eligible_signal_articles(articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        article
+        for article in articles
+        if (
+            article.get("provider") != "seed"
+            and article.get("passed_filter") is True
+            and not article.get("duplicate_flag")
+            and article.get("relevance_score", 0) >= 2
+            and article.get("url")
+            and article.get("source")
+        )
+    ]
 
 
 def _normalize_provider_status(status: str | None, message: str | None = None) -> str:

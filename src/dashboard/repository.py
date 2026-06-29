@@ -4,7 +4,7 @@ import hashlib
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -289,6 +289,15 @@ def upsert_signal(db: Session, payload: dict) -> Signal:
 def latest_signals(db: Session, limit: int = 50) -> list[Signal]:
     query = select(Signal).order_by(Signal.created_at.desc()).limit(limit)
     return list(db.scalars(query))
+
+
+def prune_signals(db: Session, valid_event_keys: set[str]) -> int:
+    query = delete(Signal)
+    if valid_event_keys:
+        query = query.where(Signal.event_key.not_in(valid_event_keys))
+    result = db.execute(query)
+    db.commit()
+    return int(result.rowcount or 0)
 
 
 def ensure_user(db: Session, user_id: str) -> User:

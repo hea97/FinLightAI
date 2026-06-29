@@ -20,7 +20,11 @@ from src.dashboard.repository import (
     reconcile_duplicate_news_titles,
     upsert_stock_prices,
 )
-from src.dashboard.services.data_pipeline import PipelineSnapshot, _persist_generated_signals
+from src.dashboard.services.data_pipeline import (
+    PipelineSnapshot,
+    _eligible_signal_articles,
+    _persist_generated_signals,
+)
 from src.dashboard.routes.api import _industry_articles
 from src.processor.event_score import EventScoreCalculator
 from src.processor.market_metrics import calculate_market_metrics, safe_ratio
@@ -272,6 +276,24 @@ def test_signal_requires_market_confirmation_for_red() -> None:
     assert SignalGenerator().generate(0.9, strong_market) == "RED"
     assert SignalGenerator().generate(0.9, {"sentiment_score": -0.8}) == "GREEN"
     assert SignalGenerator().generate(0.4, {"return_1d": 0.01, "volume_ratio": 1.1}) == "GREEN"
+
+
+def test_only_verified_real_news_is_eligible_for_signal_generation() -> None:
+    base = {
+        "title": "NVIDIA AI chip export update",
+        "content": "Semiconductor market update",
+        "url": "https://news.google.com/rss/articles/verified",
+        "source": "Reuters",
+        "provider": "Google News RSS",
+        "duplicate_flag": False,
+        "relevance_score": 3,
+    }
+
+    assert _eligible_signal_articles([{**base, "passed_filter": True}]) == [
+        {**base, "passed_filter": True}
+    ]
+    assert _eligible_signal_articles([{**base, "passed_filter": False}]) == []
+    assert _eligible_signal_articles([{**base, "passed_filter": True, "provider": "seed"}]) == []
 
 
 def test_generated_signal_is_persisted_without_future_market_leakage() -> None:
