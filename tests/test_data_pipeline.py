@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from time import perf_counter
 from types import SimpleNamespace
 
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from src.collector.news_collector import NewsCollector
 from src.collector.providers.google_news_rss import GoogleNewsRssProvider
 from src.collector.providers.rss import RssNewsProvider
+from src.collector.stock_collector import StockCollector
 from src.dashboard.app import app
 from src.dashboard.database import Base
 from src.dashboard.models import NewsFiltered, NewsRaw, Signal, StockPrice
@@ -47,6 +48,24 @@ def test_safe_ratio_returns_and_rolling_volatility_are_finite() -> None:
     assert safe_ratio(float("nan"), 2) == 0
     assert result.iloc[-1]["return_1d"] == 108 / 105 - 1
     assert result["volatility_5d"].dropna().map(lambda value: value == value).all()
+
+
+def test_stock_normalization_preserves_exchange_local_trade_date() -> None:
+    korea_midnight = datetime(2026, 6, 29, tzinfo=timezone(timedelta(hours=9)))
+    history = pd.DataFrame(
+        {
+            "Open": [100.0],
+            "High": [102.0],
+            "Low": [99.0],
+            "Close": [101.0],
+            "Volume": [1000],
+        },
+        index=pd.DatetimeIndex([korea_midnight], name="Date"),
+    )
+
+    normalized = StockCollector._normalize_history("005930.KS", history)
+
+    assert normalized.iloc[0]["trade_date"] == date(2026, 6, 29)
 
 
 def test_stock_and_news_upserts_do_not_create_duplicates() -> None:

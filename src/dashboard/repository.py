@@ -97,6 +97,15 @@ def latest_stock_prices(db: Session, tickers: list[str] | None = None) -> list[S
     return latest
 
 
+def remove_weekend_stock_prices(db: Session, tickers: list[str] | tuple[str, ...]) -> int:
+    rows = list(db.scalars(select(StockPrice).where(StockPrice.ticker.in_(tickers))))
+    invalid = [row for row in rows if row.trade_date.weekday() >= 5]
+    for row in invalid:
+        db.delete(row)
+    db.commit()
+    return len(invalid)
+
+
 def persist_news_records(db: Session, records: list[dict]) -> int:
     persisted = 0
     for record in records:

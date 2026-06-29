@@ -16,6 +16,7 @@ from src.dashboard.repository import (
     persist_news_records,
     prune_signals,
     reconcile_duplicate_news_titles,
+    remove_weekend_stock_prices,
     update_provider_statuses,
     upsert_stock_prices,
     upsert_signal,
@@ -166,6 +167,7 @@ def refresh_pipeline_data(db: Session, max_news: int = 100) -> dict[str, Any]:
 
     market_rows = StockCollector().collect_daily(period="1mo")
     if market_rows:
+        remove_weekend_stock_prices(db, StockCollector.DEFAULT_TICKERS)
         upsert_stock_prices(db, market_rows)
         provider_states["yfinance"] = {
             "status": "healthy",

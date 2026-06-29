@@ -57,7 +57,7 @@ class StockCollector:
         normalized = pd.DataFrame(
             {
                 "ticker": ticker,
-                "trade_date": pd.to_datetime(frame[date_column], utc=True).dt.date,
+                "trade_date": frame[date_column].map(lambda value: pd.Timestamp(value).date()),
                 "open": frame["Open"],
                 "high": frame["High"],
                 "low": frame["Low"],
