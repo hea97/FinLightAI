@@ -124,8 +124,11 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
     last_updated = max((value for value in stored_updates if value), default=datetime.now(timezone.utc).isoformat())
     if news_origin.startswith("stored") and provider_states:
         warnings.extend(
-            state["message"]
-            for state in provider_states.values()
+            (
+                f"{provider} {_normalize_provider_status(state.get('status'), state.get('message'))}; "
+                "using latest stored news"
+            )
+            for provider, state in provider_states.items()
             if state.get("status") in {"failed", "timeout", "error"}
         )
     provider_status = {
