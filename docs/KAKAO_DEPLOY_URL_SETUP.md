@@ -1,14 +1,23 @@
 # Kakao Developers deployment URL setup
 
-Kakao OAuth implementation must wait until both frontend and backend deployment URLs are confirmed.
+Kakao OAuth is deferred for the MVP because Kakao business app and business-owner information requirements can block early user authentication. The MVP primary authentication path is Google OAuth.
+
+Keep this document as the later Kakao channel/login reference. Do not remove the Kakao environment variable names because Kakao alerts and channel integration remain planned follow-up features.
 
 Current order:
 
 1. Deploy frontend preview on Vercel.
 2. Deploy FastAPI backend externally.
-3. Set `VITE_API_BASE_URL` in Vercel to the backend URL.
-4. Register frontend/backend URLs in Kakao Developers.
-5. Implement Kakao OAuth.
+3. Implement Google OAuth for MVP login.
+4. Revisit Kakao Developers after business app/channel requirements are ready.
+5. Implement Kakao channel alerts as a separate follow-up feature.
+
+## Current decision
+
+- Kakao OAuth: deferred / later.
+- Kakao channel alerts: separate future feature.
+- Google OAuth: primary MVP authentication.
+- Reason: Kakao business app setup can require business information that is not ready for the MVP.
 
 ## Required URLs
 
