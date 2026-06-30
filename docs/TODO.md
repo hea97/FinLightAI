@@ -158,6 +158,56 @@
 - [ ] Move schema evolution from `create_all` to versioned migrations before production.
 - [ ] Schedule the explicit refresh command outside request handling.
 
+## MVP authentication plan (2026-06-30)
+
+### Current decision
+
+- [x] Use Google OAuth as the primary MVP login method.
+- [x] Keep Kakao OAuth as a deferred TODO because Kakao business app and
+  business-owner information requirements can block the MVP.
+- [x] Keep Kakao channel/alert integration as a separate later feature.
+- [x] Preserve the real-news pipeline stable tag; do not merge to `main` just
+  to start authentication work.
+
+### Google OAuth requirements
+
+- [ ] Google Cloud OAuth Consent Screen configured with External user type.
+- [ ] Test user Google account added while the app is in testing mode.
+- [ ] Minimal scopes only: `openid`, `email`, and `profile`.
+- [ ] Web OAuth Client ID created.
+- [ ] Authorized JavaScript origin set to the Vercel frontend URL.
+- [ ] Authorized redirect URI set to
+  `https://<backend-render-url>/api/auth/google/callback`.
+- [x] Public OAuth branding pages prepared for `/about`, `/login`,
+  `/signup`, `/privacy`, and `/terms`.
+- [x] Vercel SPA rewrite prepared so direct public page URLs resolve to the
+  Vite app.
+
+### Auth implementation checklist
+
+- [x] Add provider-based `users` fields using `provider` and
+  `provider_user_id`.
+- [x] Add `user_preferences` for onboarding interests and notification
+  preferences.
+- [x] Implement Google login, callback, current-user, and logout endpoints.
+- [x] Save a browser session using an httpOnly cookie.
+- [x] Use authenticated user context for portfolio, mypage, settings, and
+  onboarding data.
+- [x] Restrict `X-User-ID` fallback to local/development environments.
+- [x] Connect the Vite frontend to Google login, `/api/auth/me`, logout, and
+  onboarding preference persistence.
+
+### Remaining auth TODO
+
+- [ ] Configure Google Cloud OAuth Consent Screen and Web Client ID with the
+  real Vercel/Render URLs.
+- [ ] Deploy backend to Render and set `GOOGLE_*`, `JWT_SECRET_KEY`, and CORS
+  environment variables.
+- [ ] Run deployed smoke tests for Google login, callback, `/api/auth/me`, and
+  user-scoped onboarding/settings APIs.
+- [ ] Replace `create_all` schema evolution with migrations before production
+  data is relied on.
+
 ## Done
 
 - [x] 문서 기반 프로젝트 구조 생성

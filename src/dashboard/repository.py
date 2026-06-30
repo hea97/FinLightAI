@@ -17,6 +17,7 @@ from src.dashboard.models import (
     Signal,
     StockPrice,
     User,
+    UserPreference,
     UserSettings,
 )
 from src.dashboard.schemas import PortfolioAssetInput, SettingsUpdate
@@ -313,6 +314,8 @@ def ensure_user(db: Session, user_id: str) -> User:
 
     user = User(
         id=user_id,
+        provider="local",
+        provider_user_id=user_id,
         username="finlight_user" if user_id == "demo-user" else user_id,
         email="finlight@example.com" if user_id == "demo-user" else f"{user_id}@local.finlight",
         interests=["Semiconductor", "AI", "Policy/Regulation"],
@@ -320,11 +323,94 @@ def ensure_user(db: Session, user_id: str) -> User:
     )
     db.add(user)
     db.flush()
+    _ensure_user_preference(db, user_id)
     _seed_assets(db, user_id)
     _seed_kakao_rules(db, user_id)
     db.commit()
     db.refresh(user)
     return user
+
+
+def get_or_create_oauth_user(
+    db: Session,
+    *,
+    provider: str,
+    provider_user_id: str,
+    email: str,
+    nickname: str,
+    profile_image_url: str | None = None,
+) -> User:
+    user = db.scalar(
+        select(User).where(User.provider == provider, User.provider_user_id == provider_user_id)
+    )
+    now = datetime.now(timezone.utc)
+    if user:
+        user.email = email
+        user.username = nickname or email
+        user.profile_image_url = profile_image_url
+        user.last_login_at = now
+        user.updated_at = now
+        db.commit()
+        db.refresh(user)
+        _ensure_user_preference(db, user.id)
+        return user
+
+    user = User(
+        id=f"{provider}-{hashlib.sha1(provider_user_id.encode('utf-8')).hexdigest()[:24]}",
+        provider=provider,
+        provider_user_id=provider_user_id,
+        username=nickname or email,
+        email=email,
+        profile_image_url=profile_image_url,
+        interests=["Semiconductor", "AI", "Policy/Regulation"],
+        alert_settings=DEFAULT_ALERT_SETTINGS,
+        last_login_at=now,
+    )
+    db.add(user)
+    db.flush()
+    _ensure_user_preference(db, user.id)
+    _seed_assets(db, user.id)
+    _seed_kakao_rules(db, user.id)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def get_user_by_id(db: Session, user_id: str) -> User | None:
+    return db.get(User, user_id)
+
+
+def get_user_preference(db: Session, user_id: str) -> UserPreference:
+    ensure_user(db, user_id)
+    preference = _ensure_user_preference(db, user_id)
+    db.commit()
+    db.refresh(preference)
+    return preference
+
+
+def save_user_preference(
+    db: Session,
+    user_id: str,
+    *,
+    interested_markets: list[str] | None = None,
+    interested_industries: list[str] | None = None,
+    alert_enabled: bool | None = None,
+    notification_channels: list[str] | None = None,
+) -> UserPreference:
+    ensure_user(db, user_id)
+    preference = _ensure_user_preference(db, user_id)
+    if interested_markets is not None:
+        preference.interested_markets = _dedupe_clean(interested_markets)
+    if interested_industries is not None:
+        preference.interested_industries = _dedupe_clean(interested_industries)
+    if alert_enabled is not None:
+        preference.alert_enabled = alert_enabled
+    if notification_channels is not None:
+        preference.notification_channels = _dedupe_clean(notification_channels)
+    preference.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(preference)
+    return preference
 
 
 def list_assets(db: Session, user_id: str) -> list[PortfolioAsset]:
@@ -396,7 +482,8 @@ def update_mypage(db: Session, user_id: str, alert_settings: list[dict] | None, 
     if alert_settings is not None:
         user.alert_settings = alert_settings
     if interests is not None:
-        user.interests = list(dict.fromkeys(item.strip() for item in interests if item.strip()))
+        user.interests = _dedupe_clean(interests)
+        save_user_preference(db, user_id, interested_industries=user.interests)
     db.commit()
     db.refresh(user)
     return user
@@ -469,3 +556,23 @@ def _seed_kakao_rules(db: Session, user_id: str) -> None:
         KakaoAlertRule(user_id=user_id, rule_id=rule_id, icon=icon, label=label, enabled=True)
         for rule_id, icon, label in DEFAULT_KAKAO_RULES
     )
+
+
+def _ensure_user_preference(db: Session, user_id: str) -> UserPreference:
+    preference = db.get(UserPreference, user_id)
+    if preference:
+        return preference
+    preference = UserPreference(
+        user_id=user_id,
+        interested_markets=["KR", "US"],
+        interested_industries=["Semiconductor", "AI", "Policy/Regulation"],
+        alert_enabled=True,
+        notification_channels=["dashboard"],
+    )
+    db.add(preference)
+    db.flush()
+    return preference
+
+
+def _dedupe_clean(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(item.strip() for item in values if item.strip()))

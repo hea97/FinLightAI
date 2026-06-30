@@ -235,6 +235,35 @@ class PortfolioResponse(ApiModel):
     linked_signals: list[LinkedSignal] = Field(alias="linkedSignals")
 
 
+class AuthUser(ApiModel):
+    id: str
+    provider: str
+    email: str
+    nickname: str
+    profile_image_url: str | None = Field(default=None, alias="profileImageUrl")
+
+
+class AuthMeResponse(ApiModel):
+    authenticated: bool
+    user: AuthUser | None = None
+
+
+class UserPreferenceResponse(ApiModel):
+    user_id: str = Field(alias="userId")
+    interested_markets: list[str] = Field(alias="interestedMarkets")
+    interested_industries: list[str] = Field(alias="interestedIndustries")
+    alert_enabled: bool = Field(alias="alertEnabled")
+    notification_channels: list[str] = Field(alias="notificationChannels")
+    updated_at: str = Field(alias="updatedAt")
+
+
+class UserPreferenceUpdate(ApiModel):
+    interested_markets: list[str] | None = Field(default=None, alias="interestedMarkets")
+    interested_industries: list[str] | None = Field(default=None, alias="interestedIndustries")
+    alert_enabled: bool | None = Field(default=None, alias="alertEnabled")
+    notification_channels: list[str] | None = Field(default=None, alias="notificationChannels")
+
+
 class KakaoAlertRule(ApiModel):
     id: str
     icon: str

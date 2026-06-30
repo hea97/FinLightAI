@@ -16,15 +16,33 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(40), default="local", index=True)
+    provider_user_id: Mapped[str | None] = mapped_column(String(255), index=True)
     username: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False)
+    profile_image_url: Mapped[str | None] = mapped_column(Text)
     language: Mapped[str] = mapped_column(String(30), default="Korean")
     alert_channel: Mapped[str] = mapped_column(String(80), default="Kakao Channel")
     channel_connected: Mapped[bool] = mapped_column(default=False)
     interests: Mapped[list[str]] = mapped_column(JSON, default=list)
     alert_settings: Mapped[list[dict]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
     last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (UniqueConstraint("provider", "provider_user_id", name="uq_user_provider_identity"),)
+
+
+class UserPreference(Base):
+    __tablename__ = "user_preferences"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    interested_markets: Mapped[list[str]] = mapped_column(JSON, default=list)
+    interested_industries: Mapped[list[str]] = mapped_column(JSON, default=list)
+    alert_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    notification_channels: Mapped[list[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
 
 class PortfolioAsset(Base):

@@ -7,6 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_env: str = "local"
+    frontend_url: str | None = None
+    backend_url: str | None = None
     database_url: str = "sqlite:///./data/finlightai.db"
     cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
     gdelt_base_url: str = "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -27,6 +29,12 @@ class Settings(BaseSettings):
     kakao_client_secret: str | None = None
     kakao_redirect_uri: str | None = None
     kakao_channel_id: str | None = None
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_redirect_uri: str | None = None
+    jwt_secret_key: str | None = None
+    jwt_expire_minutes: int = 1440
+    auth_cookie_name: str = "finlight_session"
     bbc_rss_url: str = "https://feeds.bbci.co.uk/news/world/rss.xml"
     google_news_rss_url: str = "https://news.google.com/rss/search"
     discord_webhook_url: str | None = None
@@ -50,6 +58,19 @@ class Settings(BaseSettings):
     project_root: Path = Path(__file__).resolve().parents[1]
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    def cors_origin_list(self) -> list[str]:
+        configured_origins = [
+            origin.strip()
+            for origin in self.cors_origins.split(",")
+            if origin.strip()
+        ]
+        optional_origins = [
+            origin.rstrip("/")
+            for origin in (self.frontend_url,)
+            if origin and origin.strip()
+        ]
+        return list(dict.fromkeys([*configured_origins, *optional_origins]))
 
 
 @lru_cache

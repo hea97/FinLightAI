@@ -4,24 +4,39 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from config.settings import get_settings
 from src.collector.news_collector import NewsCollector
+from src.dashboard.auth import (
+    AuthConfigurationError,
+    OAuthExchangeError,
+    build_google_authorization_url,
+    create_session_token,
+    exchange_google_code,
+    fetch_google_userinfo,
+    verify_session_token,
+)
 from src.dashboard.database import get_db
 from src.dashboard.models import PortfolioAsset as PortfolioAssetRecord
+from src.dashboard.models import User as UserRecord
 from src.dashboard.services.data_pipeline import PipelineSnapshot, load_pipeline_snapshot
 from src.dashboard.repository import (
     DuplicatePortfolioAssetError,
     create_asset,
     delete_asset,
     ensure_user,
+    get_or_create_oauth_user,
     get_kakao_rules,
+    get_user_by_id,
+    get_user_preference,
     get_user_settings,
     latest_signals,
     latest_stock_prices,
     list_assets,
+    save_user_preference,
     save_user_settings,
     update_asset,
     update_kakao_rule,
@@ -42,6 +57,9 @@ from src.dashboard.schemas import (
     SettingsResponse,
     SettingsUpdate,
     SignalsResponse,
+    AuthMeResponse,
+    UserPreferenceResponse,
+    UserPreferenceUpdate,
 )
 from src.processor.event_score import EventScoreCalculator
 from src.processor.news_relevance import contains_term
@@ -51,11 +69,129 @@ router = APIRouter()
 KST = timezone(timedelta(hours=9))
 
 
-def get_current_user_id(x_user_id: str = Header(default="demo-user")) -> str:
-    user_id = x_user_id.strip()
+def _is_development_env() -> bool:
+    return get_settings().app_env.lower() in {"local", "development", "dev", "test"}
+
+
+def _validate_user_id(user_id: str) -> str:
+    user_id = user_id.strip()
     if not user_id or len(user_id) > 80 or not all(char.isalnum() or char in {"-", "_"} for char in user_id):
         raise HTTPException(status_code=400, detail="Invalid X-User-ID header")
     return user_id
+
+
+def get_optional_session_user(request: Request, db: Session = Depends(get_db)) -> UserRecord | None:
+    settings = get_settings()
+    token = request.cookies.get(settings.auth_cookie_name)
+    if not token:
+        return None
+    user_id = verify_session_token(token, secret=settings.jwt_secret_key)
+    if not user_id:
+        return None
+    return get_user_by_id(db, user_id)
+
+
+def get_current_user_id(
+    request: Request,
+    x_user_id: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> str:
+    session_user = get_optional_session_user(request, db)
+    if session_user:
+        return session_user.id
+    if _is_development_env():
+        return _validate_user_id(x_user_id or "demo-user")
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+
+
+def _auth_user_dict(user: UserRecord) -> dict[str, Any]:
+    return {
+        "id": user.id,
+        "provider": user.provider,
+        "email": user.email,
+        "nickname": user.username,
+        "profileImageUrl": user.profile_image_url,
+    }
+
+
+@router.get("/auth/google/login")
+def google_login() -> RedirectResponse:
+    settings = get_settings()
+    try:
+        url = build_google_authorization_url(
+            client_id=settings.google_client_id,
+            redirect_uri=settings.google_redirect_uri,
+            state="finlightai-google-login",
+        )
+    except AuthConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return RedirectResponse(url, status_code=302)
+
+
+@router.get("/auth/google/callback")
+def google_callback(
+    code: str | None = None,
+    error: str | None = None,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    settings = get_settings()
+    redirect_base = (settings.frontend_url or "/").rstrip("/")
+    if error:
+        return RedirectResponse(f"{redirect_base}/?auth=error", status_code=302)
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing Google authorization code")
+    try:
+        tokens = exchange_google_code(
+            code=code,
+            client_id=settings.google_client_id,
+            client_secret=settings.google_client_secret,
+            redirect_uri=settings.google_redirect_uri,
+            timeout=settings.external_api_timeout_seconds,
+        )
+        userinfo = fetch_google_userinfo(
+            str(tokens.get("access_token") or ""),
+            timeout=settings.external_api_timeout_seconds,
+        )
+        user = get_or_create_oauth_user(
+            db,
+            provider="google",
+            provider_user_id=str(userinfo["sub"]),
+            email=str(userinfo["email"]),
+            nickname=str(userinfo.get("name") or userinfo["email"]),
+            profile_image_url=userinfo.get("picture"),
+        )
+        session_token = create_session_token(
+            user.id,
+            secret=settings.jwt_secret_key,
+            expire_minutes=settings.jwt_expire_minutes,
+        )
+    except (AuthConfigurationError, OAuthExchangeError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    response = RedirectResponse(f"{redirect_base}/?auth=google_connected", status_code=302)
+    response.set_cookie(
+        settings.auth_cookie_name,
+        session_token,
+        max_age=settings.jwt_expire_minutes * 60,
+        httponly=True,
+        secure=not _is_development_env(),
+        samesite="lax",
+    )
+    return response
+
+
+@router.get("/auth/me", response_model=AuthMeResponse)
+def auth_me(user: UserRecord | None = Depends(get_optional_session_user)) -> dict[str, Any]:
+    if not user:
+        return {"authenticated": False, "user": None}
+    return {"authenticated": True, "user": _auth_user_dict(user)}
+
+
+@router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
+def auth_logout() -> Response:
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(get_settings().auth_cookie_name)
+    return response
 
 
 @router.get("/signals", response_model=SignalsResponse)
@@ -302,6 +438,33 @@ def remove_portfolio_asset(
     if not delete_asset(db, user_id, asset_id):
         raise HTTPException(status_code=404, detail="Portfolio asset not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/onboarding/preferences", response_model=UserPreferenceResponse)
+def get_onboarding_preferences(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    return _preference_dict(get_user_preference(db, user_id))
+
+
+@router.put("/onboarding/preferences", response_model=UserPreferenceResponse)
+def put_onboarding_preferences(
+    payload: UserPreferenceUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    preference = save_user_preference(
+        db,
+        user_id,
+        interested_markets=payload.interested_markets,
+        interested_industries=payload.interested_industries,
+        alert_enabled=payload.alert_enabled,
+        notification_channels=payload.notification_channels,
+    )
+    if payload.interested_industries is not None:
+        update_mypage(db, user_id, None, payload.interested_industries)
+    return _preference_dict(preference)
 
 
 @router.get("/kakao-alert", response_model=KakaoAlertResponse)
@@ -608,6 +771,17 @@ def _portfolio_signal_dict(row: Any, assets: list[dict[str, Any]]) -> dict[str, 
         "summary": f"{row.signal} · event score {row.event_score:.2f}",
         "relatedAssetCount": len(related),
         "tone": "negative" if row.signal == "RED" else "caution" if row.signal == "YELLOW" else "neutral",
+    }
+
+
+def _preference_dict(preference: Any) -> dict[str, Any]:
+    return {
+        "userId": preference.user_id,
+        "interestedMarkets": preference.interested_markets,
+        "interestedIndustries": preference.interested_industries,
+        "alertEnabled": preference.alert_enabled,
+        "notificationChannels": preference.notification_channels,
+        "updatedAt": _format_datetime(preference.updated_at),
     }
 
 
