@@ -29,8 +29,12 @@ class Settings(BaseSettings):
     kakao_client_secret: str | None = None
     kakao_redirect_uri: str | None = None
     kakao_channel_id: str | None = None
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_redirect_uri: str | None = None
     jwt_secret_key: str | None = None
     jwt_expire_minutes: int = 1440
+    auth_cookie_name: str = "finlight_session"
     bbc_rss_url: str = "https://feeds.bbci.co.uk/news/world/rss.xml"
     google_news_rss_url: str = "https://news.google.com/rss/search"
     discord_webhook_url: str | None = None
