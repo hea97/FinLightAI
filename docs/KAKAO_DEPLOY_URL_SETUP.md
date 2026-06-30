@@ -15,10 +15,30 @@ Current order:
 | URL | Source | Example |
 | --- | --- | --- |
 | Frontend URL | Vercel frontend deployment | `https://finlightai-preview.vercel.app` |
-| Backend URL | FastAPI backend deployment | `https://finlightai-api.example.com` |
-| Kakao redirect URI | Backend callback endpoint | `https://finlightai-api.example.com/api/auth/kakao/callback` |
+| Backend URL | Render FastAPI backend deployment | `https://finlightai-api.onrender.com` |
+| Kakao redirect URI | Backend callback endpoint | `https://finlightai-api.onrender.com/api/auth/kakao/callback` |
 
 Use the actual deployed URLs. Do not use localhost in Kakao production settings.
+
+## URL contract to confirm before implementation
+
+Render backend environment variables:
+
+```env
+FRONTEND_URL=https://your-vercel-frontend.example
+BACKEND_URL=https://your-render-backend.example
+CORS_ORIGINS=https://your-vercel-frontend.example
+KAKAO_REDIRECT_URI=https://your-render-backend.example/api/auth/kakao/callback
+```
+
+Vercel frontend environment variables:
+
+```env
+VITE_API_BASE_URL=https://your-render-backend.example
+VITE_USER_ID=demo-user
+```
+
+`VITE_` variables are exposed to browser JavaScript. Do not put Kakao REST API keys, Kakao client secrets, JWT secrets, database URLs, or provider API keys in Vercel frontend variables.
 
 ## Kakao Developers settings
 
@@ -29,18 +49,18 @@ In Kakao Developers, register these after URLs are confirmed.
 Register:
 
 - `https://your-vercel-frontend.example`
-- `https://your-backend-api.example`
+- `https://your-render-backend.example`
 
 ### Kakao Login > Redirect URI
 
 Register:
 
-- `https://your-backend-api.example/api/auth/kakao/callback`
+- `https://your-render-backend.example/api/auth/kakao/callback`
 
 The redirect URI must exactly match the backend environment variable:
 
 ```env
-KAKAO_REDIRECT_URI=https://your-backend-api.example/api/auth/kakao/callback
+KAKAO_REDIRECT_URI=https://your-render-backend.example/api/auth/kakao/callback
 ```
 
 ## Backend environment variables for later OAuth work
@@ -50,11 +70,11 @@ Do not commit real values.
 ```env
 KAKAO_REST_API_KEY=
 KAKAO_CLIENT_SECRET=
-KAKAO_REDIRECT_URI=https://your-backend-api.example/api/auth/kakao/callback
+KAKAO_REDIRECT_URI=https://your-render-backend.example/api/auth/kakao/callback
 JWT_SECRET_KEY=
 JWT_EXPIRE_MINUTES=1440
 FRONTEND_URL=https://your-vercel-frontend.example
-BACKEND_URL=https://your-backend-api.example
+BACKEND_URL=https://your-render-backend.example
 CORS_ORIGINS=https://your-vercel-frontend.example
 ```
 

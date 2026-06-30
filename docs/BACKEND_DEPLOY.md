@@ -155,9 +155,32 @@ After the backend URL is created, set this in the Vercel frontend project:
 
 ```env
 VITE_API_BASE_URL=https://your-backend-api.example
+VITE_USER_ID=demo-user
 ```
 
 The frontend API client already reads `VITE_API_BASE_URL`. If this value is empty, it falls back to relative `/api` paths, which only work when the backend/proxy is available on the same origin.
+
+Only put browser-safe values in Vercel `VITE_` variables. Vite exposes `VITE_` variables to client-side JavaScript, so never place Kakao client secrets, JWT secrets, database URLs, or private API keys in Vercel frontend environment variables.
+
+## URL consistency before OAuth implementation
+
+Confirm these four values before starting Kakao OAuth:
+
+```env
+FRONTEND_URL=https://your-vercel-frontend.example
+BACKEND_URL=https://your-render-backend.example
+CORS_ORIGINS=https://your-vercel-frontend.example
+KAKAO_REDIRECT_URI=https://your-render-backend.example/api/auth/kakao/callback
+```
+
+Then set the Vercel frontend variables:
+
+```env
+VITE_API_BASE_URL=https://your-render-backend.example
+VITE_USER_ID=demo-user
+```
+
+The `KAKAO_REDIRECT_URI` value in Render must exactly match the Kakao Developers Redirect URI registration.
 
 ## Backend smoke test checklist
 
