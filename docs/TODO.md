@@ -178,6 +178,10 @@
 - [ ] Authorized JavaScript origin set to the Vercel frontend URL.
 - [ ] Authorized redirect URI set to
   `https://<backend-render-url>/api/auth/google/callback`.
+- [x] Public OAuth branding pages prepared for `/about`, `/login`,
+  `/signup`, `/privacy`, and `/terms`.
+- [x] Vercel SPA rewrite prepared so direct public page URLs resolve to the
+  Vite app.
 
 ### Auth implementation checklist
 

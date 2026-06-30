@@ -32,6 +32,66 @@ The Google redirect URI configured in Google Cloud must exactly match `GOOGLE_RE
 9. Register Authorized redirect URIs:
    - `https://your-render-backend.example/api/auth/google/callback`
 
+## Google Authorized Domains caution
+
+Google Auth Platform Authorized domains should use a top private domain that the project owner can own or verify.
+
+Do not use a Vercel preview URL such as:
+
+```text
+fin-light-xxxx.vercel.app
+```
+
+The top private domain is `vercel.app`, which is owned by Vercel, not by this project. That can trigger a "top private domain" or ownership-related validation error in Google Auth Platform.
+
+### Current MVP path
+
+- Use Google OAuth testing mode with explicitly added test users while the app is not public production.
+- Use the real frontend deployment URL for Authorized JavaScript origins when possible.
+- Use the real Render backend URL for Authorized redirect URIs.
+- Before public production, consider connecting a custom domain such as `finlightai.com` or another owned domain.
+
+### Future recommendation
+
+1. Buy or use an owned custom domain.
+2. Connect the custom domain to Vercel.
+3. Verify the domain in Google Search Console if required.
+4. Register the custom domain in Google Auth Platform Authorized domains.
+
+## Google Cloud URL template
+
+### Branding > App Domain
+
+Homepage URL:
+
+```text
+https://your-frontend-domain.example/about
+```
+
+Privacy Policy URL:
+
+```text
+https://your-frontend-domain.example/privacy
+```
+
+Terms of Service URL:
+
+```text
+https://your-frontend-domain.example/terms
+```
+
+### OAuth Client > Authorized JavaScript origins
+
+```text
+https://your-frontend-domain.example
+```
+
+### OAuth Client > Authorized redirect URIs
+
+```text
+https://your-render-backend.example/api/auth/google/callback
+```
+
 ## Backend environment variables
 
 Set these in Render. Do not commit real values.
