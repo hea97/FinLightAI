@@ -181,15 +181,28 @@
 
 ### Auth implementation checklist
 
-- [ ] Add provider-based `users` fields using `provider` and
+- [x] Add provider-based `users` fields using `provider` and
   `provider_user_id`.
-- [ ] Add `user_preferences` for onboarding interests and notification
+- [x] Add `user_preferences` for onboarding interests and notification
   preferences.
-- [ ] Implement Google login, callback, current-user, and logout endpoints.
-- [ ] Save a browser session using an httpOnly cookie.
-- [ ] Use authenticated user context for portfolio, mypage, settings, and
+- [x] Implement Google login, callback, current-user, and logout endpoints.
+- [x] Save a browser session using an httpOnly cookie.
+- [x] Use authenticated user context for portfolio, mypage, settings, and
   onboarding data.
-- [ ] Restrict `X-User-ID` fallback to local/development environments.
+- [x] Restrict `X-User-ID` fallback to local/development environments.
+- [x] Connect the Vite frontend to Google login, `/api/auth/me`, logout, and
+  onboarding preference persistence.
+
+### Remaining auth TODO
+
+- [ ] Configure Google Cloud OAuth Consent Screen and Web Client ID with the
+  real Vercel/Render URLs.
+- [ ] Deploy backend to Render and set `GOOGLE_*`, `JWT_SECRET_KEY`, and CORS
+  environment variables.
+- [ ] Run deployed smoke tests for Google login, callback, `/api/auth/me`, and
+  user-scoped onboarding/settings APIs.
+- [ ] Replace `create_all` schema evolution with migrations before production
+  data is relied on.
 
 ## Done
 
