@@ -98,6 +98,166 @@ const headerSearchIndex: HeaderSearchResult[] = [
   { id: "kakao-alerts", title: "카카오 알림", subtitle: "카카오 채널 챗봇 + n8n 흐름", targetView: "kakao" },
 ];
 
+type PublicPath = "/about" | "/login" | "/signup" | "/privacy" | "/terms";
+
+const publicNavItems: { href: PublicPath; label: string }[] = [
+  { href: "/about", label: "About" },
+  { href: "/login", label: "Login" },
+  { href: "/signup", label: "Sign up" },
+  { href: "/privacy", label: "Privacy" },
+  { href: "/terms", label: "Terms" },
+];
+
+function PublicPage({ path }: { path: string }) {
+  const normalizedPath = (path === "/signup" ? "/signup" : path) as PublicPath;
+  const isAuthPage = normalizedPath === "/login" || normalizedPath === "/signup";
+  const titleByPath: Record<PublicPath, string> = {
+    "/about": "FinLightAI",
+    "/login": "Google 로그인",
+    "/signup": "회원가입",
+    "/privacy": "개인정보처리방침",
+    "/terms": "서비스 약관",
+  };
+
+  return (
+    <main className="public-shell">
+      <nav className="public-nav" aria-label="Public pages">
+        <a className="public-brand" href="/about">FL FinLightAI</a>
+        <div>
+          {publicNavItems.map((item) => (
+            <a aria-current={normalizedPath === item.href ? "page" : undefined} href={item.href} key={item.href}>{item.label}</a>
+          ))}
+          <a href="/">Dashboard</a>
+        </div>
+      </nav>
+
+      <section className="public-hero">
+        <p className="public-eyebrow">AI market signal board</p>
+        <h1>{titleByPath[normalizedPath] ?? "FinLightAI"}</h1>
+        <p>
+          FinLightAI filters real news, checks source quality, combines market reaction data,
+          and presents market-state signals. It is an information service, not investment advice.
+        </p>
+        {isAuthPage ? (
+          <div className="public-actions">
+            <button type="button" onClick={redirectToGoogleLogin}>Google로 시작하기</button>
+            <a href="/privacy">개인정보처리방침</a>
+            <a href="/terms">서비스 약관</a>
+          </div>
+        ) : null}
+      </section>
+
+      {normalizedPath === "/about" && <AboutPublicContent />}
+      {normalizedPath === "/login" && <AuthPublicContent mode="login" />}
+      {normalizedPath === "/signup" && <AuthPublicContent mode="signup" />}
+      {normalizedPath === "/privacy" && <PrivacyPublicContent />}
+      {normalizedPath === "/terms" && <TermsPublicContent />}
+    </main>
+  );
+}
+
+function AboutPublicContent() {
+  return (
+    <section className="public-grid">
+      {[
+        ["Real-news signals", "News evidence is combined with persisted yfinance market reaction data."],
+        ["News Guard", "Articles are labeled by source, provider, fallback state, and reliability context."],
+        ["Industry impact", "AI, semiconductor, policy, and portfolio-related signals are summarized for review."],
+      ].map(([title, body]) => (
+        <article className="public-card" key={title}>
+          <h2>{title}</h2>
+          <p>{body}</p>
+        </article>
+      ))}
+      <article className="public-card public-wide">
+        <h2>Important disclaimer</h2>
+        <p>
+          FinLightAI does not provide investment recommendations, buy/sell instructions, or financial advice.
+          Data may be delayed, incomplete, or inaccurate, and users should verify information independently.
+        </p>
+      </article>
+    </section>
+  );
+}
+
+function AuthPublicContent({ mode }: { mode: "login" | "signup" }) {
+  return (
+    <section className="public-card public-wide">
+      <h2>{mode === "login" ? "로그인 안내" : "회원가입 안내"}</h2>
+      <p>
+        MVP authentication uses Google OAuth with the minimum scopes: openid, email, and profile.
+        Google Drive, Gmail, Calendar, and other sensitive API scopes are not requested.
+      </p>
+      <ul className="public-list">
+        <li>OAuth callback is handled by the FastAPI backend.</li>
+        <li>Profile data is used to create or find your FinLightAI account.</li>
+        <li>Onboarding preferences connect markets, industries, and notification settings to your user ID.</li>
+      </ul>
+    </section>
+  );
+}
+
+function PrivacyPublicContent() {
+  return (
+    <section className="public-card public-wide">
+      <h2>수집하는 정보</h2>
+      <p>
+        FinLightAI may collect basic Google OAuth profile information such as email address, display name,
+        profile image, provider user ID, and user-selected settings such as interested markets, industries,
+        and notification preferences.
+      </p>
+      <h2>이용 목적</h2>
+      <p>
+        This information is used for login, account management, personalization, onboarding preferences,
+        and operating dashboard features.
+      </p>
+      <h2>제3자 서비스</h2>
+      <p>
+        The service may use Google OAuth for authentication, Vercel for frontend hosting, and Render for backend hosting.
+        FinLightAI does not sell personal information.
+      </p>
+      <h2>보관 및 삭제</h2>
+      <p>
+        Users may request deletion of account-related data through the project contact channel. A self-service deletion
+        flow is planned but not yet available in the MVP.
+      </p>
+      <h2>문의</h2>
+      <p>Contact: project owner via the FinLightAI GitHub repository.</p>
+      <p className="public-updated">Effective date: 2026-06-30</p>
+    </section>
+  );
+}
+
+function TermsPublicContent() {
+  return (
+    <section className="public-card public-wide">
+      <h2>서비스 목적</h2>
+      <p>
+        FinLightAI provides market-state information by combining news, reliability checks, industry context,
+        and market reaction data.
+      </p>
+      <h2>금융 정보 면책</h2>
+      <p>
+        FinLightAI is not an investment advisory service and does not recommend buying, selling, or holding securities.
+        Users are responsible for their own investment decisions.
+      </p>
+      <h2>계정 이용</h2>
+      <p>
+        Users must not attempt unauthorized access, scrape data without permission, interfere with the service,
+        or misuse authentication flows.
+      </p>
+      <h2>서비스 변경</h2>
+      <p>
+        Features, data providers, and availability may change during MVP development. Data can be delayed,
+        incomplete, or temporarily unavailable.
+      </p>
+      <h2>문의</h2>
+      <p>Contact: project owner via the FinLightAI GitHub repository.</p>
+      <p className="public-updated">Effective date: 2026-06-30</p>
+    </section>
+  );
+}
+
 function App() {
   const [view, setView] = useState<ViewId>("briefing");
   const [marketTab, setMarketTab] = useState<MarketTab>("domestic");
@@ -159,6 +319,11 @@ function App() {
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Logout failed");
     }
+  }
+
+  const publicPath = window.location.pathname;
+  if (["/about", "/login", "/signup", "/privacy", "/terms"].includes(publicPath)) {
+    return <PublicPage path={publicPath} />;
   }
 
   return (
