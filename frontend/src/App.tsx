@@ -11,6 +11,7 @@ import {
   type NewsImpact,
   type Tone,
 } from "./data/mockData";
+import { fetchCurrentUser, logout, redirectToGoogleLogin, saveOnboardingPreferences } from "./services/authApi";
 import { fetchBriefingData } from "./services/briefingApi";
 import { fetchIndustryImpactData } from "./services/industryImpactApi";
 import { fetchKakaoAlertData, updateKakaoAlertRule } from "./services/kakaoAlertApi";
@@ -24,6 +25,7 @@ import type { KakaoAlertHistoryItem, KakaoAlertResponse, KakaoAlertRule, KakaoCh
 import type { MyPageActivity, MyPageAlertSetting, MyPageConnection, MyPageMetric, MyPageProfile, MyPageResponse, MyPageShortcut } from "./types/myPage";
 import type { AssetCurrency, AssetMarket, AssetStatus, IndustryConnection, LinkedSignal, PortfolioAsset, PortfolioResponse, PortfolioSummary } from "./types/portfolio";
 import type { ApiConnection, DataCollectionSettings, DisplaySettings, MiscSettings, NewsGuardMode, NewsGuardSettings, NotificationSetting, SettingsResponse, SettingsStatusCard } from "./types/settings";
+import type { AuthMeResponse } from "./types/auth";
 import type {
   BlockReason,
   NewsArticle,
@@ -101,6 +103,8 @@ function App() {
   const [marketTab, setMarketTab] = useState<MarketTab>("domestic");
   const [selectedIndustryId, setSelectedIndustryId] = useState("semiconductor");
   const [searchQuery, setSearchQuery] = useState("");
+  const [authState, setAuthState] = useState<AuthMeResponse>({ authenticated: false, user: null });
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const currentMarket = marketData[marketTab];
   const selectedIndustry = useMemo(
@@ -116,6 +120,20 @@ function App() {
       .slice(0, 5);
   }, [searchQuery]);
 
+  useEffect(() => {
+    let ignore = false;
+    fetchCurrentUser()
+      .then((payload) => {
+        if (!ignore) setAuthState(payload);
+      })
+      .catch((error) => {
+        if (!ignore) setAuthError(error instanceof Error ? error.message : "Auth state check failed");
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   function handleIndustryClick(industryId: string) {
     setSelectedIndustryId(industryId);
     setMarketTab("watchIndustry");
@@ -130,6 +148,17 @@ function App() {
 
     setView(result.targetView);
     setSearchQuery("");
+  }
+
+  async function handleLogout() {
+    try {
+      setAuthError(null);
+      await logout();
+      setAuthState({ authenticated: false, user: null });
+      setView("login");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Logout failed");
+    }
   }
 
   return (
@@ -189,9 +218,18 @@ function App() {
             ♡<span className="notification-dot">3</span>
           </button>
           <button className="user-menu" type="button" onClick={() => setView("mypage")}>
-            <span className="avatar">U</span>
-            finlight_user
+            <span className="avatar">{authState.user?.nickname?.slice(0, 1).toUpperCase() ?? "U"}</span>
+            {authState.user?.nickname ?? "Google login"}
           </button>
+          {authState.authenticated ? (
+            <button className="icon-button" type="button" onClick={handleLogout} aria-label="로그아웃">
+              OUT
+            </button>
+          ) : (
+            <button className="icon-button" type="button" onClick={() => setView("login")} aria-label="Google 로그인">
+              IN
+            </button>
+          )}
           <SignalTrafficLight signal="yellow" onClick={() => setView("guard")} />
         </div>
 
@@ -222,7 +260,7 @@ function App() {
           {view === "kakao" && <KakaoAlertPage />}
           {view === "mypage" && <MyPageDashboard onViewChange={setView} />}
           {view === "settings" && <SettingsDashboard />}
-          {view === "login" && <KakaoAuthFlowView onViewChange={setView} />}
+          {view === "login" && <GoogleAuthFlowView authError={authError} onViewChange={setView} />}
         </main>
       )}
 
@@ -2544,6 +2582,82 @@ function SettingsSliderRow({ label, max = 1, value }: { label: string; max?: num
 }
 
 type AuthStep = "login" | "signup" | "complete";
+
+function GoogleAuthFlowView({ authError, onViewChange }: { authError: string | null; onViewChange: (view: ViewId) => void }) {
+  const [selectedIndustries, setSelectedIndustries] = useState(["Semiconductor", "AI"]);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const industryOptions = ["Semiconductor", "AI", "Policy/Regulation", "Finance"];
+
+  function toggleIndustry(industry: string) {
+    setSelectedIndustries((current) =>
+      current.includes(industry) ? current.filter((item) => item !== industry) : [...current, industry],
+    );
+  }
+
+  async function completeOnboarding() {
+    try {
+      setOnboardingError(null);
+      await saveOnboardingPreferences({
+        interestedMarkets: ["KR", "US"],
+        interestedIndustries: selectedIndustries,
+        alertEnabled: true,
+        notificationChannels: ["dashboard"],
+      });
+      onViewChange("mypage");
+    } catch (error) {
+      setOnboardingError(error instanceof Error ? error.message : "Onboarding save failed");
+    }
+  }
+
+  return (
+    <section className="auth-flow-shell">
+      <div className="auth-flow-heading">
+        <div>
+          <h1>FinLightAI Google Auth Flow</h1>
+          <p>LOGIN · ONBOARDING · MY PAGE</p>
+        </div>
+        <span>Google OAuth is the MVP login path. Kakao alerts remain a later integration.</span>
+      </div>
+      {authError ? <p className="api-error" role="alert">{authError}</p> : null}
+      {onboardingError ? <p className="api-error" role="alert">{onboardingError}</p> : null}
+
+      <div className="auth-flow-grid">
+        <AuthCardFrame label="Google Login" path="/api/auth/google/login">
+          <div className="auth-login-hero">
+            <p>AI FINANCIAL SIGNAL BOARD</p>
+            <h2>Continue with Google</h2>
+            <small>Login with Google, then save market and industry onboarding preferences to your FinLightAI user profile.</small>
+          </div>
+          <div className="auth-paper-card">
+            <div className="auth-paper-head">
+              <h3>Login</h3>
+              <span>OAuth 2.0</span>
+            </div>
+            <p>Google OAuth callback is handled by the FastAPI backend.</p>
+            <button className="auth-kakao-btn" type="button" onClick={redirectToGoogleLogin}>Google 로그인</button>
+            <small>Secrets stay on the backend. Vercel only receives browser-safe VITE variables.</small>
+          </div>
+        </AuthCardFrame>
+
+        <AuthCardFrame label="Onboarding" path="/api/onboarding/preferences">
+          <div className="auth-paper-card signup">
+            <h3>관심 산업 설정</h3>
+            <p>로그인 후 관심 시장과 산업을 사용자 ID에 연결합니다.</p>
+            <div className="auth-industry-picker">
+              {industryOptions.map((industry) => (
+                <button className={selectedIndustries.includes(industry) ? "selected" : ""} key={industry} type="button" onClick={() => toggleIndustry(industry)}>
+                  {industry}
+                  <small>{selectedIndustries.includes(industry) ? "selected" : "click to add"}</small>
+                </button>
+              ))}
+            </div>
+            <button className="auth-primary-btn" type="button" onClick={completeOnboarding}>온보딩 저장하고 마이페이지로 이동</button>
+          </div>
+        </AuthCardFrame>
+      </div>
+    </section>
+  );
+}
 
 function KakaoAuthFlowView({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
   const [authStep, setAuthStep] = useState<AuthStep>("login");
