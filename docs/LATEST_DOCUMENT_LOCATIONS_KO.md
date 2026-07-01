@@ -6,7 +6,6 @@
 
 | 목적 | 위치 |
 |---|---|
-| 기획 문서 모음 | `docs/planning/README.md` |
 | 현재 방향과 우선순위 | `docs/CURRENT_DIRECTION_AND_GOALS_KO.md` |
 | 전체 제품 기획 | `docs/PRODUCT_PLANNING_KO.md` |
 | 기능 요구사항(SRS) | `docs/SRS.md` |
