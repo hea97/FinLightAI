@@ -1,334 +1,164 @@
 # 소프트웨어 요구사항 명세서 (SRS)
 
 **프로젝트명**: FinLightAI
-**버전**: v3.0
-**최종 업데이트**: 2026-06-25
-**상태**: 최신 MVP 기준 반영
+**버전**: v4.0
+**최종 업데이트**: 2026-07-01
+**상태**: 실제 API 및 Google OAuth 구현 기준
 
----
+## 1. 목적과 범위
 
-## 1. 요구사항 개발 개요
-
-### 1-1. 시스템 목적
-
-FinLightAI는 AI, 반도체, 정책, 금융 뉴스와 시장 데이터를 분석해 사용자가 시장 상태와 관심 자산 리스크를 빠르게 이해하도록 돕는 AI 금융 상황판이다.
-
-본 시스템은 투자 추천 시스템이 아니라 시장 상태 인식 및 정보 제공 시스템이다.
-
-핵심 구조:
+FinLightAI는 금융 뉴스와 시장 데이터를 분석해 시장 상태, 뉴스 품질, 산업 영향, 관심 자산 리스크를 근거와 함께 제공한다. 투자 추천, 주문 실행, 수익 보장은 범위에 포함하지 않는다.
 
 ```text
-뉴스/시장 데이터 수집
--> 뉴스 신뢰도 검증
--> 영향도/감성/시장 반응 분석
--> RED/YELLOW/GREEN 시장 신호 생성
--> React 대시보드 표시
--> 카카오 채널 챗봇 + n8n 알림/조회
+provider 수집
+-> DB 저장
+-> 관련성/신뢰도/감성/시장 반응 분석
+-> 시장 신호 생성
+-> FastAPI
+-> React UI
 ```
 
-### 1-2. 최신 구현 범위
+## 2. 사용자 역할
 
-| 포함 | 제외 |
+| 역할 | 권한 |
 |---|---|
-| React 기반 AI 금융 상황판 | 개인 투자 추천 |
-| 뉴스 신뢰도/영향도 분리 표시 | 자동 매매 |
-| 산업 영향도 히트맵 | 실시간 HFT 트레이딩 |
-| 관심 자산 포트폴리오 UI | 증권사 계좌 자동 연동 |
-| 카카오 채널 챗봇 + n8n 흐름 | 실제 카카오 운영 심사 완료 |
-| 마이페이지/설정 화면 | 결제/권한/관리자 기능 |
-| 화면별 mock data, type, service 계층 | 운영 DB 완전 연결 |
+| 비로그인 사용자 | 공개 페이지와 기본 대시보드 조회, Google 로그인 시작 |
+| 로그인 사용자 | 온보딩, 포트폴리오, 마이페이지, 설정, 알림 규칙 관리 |
+| 운영자 | 환경 변수, 데이터 refresh, provider와 배포 상태 관리 |
 
----
+## 3. 기능 요구사항
 
-## 2. 기능 요구사항 목록
-
-| ID | 요구사항명 | 설명 | 우선순위 | 관련 위치 |
-|---|---|---|---|---|
-| R01 | AI 브리핑 | 오늘의 시장 신호, 위험도, 주요 지표, AI 요약 표시 | 매우 높음 | `frontend/src/App.tsx`, `frontend/src/data/mockData.ts` |
-| R02 | 시장 탭 | 국내 시장 / 해외 시장 / 관심 산업별 콘텐츠 전환 | 매우 높음 | `frontend/src/data/mockData.ts` |
-| R03 | 뉴스 가드 | 신뢰 뉴스/주의 뉴스/차단 뉴스 분류와 점수 표시 | 매우 높음 | `frontend/src/types/newsGuard.ts`, `frontend/src/services/newsGuardApi.ts` |
-| R04 | 뉴스 신뢰도 판별 | 출처, 날짜, 자극성, 일관성, 교차 보도 기반 판별 | 매우 높음 | `src/collector/fake_news_checker.py` |
-| R05 | 뉴스 영향도 분석 | 뉴스가 시장/산업에 미칠 가능성을 점수화 | 높음 | `src/processor/event_score.py` |
-| R06 | 산업 영향도 | 산업별 영향 점수, 관련 뉴스, 상세 패널 표시 | 높음 | `frontend/src/types/industryImpact.ts`, `frontend/src/services/industryImpactApi.ts` |
-| R07 | 포트폴리오 관리 | 관심 자산 추가/수정/삭제 및 평가 요약 표시 | 높음 | `frontend/src/types/portfolio.ts`, `frontend/src/services/portfolioApi.ts` |
-| R08 | 카카오 알림 | 카카오 채널 상태, n8n 흐름, 메시지 미리보기 표시 | 높음 | `frontend/src/types/kakaoAlert.ts`, `frontend/src/services/kakaoAlertApi.ts` |
-| R09 | 마이페이지 | 사용자 프로필, 관심 산업/자산, 알림 상태 표시 | 높음 | `frontend/src/types/myPage.ts`, `frontend/src/services/myPageApi.ts` |
-| R10 | 설정 | 데이터 수집, 뉴스 가드, 알림, API 연결, 표시 설정 | 높음 | `frontend/src/types/settings.ts`, `frontend/src/services/settingsApi.ts` |
-| R11 | 로그인/회원가입 | 카카오/이메일 인증 흐름과 온보딩 화면 | 중간 | `frontend/src/App.tsx`, `docs/flow/Auth_Flow.md` |
-| R12 | API 연결 준비 | mock service를 실제 FastAPI endpoint로 전환 가능하게 유지 | 높음 | `frontend/src/services/*Api.ts`, `src/dashboard/routes/api.py` |
-| R13 | 뉴스/주가 수집 | GDELT, Guardian, Finnhub, BBC RSS, yfinance, pykrx 수집 | 중간 | `src/collector/` |
-| R14 | 카카오+n8n 운영 연동 | Webhook 기반 챗봇 질문/응답 연결 | 중간 | `docs/KAKAO_N8N_CHATBOT_PLAN_KO.md` |
-| R15 | 투자 추천 아님 고지 | 모든 주요 화면과 알림에서 면책 원칙 유지 | 매우 높음 | 전체 UI/문서 |
-
----
-
-## 3. 상세 요구사항
-
-### 3-1. AI 브리핑 (R01)
-
-목적:
-
-- 사용자가 첫 화면에서 오늘 시장 상태를 이해하도록 한다.
-
-입력:
-
-- 시장 탭별 market data
-- 주요 지표
-- 뉴스 영향도 TOP 5
-- 산업 영향도 요약
-- 카카오 최근 알림
-
-출력:
-
-- 오늘의 시장 신호
-- 위험도 점수
-- AI 브리핑 3개 포인트
-- 시장 지표 카드
-- 뉴스 영향도 목록
-
-품질 조건:
-
-- 첫 화면에서 투자 추천처럼 보이는 문구를 사용하지 않는다.
-- 위험도 점수는 행동 지시가 아니라 상태 정보로 설명한다.
-
-### 3-2. 뉴스 가드 (R03, R04)
-
-목적:
-
-- 사용자가 뉴스의 신뢰도와 시장 영향도를 분리해 판단하도록 돕는다.
-
-분류:
-
-| 분류 | 의미 |
-|---|---|
-| 신뢰 뉴스 | 기준 점수 이상으로 분석에 사용할 수 있는 뉴스 |
-| 주의 뉴스 | 영향도는 있으나 신뢰도 또는 맥락 검토가 필요한 뉴스 |
-| 차단 뉴스 | 분석과 신호 생성에서 제외해야 하는 뉴스 |
-
-표시 항목:
-
-- 기사 제목
-- 출처
-- 발행 시점
-- 요약
-- 신뢰도 점수
-- 영향도 점수
-- 감성 점수
-- 관련 산업
-- 태그
-- 사유 목록
-
-뉴스 신뢰도 판단 기준:
-
-```text
-최종 신뢰도 점수 =
-출처 신뢰도 x 0.30
-+ 날짜 정확성 x 0.20
-+ 자극성 역점수 x 0.15
-+ 제목-본문 일관성 x 0.20
-+ 교차 검증 커버리지 x 0.15
-```
-
-### 3-3. 산업 영향도 (R06)
-
-목적:
-
-- 뉴스와 시장 반응이 어떤 산업에 영향을 주는지 보여준다.
-
-표시 항목:
-
-- 산업명
-- 영향 점수
-- 상태 라벨
-- 관련 뉴스 수
-- 관련 종목
-- 선택 산업 상세 설명
-- 확인해야 할 리스크
-
-점수 기준:
-
-| 범위 | 라벨 |
-|---|---|
-| +60 이상 | 강한 긍정 |
-| +15 ~ +59 | 긍정 |
-| -14 ~ +14 | 중립 |
-| -15 ~ -49 | 주의 |
-| -50 이하 | 부정 |
-
-### 3-4. 포트폴리오 (R07)
-
-목적:
-
-- 사용자가 직접 입력한 관심 자산을 기준으로 시장 신호와 뉴스 리스크 연결성을 확인한다.
-
-입력 항목:
-
-- 자산명
-- 종목 코드
-- 시장
-- 산업
-- 수량
-- 평균 매입가
-- 현재가
-- 최근 매도가
-- 통화
-- 상태
-- 메모
-
-계산 항목:
-
-- 총 입력 금액
-- 현재 평가금액
-- 평가손익
-- 평가손익률
-- 연결 산업 수
-- 주의 뉴스 수
-- 자산별 관련 뉴스 수
-
-주의 조건:
-
-- 매수/매도 추천 문구를 사용하지 않는다.
-- 자동 주문, 증권사 계좌 연동, 개인 투자 자문은 MVP 범위에서 제외한다.
-
-### 3-5. 카카오 알림 (R08)
-
-목적:
-
-- 카카오 채널 챗봇과 n8n을 통해 시장 신호와 뉴스 가드 요약을 빠르게 확인한다.
-
-연동 구조:
-
-```text
-사용자 카카오 채널 메시지
--> 카카오 채널 챗봇
--> n8n Webhook
--> FinLightAI API
--> n8n 응답 가공
--> 카카오 채널 챗봇 응답
-```
-
-알림 조건:
-
-- 시장 위험도 70 이상
-- 관심 산업 영향도 ±60 이상
-- 신뢰도 낮은 뉴스 감지
-- 내 포트폴리오 관련 부정 뉴스 발생
-- RED 신호 발생
-- 일일 AI 브리핑 요약
-
-### 3-6. 마이페이지 (R09)
-
-목적:
-
-- 사용자 개인화 상태를 한 화면에서 관리한다.
-
-표시 항목:
-
-- 프로필
-- 카카오 연결 상태
-- 관심 산업
-- 관심 자산 수
-- 알림 조건
-- 최근 활동
-- 빠른 이동 링크
-
-### 3-7. 설정 (R10)
-
-목적:
-
-- 데이터와 알림, 뉴스 가드 기준, API 연결 상태를 관리한다.
-
-포함 항목:
-
-- 데이터 수집 provider
-- 뉴스 가드 기준 점수
-- 자극적 표현 탐지 민감도
-- 카카오 알림 설정
-- API 연결 상태
-- 표시 설정
-
-### 3-8. API 연결 준비 (R12)
-
-현재 프론트 service는 mock data를 반환하지만, 동일한 타입으로 실제 API를 연결할 수 있어야 한다.
-
-예상 endpoint:
-
-```text
-GET    /api/briefing
-GET    /api/news-guard?filter=all
-GET    /api/industry-impact
-GET    /api/portfolio
-POST   /api/portfolio/assets
-PATCH  /api/portfolio/assets/{id}
-DELETE /api/portfolio/assets/{id}
-GET    /api/kakao-alert
-POST   /api/kakao-alert/test
-GET    /api/mypage
-GET    /api/settings
-PATCH  /api/settings
-```
-
----
-
-## 4. 비기능 요구사항
-
-| 분류 | ID | 요구사항 | 측정 기준 |
+| ID | 기능 | 요구사항 | 상태 |
 |---|---|---|---|
-| 사용성 | NF01 | 첫 화면 이해도 | 10초 안에 서비스 목적 파악 |
-| 신뢰성 | NF02 | 뉴스 판별 설명 가능성 | 모든 주의/차단 뉴스에 사유 표시 |
-| 보안 | NF03 | API 키 보안 | 화면/로그에 원문 노출 금지 |
-| 확장성 | NF04 | mock/API 전환 | service 계층에서 전환 가능 |
-| 접근성 | NF05 | 선택 상태 표시 | 버튼/탭에 선택 상태 제공 |
-| 반응형 | NF06 | 모바일 대응 | 카드 겹침과 가로 스크롤 방지 |
-| 유지보수 | NF07 | 타입 기반 개발 | 화면별 response type 유지 |
-| 투명성 | NF08 | 투자 추천 아님 고지 | 주요 화면과 알림에 원칙 반영 |
+| R01 | AI 브리핑 | 신호, 위험도, 요약, 근거 뉴스를 표시한다. | 구현 |
+| R02 | 데이터 상태 | source, provider, fallback, warning을 표시한다. | 구현 |
+| R03 | 뉴스 가드 | 전체/신뢰/주의/차단 필터와 판정 사유를 제공한다. | 구현 |
+| R04 | 산업 영향도 | 산업 점수와 해당 산업에 일치하는 근거 뉴스를 제공한다. | 구현 |
+| R05 | 포트폴리오 | 관심 자산을 생성, 조회, 수정, 삭제한다. | 구현 |
+| R06 | 사용자 설정 | 마이페이지, preference, 설정을 사용자별 저장한다. | 구현 |
+| R07 | Google 인증 | login, callback, me, logout과 세션 쿠키를 제공한다. | 구현 |
+| R08 | 온보딩 | 관심 시장, 산업, 알림 여부를 저장한다. | 구현 |
+| R09 | 카카오 규칙 | 알림 규칙을 조회하고 변경한다. | 구현 |
+| R10 | 카카오 발송 | n8n과 카카오 채널을 통해 메시지를 발송한다. | 미구현 |
+| R11 | 데이터 갱신 | 요청 처리와 분리된 명령으로 파이프라인을 갱신한다. | 구현 |
+| R12 | 운영 배포 | Vercel/Render/PostgreSQL 환경에서 전체 흐름을 검증한다. | 검증 필요 |
 
----
+## 4. 상세 요구사항
 
-## 5. 시스템 흐름
+### 4.1 AI 브리핑
+
+- API: `GET /api/briefing`
+- 최신 저장 signal과 필터 뉴스를 우선 사용한다.
+- Gemini를 사용할 수 있으면 AI 요약을 제공한다.
+- Gemini unavailable/error 시 정적 요약으로 대체하고 상태를 노출한다.
+- 실제 데이터가 없는 demo/mock 패널은 숨기거나 명시적으로 표시한다.
+
+### 4.2 뉴스 가드
+
+- API: `GET /api/news-guard?filter={all|trusted|watch|blocked}`
+- 기사별 제목, 출처, provider, 게시 시각, 신뢰도, 영향도, 감성, 판정 사유를 제공한다.
+- 중복 제목과 금융 관련성이 낮은 기사를 제거한다.
+- provider 장애 시 저장 데이터 또는 fallback 사용 여부를 경고한다.
+- 자동 판정을 사실 확정이나 법적 판단처럼 표현하지 않는다.
+
+### 4.3 산업 영향도
+
+- API: `GET /api/industry-impact`
+- 산업별 점수, 상태, 관련 뉴스 수, 관련 종목을 제공한다.
+- 상세 패널은 선택 산업 키워드에 일치한 뉴스만 사용한다.
+- 근거가 부족하면 빈 상태 또는 데이터 부족 상태를 표시한다.
+
+### 4.4 포트폴리오
+
+- API:
+  - `GET /api/portfolio`
+  - `POST /api/portfolio`
+  - `PATCH /api/portfolio/{asset_id}`
+  - `DELETE /api/portfolio/{asset_id}`
+- 자산명, symbol, 시장, 산업, 수량, 평균 매입가, 통화, 메모를 관리한다.
+- 가격 출처가 yfinance인지 저장된 reference/fallback인지 표시한다.
+- 자산은 인증 사용자에게 귀속되며 다른 사용자 데이터에 접근할 수 없어야 한다.
+- 거래 주문이나 증권 계좌 연동은 제공하지 않는다.
+
+### 4.5 인증과 온보딩
+
+- API:
+  - `GET /api/auth/google/login`
+  - `GET /api/auth/google/callback`
+  - `GET /api/auth/me`
+  - `POST /api/auth/logout`
+  - `GET/PUT /api/onboarding/preferences`
+- Google scope는 `openid`, `email`, `profile`만 요청한다.
+- callback의 state를 검증하고 사용자/provider 식별자를 저장한다.
+- 세션은 서명된 httpOnly 쿠키를 사용한다.
+- production 쿠키는 `Secure`, `SameSite=None`이어야 한다.
+- `X-User-ID` 개발 fallback은 production에서 거부한다.
+- 카카오 OAuth는 현재 MVP 인증 방식이 아니다.
+
+### 4.6 마이페이지와 설정
+
+- API: `GET/PATCH /api/mypage`, `GET/PUT /api/settings`
+- 프로필, 관심 산업, 알림/표시/데이터 설정을 사용자별 저장한다.
+- 저장 성공, 실패, 로딩 상태를 UI에 제공한다.
+
+### 4.7 카카오 알림
+
+- API: `GET /api/kakao-alert`, `PATCH /api/kakao-alert/rules/{rule_id}`
+- 알림 규칙 저장과 메시지 preview를 제공한다.
+- 실제 카카오 채널 발송과 n8n webhook은 후속 요구사항이다.
+- 메시지에는 상태, 근거, 갱신 시각, 투자 추천 아님 고지를 포함한다.
+
+## 5. 데이터 및 API 계약
+
+모든 주요 분석 응답은 가능한 경우 다음 metadata를 포함한다.
 
 ```text
-React UI
-  ↓
-화면별 service 계층
-  ↓
-mock data 또는 FastAPI endpoint
-  ↓
-뉴스 수집 / 시장 데이터 수집
-  ↓
-뉴스 신뢰도 검증
-  ↓
-영향도 / 감성 / 시장 반응 분석
-  ↓
-시장 신호 및 산업 영향도 생성
-  ↓
-대시보드 / 포트폴리오 / 카카오 알림 표시
+dataSource
+generatedAt
+providers[]
+warnings[]
+fallbackUsed
 ```
 
----
+- API schema는 `src/dashboard/schemas.py`를 기준으로 한다.
+- 프론트 타입은 `frontend/src/types/`에서 API와 동기화한다.
+- 프론트 service는 `frontend/src/services/`에서 `apiFetch`를 사용한다.
+- cross-origin 인증 요청은 `credentials: include`를 사용한다.
 
-## 6. 제약 및 한계
+## 6. 저장 요구사항
 
-| 한계 | 보완 방향 |
-|---|---|
-| 뉴스-시장 관계는 인과관계가 아니라 상관관계 | 분석 결과에 명시적 고지 |
-| 가짜 뉴스 판별 100% 정확성 불가 | 주의/차단 사유와 교차 검증 표시 |
-| 실제 API 호출 한도 | 캐싱과 provider fallback |
-| 카카오 정식 운영 심사 필요 | MVP에서는 n8n 흐름과 화면 시연 우선 |
-| 사용자별 저장 미구현 | mock data와 향후 DB schema 분리 |
-| 증권 계좌 자동 연동 없음 | 관심 자산 수동 입력으로 시작 |
+- 개발 환경은 SQLite를 사용할 수 있다.
+- 운영 환경은 `DATABASE_URL` 기반 PostgreSQL을 사용한다.
+- users, preferences, portfolio, settings, alert rules, news, market prices, signals, provider status를 저장한다.
+- 외부 PostgreSQL URL은 psycopg v3 driver 형식으로 정규화한다.
+- 운영 데이터 사용 전 `create_all`을 versioned migration으로 교체해야 한다.
 
----
+## 7. 비기능 요구사항
 
-## 7. 용어 정의
+| ID | 분야 | 요구사항 |
+|---|---|---|
+| NF01 | 보안 | secret은 백엔드 환경 변수로만 관리한다. |
+| NF02 | 개인정보 | OAuth 최소 정보와 최소 scope만 사용한다. |
+| NF03 | 신뢰성 | fallback과 provider 장애를 숨기지 않는다. |
+| NF04 | 성능 | dashboard GET 요청 중 외부 수집을 동기 실행하지 않는다. |
+| NF05 | 접근성 | 키보드 조작, focus, label, 색상 외 상태 텍스트를 제공한다. |
+| NF06 | 반응형 | 모바일/데스크톱에서 overflow와 겹침이 없어야 한다. |
+| NF07 | 테스트 | auth, API, pipeline, DB, settings 회귀 테스트를 유지한다. |
+| NF08 | 규정 표현 | 투자 추천 또는 확정적 수익 표현을 금지한다. |
 
-| 용어 | 정의 |
-|---|---|
-| AI 브리핑 | 첫 화면에서 시장 상태와 주요 근거를 요약하는 영역 |
-| 뉴스 가드 | 뉴스 신뢰도, 영향도, 주의 사유를 분리해 보여주는 기능 |
-| 영향도 점수 | 뉴스나 이벤트가 시장/산업에 영향을 줄 가능성 |
-| 신뢰도 점수 | 뉴스 자체를 조심해서 봐야 하는 정도 |
-| 산업 영향도 | 뉴스와 시장 반응이 산업별로 미치는 영향 |
-| 관심 자산 | 사용자가 직접 등록한 모니터링 대상 자산 |
-| 카카오 알림 | 카카오 채널 챗봇 기반 시장 신호/뉴스 요약 알림 |
-| n8n Webhook | 카카오 챗봇과 FinLightAI API 사이의 자동화 연결 계층 |
+## 8. 배포 요구사항
+
+- 프론트엔드는 Vercel, 백엔드는 Render 구성을 우선한다.
+- `VITE_API_BASE_URL`은 실제 백엔드 origin을 가리켜야 한다.
+- CORS는 실제 프론트 origin만 허용하고 credentials를 활성화한다.
+- Google redirect URI는 백엔드 callback과 정확히 일치해야 한다.
+- 배포 후 로그인, callback, me, logout과 사용자별 CRUD를 smoke test한다.
+- 데이터 refresh는 scheduler에서 명시적 명령으로 실행한다.
+
+## 9. 알려진 제약
+
+- 카카오 채널 실제 발송과 n8n은 연결 전이다.
+- Guardian/Finnhub는 credential 준비 후 추가한다.
+- 거래일 계산은 exchange calendar 도입 전까지 제한이 있다.
+- 무료 provider의 rate limit과 일시 장애가 데이터 최신성에 영향을 줄 수 있다.
+- 자동 뉴스 품질 점수는 사람의 검토를 대체하지 않는다.
