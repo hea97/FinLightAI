@@ -44,8 +44,10 @@ Vercel frontend environment variables:
 
 ```env
 VITE_API_BASE_URL=https://your-render-backend.example
-VITE_USER_ID=demo-user
 ```
+
+`VITE_USER_ID` and `VITE_ENABLE_DEV_USER_HEADER` are development-only and
+must not be enabled in Vercel production.
 
 `VITE_` variables are exposed to browser JavaScript. Do not put Kakao REST API keys, Kakao client secrets, JWT secrets, database URLs, or provider API keys in Vercel frontend variables.
 

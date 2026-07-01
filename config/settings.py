@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -35,6 +36,10 @@ class Settings(BaseSettings):
     jwt_secret_key: str | None = None
     jwt_expire_minutes: int = 1440
     auth_cookie_name: str = "finlight_session"
+    auth_cookie_domain: str | None = None
+    auth_cookie_samesite: Literal["lax", "strict", "none"] | None = None
+    auth_cookie_secure: bool | None = None
+    oauth_state_cookie_name: str = "finlight_oauth_state"
     bbc_rss_url: str = "https://feeds.bbci.co.uk/news/world/rss.xml"
     google_news_rss_url: str = "https://news.google.com/rss/search"
     discord_webhook_url: str | None = None
@@ -61,16 +66,33 @@ class Settings(BaseSettings):
 
     def cors_origin_list(self) -> list[str]:
         configured_origins = [
-            origin.strip()
+            origin.strip().rstrip("/")
             for origin in self.cors_origins.split(",")
             if origin.strip()
         ]
         optional_origins = [
-            origin.rstrip("/")
+            origin.strip().rstrip("/")
             for origin in (self.frontend_url,)
             if origin and origin.strip()
         ]
         return list(dict.fromkeys([*configured_origins, *optional_origins]))
+
+    def is_development(self) -> bool:
+        return self.app_env.lower() in {"local", "development", "dev", "test"}
+
+    def session_cookie_secure(self) -> bool:
+        if not self.is_development():
+            return True
+        if self.auth_cookie_secure is not None:
+            return self.auth_cookie_secure
+        return False
+
+    def session_cookie_samesite(self) -> Literal["lax", "strict", "none"]:
+        if not self.is_development():
+            return "none"
+        if self.auth_cookie_samesite is not None:
+            return self.auth_cookie_samesite
+        return "lax"
 
 
 @lru_cache

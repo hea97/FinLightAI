@@ -18,6 +18,10 @@ def _settings(**overrides):
         "jwt_secret_key": "unit-test-secret",
         "jwt_expire_minutes": 1440,
         "auth_cookie_name": "finlight_session",
+        "auth_cookie_domain": None,
+        "auth_cookie_samesite": None,
+        "auth_cookie_secure": None,
+        "oauth_state_cookie_name": "finlight_oauth_state",
         "external_api_timeout_seconds": 10,
         "news_api_key": None,
         "guardian_api_key": None,
@@ -32,7 +36,25 @@ def _settings(**overrides):
         "min_source_score": 0.8,
     }
     values.update(overrides)
-    return SimpleNamespace(**values)
+    settings = SimpleNamespace(**values)
+    settings.is_development = lambda: settings.app_env in {"local", "development", "dev", "test"}
+    settings.session_cookie_secure = lambda: (
+        True
+        if not settings.is_development()
+        else bool(settings.auth_cookie_secure)
+    )
+    settings.session_cookie_samesite = lambda: (
+        "none"
+        if not settings.is_development()
+        else (settings.auth_cookie_samesite or "lax")
+    )
+    return settings
+
+
+def _begin_google_login(client: TestClient) -> str:
+    response = client.get("/api/auth/google/login", follow_redirects=False)
+    assert response.status_code == 302
+    return client.cookies["finlight_oauth_state"]
 
 
 def test_google_login_redirects_to_google_authorization_url(monkeypatch):
@@ -45,6 +67,7 @@ def test_google_login_redirects_to_google_authorization_url(monkeypatch):
     assert location.startswith(auth_helpers.GOOGLE_AUTH_URL)
     assert "client_id=google-client-id" in location
     assert "scope=openid+email+profile" in location
+    assert "finlight_oauth_state=" in response.headers["set-cookie"]
 
 
 def test_google_callback_creates_user_sets_cookie_and_me_returns_user(monkeypatch, isolated_dashboard_database):
@@ -64,9 +87,13 @@ def test_google_callback_creates_user_sets_cookie_and_me_returns_user(monkeypatc
             "picture": "https://example.com/avatar.png",
         },
     )
-    client = TestClient(app)
+    client = TestClient(app, base_url="https://backend.example.com")
+    state = _begin_google_login(client)
 
-    callback = client.get("/api/auth/google/callback?code=mock-code", follow_redirects=False)
+    callback = client.get(
+        f"/api/auth/google/callback?code=mock-code&state={state}",
+        follow_redirects=False,
+    )
 
     assert callback.status_code == 302
     assert callback.headers["location"] == "https://frontend.example.com/?auth=google_connected"
@@ -100,9 +127,17 @@ def test_google_callback_reuses_existing_user(monkeypatch, isolated_dashboard_da
         },
     )
     client = TestClient(app)
+    first_state = _begin_google_login(client)
 
-    first = client.get("/api/auth/google/callback?code=one", follow_redirects=False)
-    second = client.get("/api/auth/google/callback?code=two", follow_redirects=False)
+    first = client.get(
+        f"/api/auth/google/callback?code=one&state={first_state}",
+        follow_redirects=False,
+    )
+    second_state = _begin_google_login(client)
+    second = client.get(
+        f"/api/auth/google/callback?code=two&state={second_state}",
+        follow_redirects=False,
+    )
 
     assert first.status_code == 302
     assert second.status_code == 302
@@ -119,6 +154,19 @@ def test_logout_clears_session_cookie(monkeypatch):
     assert "finlight_session=" in response.headers["set-cookie"]
 
 
+def test_production_logout_uses_matching_cookie_security(monkeypatch):
+    monkeypatch.setattr(api_routes, "get_settings", lambda: _settings(app_env="production"))
+
+    response = TestClient(app, base_url="https://backend.example.com").post("/api/auth/logout")
+
+    cookie = response.headers["set-cookie"]
+    assert "finlight_session=" in cookie
+    assert "HttpOnly" in cookie
+    assert "Path=/" in cookie
+    assert "Secure" in cookie
+    assert "SameSite=none" in cookie
+
+
 def test_auth_me_is_anonymous_without_session(monkeypatch):
     monkeypatch.setattr(api_routes, "get_settings", lambda: _settings())
 
@@ -126,6 +174,50 @@ def test_auth_me_is_anonymous_without_session(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {"authenticated": False, "user": None}
+
+
+def test_google_callback_rejects_invalid_oauth_state(monkeypatch):
+    monkeypatch.setattr(api_routes, "get_settings", lambda: _settings())
+    client = TestClient(app)
+    _begin_google_login(client)
+
+    response = client.get(
+        "/api/auth/google/callback?code=mock-code&state=wrong-state",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid OAuth state"
+
+
+def test_production_session_cookie_is_secure_and_cross_site(monkeypatch, isolated_dashboard_database):
+    monkeypatch.setattr(api_routes, "get_settings", lambda: _settings(app_env="production"))
+    monkeypatch.setattr(api_routes, "exchange_google_code", lambda **kwargs: {"access_token": "token"})
+    monkeypatch.setattr(
+        api_routes,
+        "fetch_google_userinfo",
+        lambda access_token, timeout=10: {
+            "sub": "production-google-user",
+            "email": "production@example.com",
+            "name": "Production User",
+        },
+    )
+    client = TestClient(app, base_url="https://backend.example.com")
+    state = _begin_google_login(client)
+
+    response = client.get(
+        f"/api/auth/google/callback?code=mock-code&state={state}",
+        follow_redirects=False,
+    )
+
+    session_cookie = next(
+        header
+        for header in response.headers.get_list("set-cookie")
+        if header.startswith("finlight_session=")
+    )
+    assert "HttpOnly" in session_cookie
+    assert "Secure" in session_cookie
+    assert "SameSite=none" in session_cookie
 
 
 def test_x_user_id_fallback_is_disabled_in_production(monkeypatch):

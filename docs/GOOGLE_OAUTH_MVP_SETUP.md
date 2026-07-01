@@ -102,10 +102,20 @@ GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=https://your-render-backend.example/api/auth/google/callback
 JWT_SECRET_KEY=
 JWT_EXPIRE_MINUTES=1440
+AUTH_COOKIE_SAMESITE=none
+AUTH_COOKIE_SECURE=true
 FRONTEND_URL=https://your-vercel-frontend.example
 BACKEND_URL=https://your-render-backend.example
 CORS_ORIGINS=https://your-vercel-frontend.example
 ```
+
+Leave `AUTH_COOKIE_DOMAIN` empty when using the default Vercel and Render
+hostnames. Production sessions use `Secure; HttpOnly; SameSite=None`, and the
+frontend must call the API with credentials enabled. Because `vercel.app` and
+`onrender.com` are different sites, browser third-party-cookie policies can
+still block the session. Owned sibling domains (for example
+`app.example.com` and `api.example.com`) or a same-origin API proxy are the
+reliable public-production topology.
 
 ## Frontend environment variables
 
@@ -113,8 +123,10 @@ Set these in Vercel.
 
 ```env
 VITE_API_BASE_URL=https://your-render-backend.example
-VITE_USER_ID=demo-user
 ```
+
+Leave `VITE_ENABLE_DEV_USER_HEADER` unset (or `false`) in production.
+`VITE_USER_ID` is for local development only.
 
 `VITE_` variables are exposed to browser JavaScript. Never put Google client secrets, JWT secrets, database URLs, or provider API keys in Vercel frontend variables.
 

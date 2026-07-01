@@ -41,11 +41,17 @@ FRONTEND_URL=https://your-vercel-frontend.example
 BACKEND_URL=https://your-backend-api.example
 CORS_ORIGINS=https://your-vercel-frontend.example
 DATABASE_URL=postgresql+psycopg://...
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=https://your-backend-api.example/api/auth/google/callback
 KAKAO_REST_API_KEY=
 KAKAO_CLIENT_SECRET=
 KAKAO_REDIRECT_URI=https://your-backend-api.example/api/auth/kakao/callback
 JWT_SECRET_KEY=
 JWT_EXPIRE_MINUTES=1440
+AUTH_COOKIE_SAMESITE=none
+AUTH_COOKIE_SECURE=true
+# AUTH_COOKIE_DOMAIN=  # Leave empty for the default Render host.
 GEMINI_API_KEY=
 NEWS_API_KEY=
 GDELT_BASE_URL=https://api.gdeltproject.org/api/v2/doc/doc
@@ -82,6 +88,31 @@ CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
 
 Avoid `*` for production because OAuth/session flows may require credentials.
 
+## HTTPS session cookie behavior
+
+The frontend sends API requests with `credentials: "include"` and the backend
+enables credentialed CORS. In production the backend defaults the session
+cookie to `Secure; HttpOnly; SameSite=None`; local development defaults to
+`SameSite=Lax` without `Secure`.
+
+This is the minimum required configuration for a Vercel frontend to send the
+Render cookie on cross-site API requests:
+
+```env
+APP_ENV=production
+FRONTEND_URL=https://your-vercel-frontend.example
+CORS_ORIGINS=https://your-vercel-frontend.example
+AUTH_COOKIE_SAMESITE=none
+AUTH_COOKIE_SECURE=true
+```
+
+However, `*.vercel.app` and `*.onrender.com` are different sites. Browsers that
+block third-party cookies can still reject this session even with
+`SameSite=None`. For reliable production auth, use owned sibling subdomains
+such as `app.example.com` and `api.example.com`, or place the API behind a
+same-origin reverse proxy/BFF. Do not set `AUTH_COOKIE_DOMAIN` to
+`.vercel.app` or `.onrender.com`.
+
 ## Database usage
 
 Local development defaults to SQLite:
@@ -90,7 +121,10 @@ Local development defaults to SQLite:
 DATABASE_URL=sqlite:///./data/finlightai.db
 ```
 
-For external deployment, PostgreSQL is recommended:
+For external deployment, PostgreSQL is recommended. Both Render-style
+`postgresql://` URLs and explicit SQLAlchemy `postgresql+psycopg://` URLs are
+accepted; the application normalizes the former to the installed psycopg v3
+driver.
 
 ```env
 DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DBNAME
@@ -155,7 +189,6 @@ After the backend URL is created, set this in the Vercel frontend project:
 
 ```env
 VITE_API_BASE_URL=https://your-backend-api.example
-VITE_USER_ID=demo-user
 ```
 
 The frontend API client already reads `VITE_API_BASE_URL`. If this value is empty, it falls back to relative `/api` paths, which only work when the backend/proxy is available on the same origin.
@@ -177,8 +210,11 @@ Then set the Vercel frontend variables:
 
 ```env
 VITE_API_BASE_URL=https://your-render-backend.example
-VITE_USER_ID=demo-user
 ```
+
+Do not set `VITE_ENABLE_DEV_USER_HEADER=true` in Vercel production.
+`VITE_USER_ID` is only a local-development fallback and is not an
+authentication credential.
 
 The `KAKAO_REDIRECT_URI` value in Render must exactly match the Kakao Developers Redirect URI registration.
 
@@ -202,14 +238,34 @@ Check:
 - `/api/signals` contains verified evidence when pipeline data exists.
 - The deployed database has expected `stock_prices`, `news_raw`, `news_filtered`, and `signals` rows after refresh.
 
-Future auth smoke checks:
+Auth and browser checks:
 
-- `GET /api/auth/me`
-- Kakao callback URL after OAuth implementation.
+1. Open the Vercel production URL in a private browser window.
+2. Confirm `GET /api/auth/me` returns `authenticated: false` before login.
+3. Start `GET /api/auth/google/login` and complete Google login.
+4. Confirm the callback returns to `FRONTEND_URL` with
+   `?auth=google_connected`.
+5. In browser developer tools, confirm `finlight_session` belongs to the API
+   host and has `HttpOnly`, `Secure`, `SameSite=None`, and `Path=/`.
+6. Confirm the Vercel page can call `GET /api/auth/me` with HTTP 200 and an
+   authenticated user. A 200 anonymous response here usually means the browser
+   blocked the cross-site cookie.
+7. Save and reload onboarding preferences to verify PostgreSQL persistence.
+8. Call `POST /api/auth/logout`, then confirm `/api/auth/me` is anonymous and
+   the session cookie is removed.
+9. Check that API responses include exactly the configured
+   `Access-Control-Allow-Origin` value and
+   `Access-Control-Allow-Credentials: true`.
+10. Repeat the login check in Safari. If it fails only there, move to owned
+    sibling domains or a same-origin API proxy instead of weakening cookie
+    security.
 
 ## Deployment risks
 
 - A fresh hosted PostgreSQL database will be empty until setup and pipeline refresh run.
+- `create_all()` creates a fresh schema but does not migrate existing tables.
+  Before reusing a database across releases, add and run versioned migrations
+  (for example Alembic); otherwise new auth columns can be missing.
 - `GDELT` can return `429` or timeout and should remain non-blocking.
 - `GEMINI_API_KEY` can stay empty for static briefing fallback until Gemini integration is explicitly enabled.
 - Hosted schedulers or cron jobs are not configured yet; data refresh may need a separate job after the API is live.

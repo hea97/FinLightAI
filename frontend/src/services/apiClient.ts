@@ -1,6 +1,6 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 const USER_ID = import.meta.env.VITE_USER_ID ?? "demo-user";
-const ENABLE_DEV_USER_HEADER = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_USER_HEADER === "true";
+const ENABLE_DEV_USER_HEADER = import.meta.env.DEV;
 
 export function apiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;

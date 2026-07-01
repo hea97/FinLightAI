@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -70,7 +72,16 @@ KST = timezone(timedelta(hours=9))
 
 
 def _is_development_env() -> bool:
-    return get_settings().app_env.lower() in {"local", "development", "dev", "test"}
+    return get_settings().is_development()
+
+
+def _cookie_options() -> dict[str, Any]:
+    settings = get_settings()
+    return {
+        "path": "/",
+        "domain": settings.auth_cookie_domain,
+        "secure": settings.session_cookie_secure(),
+    }
 
 
 def _validate_user_id(user_id: str) -> str:
@@ -117,27 +128,49 @@ def _auth_user_dict(user: UserRecord) -> dict[str, Any]:
 @router.get("/auth/google/login")
 def google_login() -> RedirectResponse:
     settings = get_settings()
+    state = secrets.token_urlsafe(32)
     try:
         url = build_google_authorization_url(
             client_id=settings.google_client_id,
             redirect_uri=settings.google_redirect_uri,
-            state="finlightai-google-login",
+            state=state,
         )
     except AuthConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return RedirectResponse(url, status_code=302)
+    response = RedirectResponse(url, status_code=302)
+    response.set_cookie(
+        settings.oauth_state_cookie_name,
+        state,
+        max_age=600,
+        httponly=True,
+        samesite="lax",
+        **_cookie_options(),
+    )
+    return response
 
 
 @router.get("/auth/google/callback")
 def google_callback(
+    request: Request,
     code: str | None = None,
     error: str | None = None,
+    state: str | None = None,
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     settings = get_settings()
     redirect_base = (settings.frontend_url or "/").rstrip("/")
+    expected_state = request.cookies.get(settings.oauth_state_cookie_name)
+    if not state or not expected_state or not hmac.compare_digest(state, expected_state):
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
     if error:
-        return RedirectResponse(f"{redirect_base}/?auth=error", status_code=302)
+        response = RedirectResponse(f"{redirect_base}/?auth=error", status_code=302)
+        response.delete_cookie(
+            settings.oauth_state_cookie_name,
+            httponly=True,
+            samesite="lax",
+            **_cookie_options(),
+        )
+        return response
     if not code:
         raise HTTPException(status_code=400, detail="Missing Google authorization code")
     try:
@@ -169,13 +202,19 @@ def google_callback(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     response = RedirectResponse(f"{redirect_base}/?auth=google_connected", status_code=302)
+    response.delete_cookie(
+        settings.oauth_state_cookie_name,
+        httponly=True,
+        samesite="lax",
+        **_cookie_options(),
+    )
     response.set_cookie(
         settings.auth_cookie_name,
         session_token,
         max_age=settings.jwt_expire_minutes * 60,
         httponly=True,
-        secure=not _is_development_env(),
-        samesite="lax",
+        samesite=settings.session_cookie_samesite(),
+        **_cookie_options(),
     )
     return response
 
@@ -189,8 +228,14 @@ def auth_me(user: UserRecord | None = Depends(get_optional_session_user)) -> dic
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
 def auth_logout() -> Response:
+    settings = get_settings()
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    response.delete_cookie(get_settings().auth_cookie_name)
+    response.delete_cookie(
+        settings.auth_cookie_name,
+        httponly=True,
+        samesite=settings.session_cookie_samesite(),
+        **_cookie_options(),
+    )
     return response
 
 

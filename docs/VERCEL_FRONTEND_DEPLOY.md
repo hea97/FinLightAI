@@ -22,8 +22,10 @@ Define these in Vercel Project Settings for the frontend project. Do not commit 
 
 ```env
 VITE_API_BASE_URL=https://your-backend-api.example.com
-VITE_USER_ID=demo-user
 ```
+
+Do not set `VITE_USER_ID` or enable `VITE_ENABLE_DEV_USER_HEADER` in
+production. Those values are development-only fallbacks, not authentication.
 
 If `VITE_API_BASE_URL` is empty, frontend API calls use relative `/api` paths. That works only when a backend or proxy is available on the same deployment origin.
 
