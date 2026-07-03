@@ -264,6 +264,17 @@ class UserPreferenceUpdate(ApiModel):
     notification_channels: list[str] | None = Field(default=None, alias="notificationChannels")
 
 
+class EmailSubscriptionUpdate(ApiModel):
+    email: str = Field(min_length=5, max_length=255)
+    consent: bool
+
+
+class EmailSubscriptionResponse(ApiModel):
+    email: str | None
+    status: Literal["inactive", "active"]
+    consented_at: str | None = Field(default=None, alias="consentedAt")
+
+
 class KakaoAlertRule(ApiModel):
     id: str
     icon: str

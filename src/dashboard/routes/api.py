@@ -32,6 +32,7 @@ from src.dashboard.repository import (
     ensure_user,
     get_or_create_oauth_user,
     get_kakao_rules,
+    get_email_subscription,
     get_user_by_id,
     get_user_preference,
     get_user_settings,
@@ -40,6 +41,7 @@ from src.dashboard.repository import (
     list_assets,
     save_user_preference,
     save_user_settings,
+    save_email_subscription,
     update_asset,
     update_kakao_rule,
     update_mypage,
@@ -60,6 +62,8 @@ from src.dashboard.schemas import (
     SettingsUpdate,
     SignalsResponse,
     AuthMeResponse,
+    EmailSubscriptionResponse,
+    EmailSubscriptionUpdate,
     UserPreferenceResponse,
     UserPreferenceUpdate,
 )
@@ -512,6 +516,40 @@ def put_onboarding_preferences(
     return _preference_dict(preference)
 
 
+@router.get("/email-subscription", response_model=EmailSubscriptionResponse)
+def get_email_subscription_view(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    subscription = get_email_subscription(db, user_id)
+    if not subscription:
+        return {"email": None, "status": "inactive", "consentedAt": None}
+    return {
+        "email": subscription.email,
+        "status": subscription.status,
+        "consentedAt": subscription.consented_at.isoformat() if subscription.consented_at else None,
+    }
+
+
+@router.put("/email-subscription", response_model=EmailSubscriptionResponse)
+def put_email_subscription(
+    payload: EmailSubscriptionUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    email = payload.email.strip().lower()
+    if not payload.consent:
+        raise HTTPException(status_code=400, detail="Email consent is required")
+    if email.count("@") != 1 or "." not in email.rsplit("@", 1)[-1]:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+    subscription = save_email_subscription(db, user_id, email)
+    return {
+        "email": subscription.email,
+        "status": subscription.status,
+        "consentedAt": subscription.consented_at.isoformat() if subscription.consented_at else None,
+    }
+
+
 @router.get("/kakao-alert", response_model=KakaoAlertResponse)
 def get_kakao_alert(
     user_id: str = Depends(get_current_user_id),
@@ -519,12 +557,13 @@ def get_kakao_alert(
 ) -> dict[str, Any]:
     settings = get_settings()
     rules = get_kakao_rules(db, user_id)
+    email_subscription = get_email_subscription(db, user_id)
     kakao_ready = bool(settings.kakao_rest_api_key and settings.kakao_channel_id)
     return {
         "badges": [
-            "Kakao API configured" if kakao_ready else "Kakao key pending",
+            "Email letter active" if email_subscription else "Email letter ready",
+            "Kakao API configured" if kakao_ready else "Kakao approval pending",
             "Alert rules persisted",
-            "Test send available after OAuth",
         ],
         "rules": [{"id": rule.rule_id, "icon": rule.icon, "label": rule.label, "enabled": rule.enabled} for rule in rules],
         "questions": [
@@ -540,12 +579,20 @@ def get_kakao_alert(
                 "value": "Configured" if kakao_ready else "Application required",
                 "health": "connected" if kakao_ready else "ready",
             },
+            {
+                "id": "email",
+                "icon": "MAIL",
+                "label": "Email Letter",
+                "value": email_subscription.email if email_subscription else "Ready to subscribe",
+                "health": "connected" if email_subscription else "normal",
+            },
             {"id": "api", "icon": "FL", "label": "FinLightAI API", "value": "Ready", "health": "normal"},
         ],
         "history": [],
         "flow": [
             {"id": "api", "icon": "FL", "title": "FinLightAI API", "subtitle": "Market/news analysis"},
-            {"id": "kakao", "icon": "K", "title": "Kakao Message", "subtitle": "Send after key setup"},
+            {"id": "email", "icon": "MAIL", "title": "Email Letter", "subtitle": "Primary delivery channel"},
+            {"id": "kakao", "icon": "K", "title": "Kakao Message", "subtitle": "Enable after channel approval"},
         ],
         "previewMessages": [
             {
@@ -579,6 +626,7 @@ def get_mypage(
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     user = ensure_user(db, user_id)
+    email_subscription = get_email_subscription(db, user_id)
     return {
         "profile": {
             "username": user.username,
@@ -590,13 +638,20 @@ def get_mypage(
             "channelConnected": user.channel_connected,
         },
         "metrics": [
-            {"id": "weekly-alerts", "icon": "ALERT", "label": "Weekly alerts", "value": "0", "helper": "Kakao pending"},
+            {"id": "weekly-alerts", "icon": "ALERT", "label": "Weekly alerts", "value": "0", "helper": "Email first · Kakao pending"},
             {"id": "industries", "icon": "IND", "label": "Watched industries", "value": "3", "helper": "Semiconductor, AI, Policy"},
         ],
         "alertSettings": user.alert_settings,
         "interests": user.interests,
         "connections": [
             {"id": "api", "icon": "FL", "label": "FinLightAI API", "status": "connected", "statusLabel": "Connected"},
+            {
+                "id": "email",
+                "icon": "MAIL",
+                "label": "Email Letter",
+                "status": "connected" if email_subscription else "normal",
+                "statusLabel": "Subscribed" if email_subscription else "Ready",
+            },
             {"id": "news", "icon": "G", "label": "GDELT", "status": "normal", "statusLabel": "Ready"},
         ],
         "activities": [{"id": "a1", "icon": "API", "title": "GDELT real API endpoint prepared", "timestamp": _now_label()}],
@@ -689,6 +744,7 @@ def get_settings_view(
             {"id": "data", "icon": "DATA", "title": "Data collection", "value": "Partially connected", "description": "GDELT real API is available.", "tone": "normal"},
             {"id": "api", "icon": "API", "title": "API integration", "value": f"{connected_count} / {len(api_connections)} connected", "description": "Credential-based APIs are waiting for keys.", "tone": "warning"},
             {"id": "guard", "icon": "GUARD", "title": "News Guard", "value": "Basic", "description": "Source and URL based scoring.", "tone": "strict"},
+            {"id": "email", "icon": "MAIL", "title": "Email letter", "value": "Ready", "description": "Primary alert channel while Kakao approval is pending.", "tone": "normal"},
             {"id": "kakao", "icon": "K", "title": "Kakao alerts", "value": "Application required", "description": "Connect after Kakao developer/business setup.", "tone": "warning"},
         ],
         "dataCollection": stored["dataCollection"],

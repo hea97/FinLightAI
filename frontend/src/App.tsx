@@ -11,12 +11,14 @@ import {
   type NewsImpact,
   type Tone,
 } from "./data/mockData";
+import { newsGuardMock } from "./data/newsGuard.mock";
 import { fetchCurrentUser, logout, redirectToGoogleLogin, saveOnboardingPreferences } from "./services/authApi";
 import { fetchBriefingData } from "./services/briefingApi";
 import { fetchIndustryImpactData } from "./services/industryImpactApi";
 import { fetchKakaoAlertData, updateKakaoAlertRule } from "./services/kakaoAlertApi";
 import { fetchMyPageData, updateMyPageData } from "./services/myPageApi";
 import { fetchNewsGuardData } from "./services/newsGuardApi";
+import { fetchEmailSubscription, saveEmailSubscription } from "./services/newsletterApi";
 import { createPortfolioAsset, deletePortfolioAsset, fetchPortfolioData, updatePortfolioAsset } from "./services/portfolioApi";
 import { fetchSettingsData, saveSettingsData } from "./services/settingsApi";
 import type { BriefingResponse } from "./types/briefing";
@@ -265,6 +267,8 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [authState, setAuthState] = useState<AuthMeResponse>({ authenticated: false, user: null });
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState(() => window.localStorage.getItem("finlight-newsletter-email") ?? "");
 
   const currentMarket = marketData[marketTab];
   const selectedIndustry = useMemo(
@@ -289,6 +293,21 @@ function App() {
       .catch((error) => {
         if (!ignore) setAuthError(error instanceof Error ? error.message : "Auth state check failed");
       });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    fetchEmailSubscription()
+      .then((subscription) => {
+        if (!ignore && subscription.status === "active" && subscription.email) {
+          setNewsletterEmail(subscription.email);
+          window.localStorage.setItem("finlight-newsletter-email", subscription.email);
+        }
+      })
+      .catch(() => undefined);
     return () => {
       ignore = true;
     };
@@ -319,6 +338,13 @@ function App() {
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Logout failed");
     }
+  }
+
+  async function subscribeNewsletter(email: string) {
+    const subscription = await saveEmailSubscription(email);
+    const savedEmail = subscription.email ?? email;
+    setNewsletterEmail(savedEmail);
+    window.localStorage.setItem("finlight-newsletter-email", savedEmail);
   }
 
   const publicPath = window.location.pathname;
@@ -379,8 +405,13 @@ function App() {
               </div>
             ) : null}
           </div>
-          <button className="icon-button" type="button" onClick={() => setView("kakao")} aria-label="카카오 및 시장 알림">
-            ♡<span className="notification-dot">3</span>
+          <button
+            className={`icon-button newsletter-heart ${newsletterEmail ? "active" : ""}`}
+            type="button"
+            onClick={() => setIsEmailModalOpen(true)}
+            aria-label="이메일 레터 수신 설정"
+          >
+            {newsletterEmail ? "♥" : "♡"}<span className="notification-dot">{newsletterEmail ? "✓" : "3"}</span>
           </button>
           <button className="user-menu" type="button" onClick={() => setView("mypage")}>
             <span className="avatar">{authState.user?.nickname?.slice(0, 1).toUpperCase() ?? "U"}</span>
@@ -395,7 +426,7 @@ function App() {
               IN
             </button>
           )}
-          <SignalTrafficLight signal="yellow" onClick={() => setView("guard")} />
+          <SignalTrafficLight signal={import.meta.env.DEV ? "red" : "yellow"} onClick={() => setView("guard")} />
         </div>
 
       </header>
@@ -421,16 +452,125 @@ function App() {
               onIndustryClick={handleIndustryClick}
             />
           )}
-          {view === "portfolio" && <PortfolioPage onViewChange={setView} />}
-          {view === "kakao" && <KakaoAlertPage />}
-          {view === "mypage" && <MyPageDashboard onViewChange={setView} />}
-          {view === "settings" && <SettingsDashboard />}
-          {view === "login" && <GoogleAuthFlowView authError={authError} onViewChange={setView} />}
+          {view === "portfolio" && <PortfolioPage newsletterEmail={newsletterEmail} onOpenNewsletter={() => setIsEmailModalOpen(true)} onViewChange={setView} />}
+          {view === "kakao" && <KakaoAlertPage newsletterEmail={newsletterEmail} onOpenNewsletter={() => setIsEmailModalOpen(true)} />}
+          {view === "mypage" && <MyPageDashboard newsletterEmail={newsletterEmail} onOpenNewsletter={() => setIsEmailModalOpen(true)} onViewChange={setView} />}
+          {view === "settings" && <SettingsDashboard newsletterEmail={newsletterEmail} onOpenNewsletter={() => setIsEmailModalOpen(true)} />}
+          {view === "login" && <GoogleAuthFlowView authError={authError} newsletterEmail={newsletterEmail} onOpenNewsletter={() => setIsEmailModalOpen(true)} onViewChange={setView} />}
         </main>
       )}
 
+      {isEmailModalOpen ? (
+        <NewsletterModal
+          email={newsletterEmail}
+          onClose={() => setIsEmailModalOpen(false)}
+          onSubscribe={subscribeNewsletter}
+        />
+      ) : null}
       <div className="prototype-chip">FinLightAI High-Fidelity UI Prototype · v3</div>
     </div>
+  );
+}
+
+function NewsletterModal({
+  email,
+  onClose,
+  onSubscribe,
+}: {
+  email: string;
+  onClose: () => void;
+  onSubscribe: (email: string) => Promise<void>;
+}) {
+  const [draftEmail, setDraftEmail] = useState(email);
+  const [isSubscribed, setIsSubscribed] = useState(Boolean(email));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalized = draftEmail.trim();
+    if (!normalized) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onSubscribe(normalized);
+      setDraftEmail(normalized);
+      setIsSubscribed(true);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "이메일 구독 정보를 저장하지 못했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop newsletter-backdrop" role="presentation">
+      <section className="newsletter-modal" role="dialog" aria-modal="true" aria-labelledby="newsletter-title">
+        <button className="newsletter-close" type="button" onClick={onClose} aria-label="이메일 레터 창 닫기">×</button>
+        <span className="newsletter-mark">♥</span>
+        {isSubscribed ? (
+          <div className="newsletter-success">
+            <span>✓</span>
+            <h2 id="newsletter-title">레터 수신 준비가 완료됐어요</h2>
+            <p><strong>{draftEmail}</strong>로 RED/YELLOW 신호와 핵심 뉴스 요약을 보내드릴 예정입니다.</p>
+            <button type="button" onClick={onClose}>대시보드로 돌아가기</button>
+            <small>구독 정보가 로컬 API와 DB에 저장되었습니다. 실제 메일 발송은 발송 서비스 연결 후 활성화됩니다.</small>
+          </div>
+        ) : (
+          <>
+            <p className="newsletter-eyebrow">FINLIGHT LETTER</p>
+            <h2 id="newsletter-title">중요한 신호만, 이메일로 받아보세요</h2>
+            <p>카카오 채널 승인 전에도 시장 위험 신호와 뉴스 가드 요약을 놓치지 않도록 보내드릴게요.</p>
+            <div className="newsletter-benefits">
+              <span>RED 신호 즉시 알림</span>
+              <span>매일 아침 AI 브리핑</span>
+              <span>포트폴리오 관련 뉴스</span>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <label>
+                이메일 주소
+                <input
+                  required
+                  type="email"
+                  value={draftEmail}
+                  placeholder="finlight@example.com"
+                  onChange={(event) => setDraftEmail(event.target.value)}
+                />
+              </label>
+              <label className="newsletter-consent">
+                <input required type="checkbox" />
+                <span>이메일 레터 수신과 개인정보 이용 안내에 동의합니다.</span>
+              </label>
+              {saveError ? <p className="newsletter-error" role="alert">{saveError}</p> : null}
+              <button type="submit" disabled={isSaving}>{isSaving ? "저장 중..." : "무료로 레터 받기"}</button>
+            </form>
+            <small>언제든 설정 또는 마이페이지에서 수신을 변경할 수 있습니다.</small>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function EmailDeliveryCard({
+  email,
+  onOpen,
+  compact = false,
+}: {
+  email: string;
+  onOpen: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <section className={`panel email-delivery-card ${compact ? "compact" : ""}`}>
+      <div className="email-delivery-icon">✉</div>
+      <div>
+        <span>EMAIL LETTER</span>
+        <h2>{email ? "이메일 레터 수신 중" : "카카오 승인 전, 이메일로 먼저 받아보세요"}</h2>
+        <p>{email ? `${email} · RED/YELLOW 신호, 뉴스 가드, 포트폴리오 요약` : "하트를 누르고 이메일을 남기면 핵심 신호와 브리핑을 받아볼 수 있습니다."}</p>
+      </div>
+      <button type="button" onClick={onOpen}>{email ? "수신 정보 변경" : "♥ 레터 받기"}</button>
+    </section>
   );
 }
 
@@ -531,20 +671,43 @@ function BriefingDashboard({
     };
   }, []);
 
-  const briefingSignal = briefingData?.signal ?? "YELLOW";
-  const briefingRisk = briefingData?.riskScore ?? currentMarket.risk;
-  const briefingTitle = briefingData?.headline ?? currentMarket.title;
+  const isLocalDemo = import.meta.env.DEV;
+  const briefingSignal = isLocalDemo ? "RED" : (briefingData?.signal ?? "YELLOW");
+  const briefingRisk = isLocalDemo ? 76 : (briefingData?.riskScore ?? currentMarket.risk);
+  const briefingTitle = isLocalDemo
+    ? "주의·차단 뉴스 비중이 높아 시장 위험 신호가 강화됐습니다."
+    : (briefingData?.headline ?? currentMarket.title);
   const briefingSummary = briefingData?.summary.map((text) => ({ text, tone: "neutral" as Tone })) ?? currentMarket.briefing;
   const briefingUpdatedAt = briefingData?.lastUpdated ?? briefingData?.asOf ?? currentMarket.updatedAt;
-  const briefingDescription = briefingData?.summary[0] ?? currentMarket.description;
-  const showMockReferencePanels = false;
+  const briefingDescription = isLocalDemo
+    ? "주의 뉴스 25.0%, 차단 뉴스 9.4%가 감지되어 단기 변동성과 출처 검증 필요성이 커진 상태입니다."
+    : (briefingData?.summary[0] ?? currentMarket.description);
+  const showMockReferencePanels = isLocalDemo;
+  const demoNews = briefingData?.keyNews.length
+    ? briefingData.keyNews.slice(0, 5).map((item, index): NewsImpact => {
+        const title = item.title.toLowerCase();
+        const sector = title.includes("semiconductor") || title.includes("chip") || title.includes("nvidia")
+          ? "반도체"
+          : title.includes("ai")
+            ? "AI"
+            : "기술";
+        const demoImpacts = [78, 66, -58, 54, 42];
+
+        return {
+          title: item.title,
+          impact: demoImpacts[index] ?? 40,
+          trust: item.reliabilityScore >= 0.85 ? "신뢰 높음" : "신뢰 보통",
+          sector,
+        };
+      })
+    : currentMarket.news;
 
   return (
     <main className="dashboard">
       <PageHeader title={viewCopy.briefing.title} description={viewCopy.briefing.subtitle} />
       <PipelineStatusBar metadata={briefingFailed ? null : briefingData} />
       <p className="mock-disclosure">
-        실제 API 데이터와 static briefing fallback만 표시합니다. 연결되지 않은 demo/mock 시장 패널은 숨겨져 있습니다.
+        로컬 캡처용 데모 화면입니다. 최신 저장 뉴스 제목을 사용하며 영향도·시장지표·산업점수는 디자인 확인용 예시 값입니다.
       </p>
 
       <section className="panel market-signal">
@@ -553,10 +716,10 @@ function BriefingDashboard({
           <span>업데이트 {briefingUpdatedAt}</span>
         </div>
         <div className="signal-content">
-          <div className="signal-badge" aria-label="주의 신호">
-            <span>!</span>
+          <div className={`signal-badge ${briefingSignal.toLowerCase()}`} aria-label={`${briefingSignal === "RED" ? "위험" : "주의"} 신호`}>
+            <span>{briefingSignal === "RED" ? "!!" : "!"}</span>
             <strong>{briefingSignal}</strong>
-            <em>주의</em>
+            <em>{briefingSignal === "RED" ? "위험" : "주의"}</em>
           </div>
           <div className="signal-copy">
             <h3>{briefingTitle}</h3>
@@ -618,7 +781,7 @@ function BriefingDashboard({
         </button>
       </section>
 
-      <NewsTopPanel news={currentMarket.news} />
+      <NewsTopPanel news={demoNews} />
 
       <IndustryHeatmapPanel selectedIndustryId={selectedIndustryId} onIndustryClick={onIndustryClick} />
 
@@ -793,7 +956,26 @@ function NewsGuardPage() {
       setIsLoading(true);
       try {
         const result = await fetchNewsGuardData(filter);
-        if (!ignore) setData(result);
+        if (!ignore) {
+          if (import.meta.env.DEV) {
+            const representativeArticles = newsGuardMock.articles;
+            const filteredArticles = filter === "all"
+              ? representativeArticles
+              : representativeArticles.filter((article) => article.reliabilityLevel === filter);
+
+            setData({
+              ...newsGuardMock,
+              articles: filteredArticles,
+              dataSource: "mixed",
+              providers: ["TechCrunch", "NVIDIA Blog"],
+              isFallback: true,
+              lastUpdated: "2026-07-02 (원문 링크 수동 확인)",
+              warnings: ["기사 제목·발행일·URL은 원문 기준이며, 신뢰도·영향도 점수는 로컬 데모 분류입니다."],
+            });
+          } else {
+            setData(result);
+          }
+        }
       } finally {
         if (!ignore) setIsLoading(false);
       }
@@ -908,7 +1090,7 @@ function NewsGuardArticleCard({ article }: { article: NewsArticle }) {
       <div className="news-card-body">
         <h2>{article.title}</h2>
         <div className="news-meta">
-          <span>{article.source} · {article.provider ?? article.source} · {article.qualityStatus ?? "mock"}</span>
+          <span>{article.source} · {article.provider ?? article.source} · {article.qualityStatus ?? "데모 분류"}</span>
           <span>·</span>
           <span>{article.publishedAgo}</span>
         </div>
@@ -935,7 +1117,19 @@ function NewsGuardArticleCard({ article }: { article: NewsArticle }) {
         </div>
       </div>
 
-      <a className="external-link" href={article.originalUrl ?? "#"} aria-label="원문 확인">↗</a>
+      {article.originalUrl ? (
+        <a
+          className="external-link"
+          href={article.originalUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label={`${article.title} 원문 확인`}
+        >
+          원문 확인 ↗
+        </a>
+      ) : (
+        <span className="external-link unavailable">원문 링크 없음</span>
+      )}
     </article>
   );
 }
@@ -1119,7 +1313,7 @@ function IndustryImpactPage({
     return () => {
       mounted = false;
     };
-  }, [activeIndustryId]);
+  }, []);
 
   if (isLoading || !industryData) {
     return (
@@ -1353,7 +1547,15 @@ const emptyAssetDraft: PortfolioAssetDraft = {
   decisionMemo: "",
 };
 
-function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
+function PortfolioPage({
+  newsletterEmail,
+  onOpenNewsletter,
+  onViewChange,
+}: {
+  newsletterEmail: string;
+  onOpenNewsletter: () => void;
+  onViewChange: (view: ViewId) => void;
+}) {
   const [portfolioData, setPortfolioData] = useState<PortfolioResponse | null>(null);
   const [assets, setAssets] = useState<PortfolioAsset[]>([]);
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
@@ -1371,6 +1573,9 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
         if (!mounted) return;
         setPortfolioData(data);
         setAssets(data.assets);
+      })
+      .catch((error) => {
+        if (mounted) setApiError(error instanceof Error ? error.message : "포트폴리오 데이터를 불러오지 못했습니다.");
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
@@ -1462,6 +1667,7 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
       {apiError ? <p className="api-error" role="alert">{apiError}</p> : null}
 
       <PortfolioSummaryCards summary={summary} />
+      <EmailDeliveryCard email={newsletterEmail} onOpen={onOpenNewsletter} compact />
 
       <section className="panel portfolio-assets-panel">
         <div className="portfolio-section-head">
@@ -1863,7 +2069,7 @@ function KakaoChannelView({ onViewChange }: { onViewChange: (view: ViewId) => vo
   );
 }
 
-function KakaoAlertPage() {
+function KakaoAlertPage({ newsletterEmail, onOpenNewsletter }: { newsletterEmail: string; onOpenNewsletter: () => void }) {
   const [alertData, setAlertData] = useState<KakaoAlertResponse | null>(null);
   const [rules, setRules] = useState<KakaoAlertRule[]>([]);
   const [activeQuestionId, setActiveQuestionId] = useState("q1");
@@ -1878,6 +2084,9 @@ function KakaoAlertPage() {
         if (!mounted) return;
         setAlertData(data);
         setRules(data.rules);
+      })
+      .catch((error) => {
+        if (mounted) setApiError(error instanceof Error ? error.message : "알림 데이터를 불러오지 못했습니다.");
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
@@ -1916,6 +2125,14 @@ function KakaoAlertPage() {
       <PageHeader title={viewCopy.kakao.title} description={viewCopy.kakao.subtitle} />
       {apiError ? <p className="api-error" role="alert">{apiError}</p> : null}
       <KakaoSummaryCard badges={alertData.badges} />
+      <section className="notification-channel-grid">
+        <article className="panel notification-channel-card pending">
+          <span>TALK</span>
+          <div><h2>카카오 채널</h2><p>채널 승인 및 메시지 템플릿 검토 대기 중</p></div>
+          <em>승인 대기</em>
+        </article>
+        <EmailDeliveryCard email={newsletterEmail} onOpen={onOpenNewsletter} compact />
+      </section>
 
       <section className="kakao-main-grid">
         <div className="kakao-alert-column">
@@ -1940,9 +2157,9 @@ function KakaoSummaryCard({ badges }: { badges: string[] }) {
     <section className="panel kakao-summary-card">
       <div>
         <h2>카카오 알림 상태</h2>
-        <p>{badges.join(" · ")} · 마지막 테스트 2분 전</p>
+        <p>{badges.join(" · ")}</p>
       </div>
-      <button type="button">테스트 실행</button>
+      <button type="button" disabled>승인 후 테스트</button>
     </section>
   );
 }
@@ -1952,7 +2169,7 @@ function KakaoMessagePreviewCard({ messages }: { messages: KakaoPreviewMessage[]
     <section className="panel kakao-preview-card">
       <div className="kakao-card-head">
         <h2>카카오 메시지 미리보기</h2>
-        <span>실제 발송 예시</span>
+        <span>UI 데모</span>
       </div>
       <div className="phone-frame" aria-label="카카오톡 메시지 미리보기">
         <div className="phone-top">
@@ -1973,7 +2190,7 @@ function KakaoMessagePreviewCard({ messages }: { messages: KakaoPreviewMessage[]
           ))}
         </div>
       </div>
-      <small>실제 카카오톡 채널 대화창과 동일한 형식으로 발송됩니다.</small>
+      <small>승인 전 화면 검토용 미리보기입니다. 현재 실제 카카오 메시지는 발송하지 않습니다.</small>
     </section>
   );
 }
@@ -1984,7 +2201,7 @@ function AlertRuleSettingsCard({ rules, onToggle }: { rules: KakaoAlertRule[]; o
       <div className="kakao-card-head">
         <div>
           <h2>알림 조건 설정</h2>
-          <p>선택한 조건에 해당할 때 카카오톡으로 알림을 보내드립니다.</p>
+          <p>현재는 이메일 레터에 먼저 적용하며, 카카오 승인 후 같은 조건으로 확장합니다.</p>
         </div>
         <button type="button">설정 관리</button>
       </div>
@@ -2031,7 +2248,7 @@ function KakaoIntegrationStatusCard({ integrations }: { integrations: KakaoInteg
     <section className="panel kakao-integration-card">
       <div className="kakao-card-head">
         <h2>연동 상태</h2>
-        <span>마지막 확인 2분 전</span>
+        <span>로컬 API 기준</span>
       </div>
       <div className="integration-list">
         {integrations.map((integration) => (
@@ -2042,7 +2259,7 @@ function KakaoIntegrationStatusCard({ integrations }: { integrations: KakaoInteg
           </article>
         ))}
       </div>
-      <button type="button">테스트 실행</button>
+      <button type="button" disabled>카카오 승인 대기</button>
     </section>
   );
 }
@@ -2051,7 +2268,7 @@ function RecentAlertHistoryCard({ history }: { history: KakaoAlertHistoryItem[] 
   return (
     <section className="panel recent-alert-card">
       <div className="kakao-card-head">
-        <h2>최근 발송 내역</h2>
+        <h2>최근 발송 준비 내역</h2>
         <button type="button">전체 보기 →</button>
       </div>
       <div className="alert-history-table">
@@ -2080,7 +2297,7 @@ function AlertFlowCard({ flow }: { flow: KakaoFlowStep[] }) {
       <div className="kakao-card-head">
         <div>
           <h2>알림 발송 흐름도</h2>
-          <p>사용자 질문 또는 알림 조건 감지 후 카카오톡 메시지가 발송되는 과정입니다.</p>
+          <p>이메일을 우선 전달하고, 카카오 승인 후 같은 분석 결과를 카카오 메시지로 확장합니다.</p>
         </div>
       </div>
       <div className="alert-flow-steps">
@@ -2095,7 +2312,7 @@ function AlertFlowCard({ flow }: { flow: KakaoFlowStep[] }) {
           </div>
         ))}
       </div>
-      <p>사용자 질문/조건 감지 → n8n Webhook → FinLightAI 분석 → 응답 가공 → 카카오톡 발송</p>
+      <p>조건 감지 → FinLightAI 분석 → 이메일 레터 발송 → 카카오 승인 후 메시지 채널 추가</p>
     </section>
   );
 }
@@ -2117,8 +2334,12 @@ function MyPageView({ onViewChange }: { onViewChange: (view: ViewId) => void }) 
 }
 
 function MyPageDashboard({
+  newsletterEmail,
+  onOpenNewsletter,
   onViewChange,
 }: {
+  newsletterEmail: string;
+  onOpenNewsletter: () => void;
   onViewChange: (view: ViewId) => void;
 }) {
   const [myPageData, setMyPageData] = useState<MyPageResponse | null>(null);
@@ -2139,6 +2360,9 @@ function MyPageDashboard({
         setMyPageData(data);
         setAlertSettings(data.alertSettings);
         setInterests(data.interests);
+      })
+      .catch((error) => {
+        if (mounted) setApiError(error instanceof Error ? error.message : "마이페이지 데이터를 불러오지 못했습니다.");
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
@@ -2217,6 +2441,7 @@ function MyPageDashboard({
       <PageHeader title={viewCopy.mypage.title} description={viewCopy.mypage.subtitle} />
       {apiError ? <p className="api-error" role="alert">{apiError}</p> : null}
       <GuideCard body={myPageData.guide.body} ctaLabel={myPageData.guide.ctaLabel} title={myPageData.guide.title} />
+      <EmailDeliveryCard email={newsletterEmail} onOpen={onOpenNewsletter} />
       <section className="mypage-top-row">
         <MyPageProfileCard profile={myPageData.profile} />
         <MyPageMetricCards metrics={myPageData.metrics} />
@@ -2446,7 +2671,7 @@ function SettingsView() {
   );
 }
 
-function SettingsDashboard() {
+function SettingsDashboard({ newsletterEmail, onOpenNewsletter }: { newsletterEmail: string; onOpenNewsletter: () => void }) {
   const [settingsData, setSettingsData] = useState<SettingsResponse | null>(null);
   const [dataCollection, setDataCollection] = useState<DataCollectionSettings | null>(null);
   const [newsGuard, setNewsGuard] = useState<NewsGuardSettings | null>(null);
@@ -2548,6 +2773,7 @@ function SettingsDashboard() {
         )}
       />
       <SettingsStatusCards cards={loadedSettings.statusCards} />
+      <EmailDeliveryCard email={newsletterEmail} onOpen={onOpenNewsletter} />
       <section className="settings-grid">
         <DataCollectionSettingsCard data={dataCollection} onAddKeyword={addKeyword} onRemoveKeyword={removeKeyword} onToggleFlag={toggleDataFlag} />
         <NewsGuardFilterSettingsCard newsGuard={newsGuard} onModeChange={updateNewsGuardMode} />
@@ -2748,7 +2974,17 @@ function SettingsSliderRow({ label, max = 1, value }: { label: string; max?: num
 
 type AuthStep = "login" | "signup" | "complete";
 
-function GoogleAuthFlowView({ authError, onViewChange }: { authError: string | null; onViewChange: (view: ViewId) => void }) {
+function GoogleAuthFlowView({
+  authError,
+  newsletterEmail,
+  onOpenNewsletter,
+  onViewChange,
+}: {
+  authError: string | null;
+  newsletterEmail: string;
+  onOpenNewsletter: () => void;
+  onViewChange: (view: ViewId) => void;
+}) {
   const [selectedIndustries, setSelectedIndustries] = useState(["Semiconductor", "AI"]);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const industryOptions = ["Semiconductor", "AI", "Policy/Regulation", "Finance"];
@@ -2778,10 +3014,10 @@ function GoogleAuthFlowView({ authError, onViewChange }: { authError: string | n
     <section className="auth-flow-shell">
       <div className="auth-flow-heading">
         <div>
-          <h1>FinLightAI Google Auth Flow</h1>
-          <p>LOGIN · ONBOARDING · MY PAGE</p>
+          <h1>FinLightAI 시작하기</h1>
+          <p>LOGIN · PERSONALIZE · STAY INFORMED</p>
         </div>
-        <span>Google OAuth is the MVP login path. Kakao alerts remain a later integration.</span>
+        <span>Google 계정으로 로그인하고 이메일 레터로 중요한 금융 신호를 이어서 받아보세요.</span>
       </div>
       {authError ? <p className="api-error" role="alert">{authError}</p> : null}
       {onboardingError ? <p className="api-error" role="alert">{onboardingError}</p> : null}
@@ -2790,17 +3026,22 @@ function GoogleAuthFlowView({ authError, onViewChange }: { authError: string | n
         <AuthCardFrame label="Google Login" path="/api/auth/google/login">
           <div className="auth-login-hero">
             <p>AI FINANCIAL SIGNAL BOARD</p>
-            <h2>Continue with Google</h2>
-            <small>Login with Google, then save market and industry onboarding preferences to your FinLightAI user profile.</small>
+            <h2>복잡한 금융 뉴스를<br /><span>신호와 근거로</span><br />확인하세요.</h2>
+            <small>한 번의 로그인으로 관심 산업, 포트폴리오, 뉴스 가드와 알림 수신 설정을 연결합니다.</small>
+          </div>
+          <div className="auth-signal-strip">
+            <strong><span>76</span>오늘 시장 위험도</strong>
+            <strong><span>32</span>주의 뉴스</strong>
+            <strong><span>12</span>차단 뉴스</strong>
           </div>
           <div className="auth-paper-card">
             <div className="auth-paper-head">
-              <h3>Login</h3>
-              <span>OAuth 2.0</span>
+              <h3>로그인</h3>
+              <span>안전한 OAuth 2.0</span>
             </div>
-            <p>Google OAuth callback is handled by the FastAPI backend.</p>
-            <button className="auth-kakao-btn" type="button" onClick={redirectToGoogleLogin}>Google 로그인</button>
-            <small>Secrets stay on the backend. Vercel only receives browser-safe VITE variables.</small>
+            <p>Google 계정으로 빠르고 안전하게 시작합니다.</p>
+            <button className="auth-secondary-btn" type="button" onClick={redirectToGoogleLogin}>G&nbsp;&nbsp;Google로 계속하기</button>
+            <small>로그인 정보는 인증 목적으로만 사용되며 투자 추천을 제공하지 않습니다.</small>
           </div>
         </AuthCardFrame>
 
@@ -2820,6 +3061,7 @@ function GoogleAuthFlowView({ authError, onViewChange }: { authError: string | n
           </div>
         </AuthCardFrame>
       </div>
+      <EmailDeliveryCard email={newsletterEmail} onOpen={onOpenNewsletter} />
     </section>
   );
 }

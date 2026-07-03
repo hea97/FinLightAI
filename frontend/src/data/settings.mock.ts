@@ -3,13 +3,14 @@ import type { SettingsResponse } from "../types/settings";
 export const settingsMock: SettingsResponse = {
   statusCards: [
     { id: "data", icon: "☁", title: "데이터 수집 상태", value: "정상", description: "모든 데이터 소스가 정상 작동 중", tone: "normal" },
+    { id: "email", icon: "✉", title: "이메일 레터", value: "수신 가능", description: "카카오 승인 전 기본 알림 채널", tone: "connected" },
     {
       id: "kakao",
       icon: "♢",
       title: "카카오톡 채널 수신 방식",
-      value: "채널 봇 추가",
-      description: "FinLightAI 카카오 채널 봇을 추가하면 알림을 받을 수 있습니다.",
-      tone: "connected",
+      value: "승인 대기",
+      description: "승인 완료 전에는 이메일 레터로 먼저 알림을 받을 수 있습니다.",
+      tone: "warning",
     },
     { id: "guard", icon: "◇", title: "뉴스 가드 필터", value: "엄격", description: "저신뢰 뉴스 차단 수준: 높음", tone: "strict" },
     { id: "api", icon: "</>", title: "API 연동", value: "7 / 10 연결", description: "일부 API가 비활성화되어 있습니다.", tone: "warning" },

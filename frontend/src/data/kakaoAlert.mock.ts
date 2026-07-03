@@ -1,7 +1,7 @@
 import type { KakaoAlertResponse } from "../types/kakaoAlert";
 
 export const kakaoAlertMock: KakaoAlertResponse = {
-  badges: ["카카오 채널 연결됨", "n8n Webhook 정상", "테스트 가능"],
+  badges: ["카카오 채널 승인 대기", "이메일 레터 수신 가능", "n8n Webhook 정상"],
   rules: [
     { id: "market-risk", icon: "▥", label: "시장 위험도 70 이상", enabled: true },
     { id: "industry-impact", icon: "▣", label: "관심 산업 영향도 ±60 이상", enabled: true },
@@ -18,7 +18,8 @@ export const kakaoAlertMock: KakaoAlertResponse = {
     { id: "q5", label: "RED 신호 이유가 뭐야?" },
   ],
   integrations: [
-    { id: "channel", icon: "☁", label: "카카오 채널", value: "연결됨", health: "connected" },
+    { id: "email", icon: "✉", label: "이메일 레터", value: "수신 가능", health: "connected" },
+    { id: "channel", icon: "☁", label: "카카오 채널", value: "승인 대기", health: "recent" },
     { id: "bot", icon: "☻", label: "챗봇", value: "준비 완료", health: "ready" },
     { id: "webhook", icon: "⌁", label: "n8n Webhook", value: "정상", health: "normal" },
     { id: "api", icon: "▣", label: "FinLightAI API", value: "정상", health: "normal" },

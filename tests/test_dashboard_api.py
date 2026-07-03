@@ -137,6 +137,51 @@ def test_user_settings_and_alert_rules_are_persisted():
     assert mypage.json()["interests"] == ["AI", "Semiconductor"]
 
 
+def test_email_subscription_is_persisted_and_used_as_primary_channel():
+    client = TestClient(app)
+    user_id = f"test-{uuid4().hex}"
+    headers = {"X-User-ID": user_id}
+
+    initial = client.get("/api/email-subscription", headers=headers)
+    assert initial.status_code == 200
+    assert initial.json() == {"email": None, "status": "inactive", "consentedAt": None}
+
+    saved = client.put(
+        "/api/email-subscription",
+        headers=headers,
+        json={"email": "Demo.Letter@Example.com", "consent": True},
+    )
+    assert saved.status_code == 200
+    assert saved.json()["email"] == "demo.letter@example.com"
+    assert saved.json()["status"] == "active"
+    assert saved.json()["consentedAt"]
+
+    assert client.get("/api/email-subscription", headers=headers).json()["email"] == "demo.letter@example.com"
+    mypage = client.get("/api/mypage", headers=headers).json()
+    assert mypage["profile"]["alertChannel"] == "Email"
+    assert mypage["profile"]["channelConnected"] is True
+    assert any(item["id"] == "email" and item["statusLabel"] == "Subscribed" for item in mypage["connections"])
+
+
+def test_email_subscription_requires_consent_and_valid_address():
+    client = TestClient(app)
+    headers = {"X-User-ID": f"test-{uuid4().hex}"}
+
+    no_consent = client.put(
+        "/api/email-subscription",
+        headers=headers,
+        json={"email": "letter@example.com", "consent": False},
+    )
+    assert no_consent.status_code == 400
+
+    invalid = client.put(
+        "/api/email-subscription",
+        headers=headers,
+        json={"email": "not-an-email", "consent": True},
+    )
+    assert invalid.status_code == 400
+
+
 def test_dashboard_requests_do_not_mutate_development_database(monkeypatch):
     with SessionLocal() as development_db:
         before = (

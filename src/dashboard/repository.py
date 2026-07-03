@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from src.dashboard.models import (
     DataProviderStatus,
+    EmailSubscription,
     KakaoAlertRule,
     NewsFiltered,
     NewsRaw,
@@ -25,6 +26,7 @@ from src.processor.news_relevance import normalize_title
 
 
 DEFAULT_ALERT_SETTINGS = [
+    {"id": "email", "icon": "MAIL", "title": "Email letter", "description": "Receives market signals and briefings by email.", "enabled": True},
     {"id": "kakao", "icon": "K", "title": "Kakao alerts", "description": "Enabled after Kakao API setup.", "enabled": False},
     {"id": "daily-briefing", "icon": "DAY", "title": "Daily AI briefing", "description": "Summarizes key news every day.", "enabled": True},
     {"id": "red-signal", "icon": "RED", "title": "RED signal alert", "description": "Shows high-risk signals immediately.", "enabled": True, "emphasis": True},
@@ -510,6 +512,37 @@ def save_user_settings(db: Session, user_id: str, payload: SettingsUpdate) -> di
         db.add(UserSettings(user_id=user_id, payload=data))
     db.commit()
     return data
+
+
+def get_email_subscription(db: Session, user_id: str) -> EmailSubscription | None:
+    ensure_user(db, user_id)
+    return db.get(EmailSubscription, user_id)
+
+
+def save_email_subscription(db: Session, user_id: str, email: str) -> EmailSubscription:
+    user = ensure_user(db, user_id)
+    subscription = db.get(EmailSubscription, user_id)
+    now = datetime.now(timezone.utc)
+    if subscription:
+        subscription.email = email
+        subscription.status = "active"
+        subscription.updated_at = now
+    else:
+        subscription = EmailSubscription(
+            user_id=user_id,
+            email=email,
+            status="active",
+            consented_at=now,
+            updated_at=now,
+        )
+        db.add(subscription)
+    user.email = email
+    user.alert_channel = "Email"
+    user.channel_connected = True
+    user.updated_at = now
+    db.commit()
+    db.refresh(subscription)
+    return subscription
 
 
 def _seed_assets(db: Session, user_id: str) -> None:
