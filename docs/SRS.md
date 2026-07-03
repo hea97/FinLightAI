@@ -1,9 +1,9 @@
 # 소프트웨어 요구사항 명세서 (SRS)
 
 **프로젝트명**: FinLightAI
-**버전**: v4.0
-**최종 업데이트**: 2026-07-01
-**상태**: 실제 API 및 Google OAuth 구현 기준
+**버전**: v4.1
+**최종 업데이트**: 2026-07-03
+**상태**: 실제 API, Google OAuth, 이메일 구독 구현 기준
 
 ## 1. 목적과 범위
 
@@ -42,6 +42,8 @@ provider 수집
 | R10 | 카카오 발송 | n8n과 카카오 채널을 통해 메시지를 발송한다. | 미구현 |
 | R11 | 데이터 갱신 | 요청 처리와 분리된 명령으로 파이프라인을 갱신한다. | 구현 |
 | R12 | 운영 배포 | Vercel/Render/PostgreSQL 환경에서 전체 흐름을 검증한다. | 검증 필요 |
+| R13 | 이메일 구독 | 이메일과 수신 동의를 사용자별 저장하고 상태를 조회한다. | 구현 |
+| R14 | 이메일 발송 | 인증, 해지, 발송 및 실패 이력을 관리한다. | 미구현 |
 
 ## 4. 상세 요구사항
 
@@ -108,6 +110,16 @@ provider 수집
 - 실제 카카오 채널 발송과 n8n webhook은 후속 요구사항이다.
 - 메시지에는 상태, 근거, 갱신 시각, 투자 추천 아님 고지를 포함한다.
 
+### 4.8 이메일 레터
+
+- API: `GET/PUT /api/email-subscription`
+- 이메일 주소는 trim 후 소문자로 정규화한다.
+- 명시적 수신 동의가 없거나 형식이 잘못된 이메일은 `400`으로 거부한다.
+- 구독 상태, 이메일, 동의 시각을 인증 사용자 기준으로 저장한다.
+- 활성 구독은 마이페이지와 알림 화면의 기본 전달 채널로 표시한다.
+- 실제 메일 발송 전에는 UI에 `발송 준비` 또는 `발송 서비스 연결 전` 상태를 표시한다.
+- 운영 전 double opt-in, 수신 거부, 발송 실패, bounce/complaint 요구사항을 구현한다.
+
 ## 5. 데이터 및 API 계약
 
 모든 주요 분석 응답은 가능한 경우 다음 metadata를 포함한다.
@@ -130,8 +142,10 @@ fallbackUsed
 - 개발 환경은 SQLite를 사용할 수 있다.
 - 운영 환경은 `DATABASE_URL` 기반 PostgreSQL을 사용한다.
 - users, preferences, portfolio, settings, alert rules, news, market prices, signals, provider status를 저장한다.
+- email subscriptions에는 user ID, 이메일, 상태, 동의 시각, 변경 시각을 저장한다.
 - 외부 PostgreSQL URL은 psycopg v3 driver 형식으로 정규화한다.
 - 운영 데이터 사용 전 `create_all`을 versioned migration으로 교체해야 한다.
+- 기존 SQLite `users` 테이블은 idempotent 호환 패치로 OAuth 필드를 보완한다.
 
 ## 7. 비기능 요구사항
 
@@ -145,6 +159,7 @@ fallbackUsed
 | NF06 | 반응형 | 모바일/데스크톱에서 overflow와 겹침이 없어야 한다. |
 | NF07 | 테스트 | auth, API, pipeline, DB, settings 회귀 테스트를 유지한다. |
 | NF08 | 규정 표현 | 투자 추천 또는 확정적 수익 표현을 금지한다. |
+| NF09 | 이메일 준수 | 동의, 해지, 개인정보 및 발송 상태를 추적할 수 있어야 한다. |
 
 ## 8. 배포 요구사항
 
@@ -162,3 +177,10 @@ fallbackUsed
 - 거래일 계산은 exchange calendar 도입 전까지 제한이 있다.
 - 무료 provider의 rate limit과 일시 장애가 데이터 최신성에 영향을 줄 수 있다.
 - 자동 뉴스 품질 점수는 사람의 검토를 대체하지 않는다.
+- 이메일 구독 정보는 저장되지만 실제 이메일 발송은 아직 제공하지 않는다.
+
+## 10. 검증 기준
+
+- 2026-07-03 기준 backend test 62개 통과
+- 이메일 구독 저장, 동의 필수, 이메일 형식 오류 테스트 포함
+- frontend TypeScript 검사와 Vite production build 통과

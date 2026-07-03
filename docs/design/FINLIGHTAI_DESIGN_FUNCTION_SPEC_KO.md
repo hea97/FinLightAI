@@ -1,8 +1,8 @@
 # FinLightAI 디자인 기능 명세서
 
 **대상**: 제품 디자이너 및 프론트엔드 개발자
-**최종 업데이트**: 2026-07-01
-**기준**: React 실제 API 연동 및 Google OAuth MVP
+**최종 업데이트**: 2026-07-03
+**기준**: React 실제 API, Google OAuth, 이메일 레터 구독 MVP
 
 ## 1. 디자인 목표
 
@@ -26,6 +26,7 @@
 | 마이페이지 | 프로필과 개인화 상태 | 필요 |
 | 설정 | 데이터/알림/표시 설정 | 필요 |
 | 카카오 알림 | 알림 규칙과 연동 preview | 필요 |
+| 이메일 레터 | 기본 알림 채널 구독과 상태 확인 | 필요 |
 | Google 로그인/온보딩 | 인증과 관심 설정 | 진입 |
 | About/Privacy/Terms | OAuth 공개 정보 | 불필요 |
 
@@ -172,7 +173,26 @@ MVP 로그인은 Google OAuth다. 카카오 OAuth 화면은 실제 진입 경로
 -> 카카오 메시지
 ```
 
-## 12. 공개 OAuth 페이지
+## 12. 이메일 레터
+
+카카오 승인 전 이메일을 기본 전달 채널로 사용한다.
+
+### 구독 modal
+
+- 헤더 하트 버튼으로 열며 구독 후 활성 상태와 완료 badge를 표시한다.
+- 제목, 제공 내용, 이메일 입력, 수신 동의, 구독 CTA를 포함한다.
+- 저장 중에는 중복 제출을 막고 저장 실패 문구를 입력값과 함께 유지한다.
+- 성공 화면에는 저장된 이메일과 `실제 발송 서비스 연결 전` 안내를 표시한다.
+- backdrop, 닫기 버튼, `Escape`, focus 이동 등 dialog 접근성을 제공한다.
+
+### 연결 상태
+
+- 포트폴리오, 마이페이지, 설정, 로그인/온보딩에서 같은 구독 상태를 사용한다.
+- 미구독은 `이메일 레터 받기`, 구독 완료는 이메일과 `구독됨`으로 표시한다.
+- localStorage는 화면 편의를 위한 보조 상태이며 서버 DB 상태를 기준으로 동기화한다.
+- 실제 발송 전에는 `발송 완료`, `메일 전송 중` 같은 표현을 사용하지 않는다.
+
+## 13. 공개 OAuth 페이지
 
 `/about`, `/login`, `/signup`, `/privacy`, `/terms`는 Google OAuth 검토자가 서비스 목적과 데이터 사용을 이해할 수 있어야 한다.
 
@@ -182,7 +202,7 @@ MVP 로그인은 Google OAuth다. 카카오 OAuth 화면은 실제 진입 경로
 - 민감 Google API scope를 사용하지 않음을 명시
 - 모바일 direct URL 접근에서도 정상 표시
 
-## 13. 컴포넌트 상태 목록
+## 14. 컴포넌트 상태 목록
 
 - `SignalBadge`: red/yellow/green + text
 - `DataStatusBanner`: live/fallback/error
@@ -194,10 +214,12 @@ MVP 로그인은 Google OAuth다. 카카오 OAuth 화면은 실제 진입 경로
 - `ConfirmDeleteDialog`
 - `GoogleLoginButton`
 - `OnboardingSelector`
+- `NewsletterModal`
+- `EmailDeliveryCard`
 
 새 컴포넌트를 중첩 카드로 과도하게 감싸지 않는다. 카드 radius는 기존 디자인 시스템을 따르고 반복 항목에만 사용한다.
 
-## 14. 반응형 및 접근성
+## 15. 반응형 및 접근성
 
 - 360px 모바일에서 가로 overflow가 없어야 한다.
 - 표는 핵심 열 우선, 카드 전환 또는 가로 스크롤 정책을 명시한다.
@@ -207,18 +229,20 @@ MVP 로그인은 Google OAuth다. 카카오 OAuth 화면은 실제 진입 경로
 - 점수와 상태는 색상 외 텍스트/아이콘을 함께 제공한다.
 - 긴 한국어/영문 기사 제목과 provider 이름은 wrap 처리한다.
 
-## 15. 디자이너 전달 체크리스트
+## 16. 디자이너 전달 체크리스트
 
 - [ ] Google 로그인 기준으로 인증 화면 수정
 - [ ] loading/empty/fallback/error/auth-required 상태 추가
 - [ ] 모든 분석 화면에 source/provider/갱신 시각 위치 지정
 - [ ] portfolio 가격 출처 label 추가
 - [ ] 카카오 외부 연동을 `준비 중`으로 표시
+- [ ] 이메일 구독 modal의 입력/동의/저장/성공/오류 상태 확인
+- [ ] 이메일 구독과 실제 발송 상태를 명확히 분리
 - [ ] 공개 OAuth 페이지 모바일 레이아웃 확인
 - [ ] 투자 추천 아님 고지 위치 통일
 - [ ] 모바일 360px, 태블릿, 데스크톱 시안 확인
 
-## 16. 구현 참고
+## 17. 구현 참고
 
 - 화면: `frontend/src/App.tsx`
 - 스타일: `frontend/src/styles.css`

@@ -1,7 +1,7 @@
 # API 및 제품 백로그
 
 작성일: 2026-06-23
-최종 업데이트: 2026-07-01
+최종 업데이트: 2026-07-03
 
 ## 현재 완료 범위
 
@@ -17,6 +17,10 @@
 - [x] 사용자 preference 온보딩 저장
 - [x] 인증 사용자 기준 데이터 분리
 - [x] Vercel SPA 및 Render/CORS/PostgreSQL 설정 준비
+- [x] 이메일 구독 조회/저장 API와 DB model
+- [x] 이메일 구독 modal과 주요 화면 상태 연결
+- [x] SQLite 기존 사용자 테이블 OAuth 필드 호환 패치
+- [x] backend test 62개 및 frontend production build 통과
 
 ## P0: 배포 완료
 
@@ -29,6 +33,7 @@
 - [ ] login/callback/me/logout 배포 smoke test
 - [ ] portfolio/preferences/settings 사용자 격리 smoke test
 - [ ] refresh command 정기 스케줄 등록
+- [ ] 이메일 구독 API 배포 smoke test
 
 ## P1: 운영 안정성
 
@@ -38,6 +43,7 @@
 - [ ] GitHub Actions에서 backend test와 frontend build 실행
 - [ ] 세션 만료/로그아웃/교차 origin 쿠키 E2E 테스트
 - [ ] API 오류와 빈 데이터 UI 상태 시각 검증
+- [ ] SQLite 임시 패치를 Alembic 등 versioned migration으로 대체
 
 ## P2: 데이터 확장
 
@@ -49,6 +55,13 @@
 
 ## P3: 알림 확장
 
+- [ ] 이메일 발송 provider 선정(Resend, SES, SendGrid 등)
+- [ ] double opt-in과 인증 token
+- [ ] 수신 거부 및 즉시 해지 API
+- [ ] 일일/주간 레터와 RED/YELLOW 즉시 알림 분리
+- [ ] 발송 성공/실패/bounce/complaint 이력
+- [ ] 개인정보처리방침과 수신 동의 문구 검토
+
 - [ ] 카카오 비즈니스 채널과 챗봇 준비
 - [ ] n8n webhook workflow
 - [ ] 시장 요약/관심 자산 intent
@@ -59,4 +72,5 @@
 
 - Discord 실제 연동은 현재 제품 방향에서 제외한다.
 - 카카오 OAuth 프로토타입은 MVP 인증 경로로 사용하지 않는다.
+- 이메일은 카카오 승인 전 기본 채널이지만 현재 실제 발송은 하지 않는다.
 - `src/dashboard/static/` 레거시 화면은 React 배포 안정화 후 유지 여부를 결정한다.

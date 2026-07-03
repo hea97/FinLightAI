@@ -1,8 +1,8 @@
 # FinLightAI 전체 기획서
 
 작성일: 2026-05-29
-최종 업데이트: 2026-07-01
-문서 상태: 실제 API 및 Google OAuth 구현 반영
+최종 업데이트: 2026-07-03
+문서 상태: 실제 API, Google OAuth, 이메일 구독 구현 반영
 
 ## 1. 한 줄 정의
 
@@ -26,6 +26,7 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 -> AI 브리핑
 -> 뉴스 가드/산업 근거 확인
 -> 관심 자산 등록
+-> 이메일 레터 구독
 -> 설정 및 알림 규칙 관리
 ```
 
@@ -39,6 +40,8 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 | 포트폴리오 CRUD | 구현 | 로그인 사용자별 DB 저장 |
 | 마이페이지/설정 | 구현 | 사용자별 조회 및 변경 |
 | Google OAuth | 구현 | 운영 Google/Render 설정 필요 |
+| 이메일 레터 구독 | 구현 | modal, API, 사용자별 DB 저장 |
+| 이메일 실제 발송 | 미구현 | provider, double opt-in, 해지 필요 |
 | 카카오 알림 규칙 | 구현 | 외부 카카오 메시지 전송은 미연결 |
 | 카카오 챗봇 + n8n | 계획 | OAuth 로그인과 별도 후속 기능 |
 
@@ -85,6 +88,15 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 - 실제 카카오 채널 발송과 n8n workflow는 아직 운영 연결 전이다.
 - 메시지는 투자 행동 유도가 아니라 상태, 근거, 대시보드 CTA로 구성한다.
 
+### 이메일 레터
+
+- 카카오 채널 승인 전 기본 알림 채널로 사용한다.
+- 사용자는 modal에서 이메일과 수신 동의를 제출한다.
+- `GET/PUT /api/email-subscription`으로 사용자별 구독 상태를 조회·저장한다.
+- 구독 완료 상태는 헤더, 포트폴리오, 마이페이지, 설정, 로그인 화면에 일관되게 표시한다.
+- 현재 단계는 구독 정보 저장까지이며 실제 메일 발송 완료로 표현하지 않는다.
+- 운영 전 발송 provider, double opt-in, 수신 거부, bounce/complaint 처리가 필요하다.
+
 ## 6. 기술 및 데이터 구조
 
 프론트엔드:
@@ -108,6 +120,7 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 - 운영은 `DATABASE_URL` 기반 PostgreSQL을 지원한다.
 - 일반 `postgres://`/`postgresql://` URL은 psycopg v3 형식으로 정규화한다.
 - 현재 `create_all` 방식이며 운영 전 versioned migration이 필요하다.
+- 기존 SQLite 사용자 테이블에는 누락 OAuth 컬럼을 보완하는 idempotent 호환 패치를 적용한다.
 
 ## 7. 실제 API
 
@@ -126,6 +139,7 @@ GET  /api/market
 GET/POST          /api/portfolio
 PATCH/DELETE      /api/portfolio/{asset_id}
 GET/PUT           /api/onboarding/preferences
+GET/PUT           /api/email-subscription
 GET/PATCH         /api/mypage
 GET/PUT           /api/settings
 GET               /api/kakao-alert
@@ -146,5 +160,11 @@ PATCH             /api/kakao-alert/rules/{rule_id}
 2. Google OAuth Consent Screen/Client 등록
 3. 배포 로그인과 사용자별 API smoke test
 4. 데이터 refresh scheduler 구성
-5. DB migration과 CI 도입
-6. 카카오 채널 + n8n 연동 착수
+5. 이메일 실제 발송과 구독 해지 구현
+6. DB versioned migration과 CI 도입
+7. 카카오 채널 + n8n 연동 착수
+
+## 10. 최신 검증
+
+- 2026-07-03: backend `pytest` 62개 통과
+- 2026-07-03: frontend TypeScript 검사 및 Vite production build 통과
