@@ -1,14 +1,27 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.dashboard.models import KakaoAlertRule, PortfolioAsset, User, UserSettings
+from src.dashboard.models import (
+    DataProviderStatus,
+    KakaoAlertRule,
+    NewsFiltered,
+    NewsRaw,
+    PortfolioAsset,
+    Signal,
+    StockPrice,
+    User,
+    UserPreference,
+    UserSettings,
+)
 from src.dashboard.schemas import PortfolioAssetInput, SettingsUpdate
+from src.processor.news_relevance import normalize_title
 
 
 DEFAULT_ALERT_SETTINGS = [
@@ -33,6 +46,267 @@ class DuplicatePortfolioAssetError(Exception):
     pass
 
 
+STOCK_PRICE_FIELDS = {
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "return_1d",
+    "return_3d",
+    "return_5d",
+    "volume_ratio",
+    "volatility_5d",
+    "volatility_ratio",
+    "provider",
+    "data_source",
+    "fetched_at",
+}
+
+
+def upsert_stock_prices(db: Session, rows: list[dict]) -> int:
+    persisted = 0
+    for row in rows:
+        ticker = str(row["ticker"])
+        trade_date = row["trade_date"]
+        stock = db.scalar(
+            select(StockPrice).where(StockPrice.ticker == ticker, StockPrice.trade_date == trade_date)
+        )
+        values = {field: row.get(field) for field in STOCK_PRICE_FIELDS if field in row}
+        if stock:
+            for field, value in values.items():
+                setattr(stock, field, value)
+        else:
+            db.add(StockPrice(ticker=ticker, trade_date=trade_date, **values))
+        persisted += 1
+    db.commit()
+    return persisted
+
+
+def latest_stock_prices(db: Session, tickers: list[str] | None = None) -> list[StockPrice]:
+    selected = tickers or list({row[0] for row in db.execute(select(StockPrice.ticker)).all()})
+    latest: list[StockPrice] = []
+    for ticker in selected:
+        row = db.scalar(
+            select(StockPrice)
+            .where(StockPrice.ticker == ticker)
+            .order_by(StockPrice.trade_date.desc())
+            .limit(1)
+        )
+        if row:
+            latest.append(row)
+    return latest
+
+
+def remove_weekend_stock_prices(db: Session, tickers: list[str] | tuple[str, ...]) -> int:
+    rows = list(db.scalars(select(StockPrice).where(StockPrice.ticker.in_(tickers))))
+    invalid = [row for row in rows if row.trade_date.weekday() >= 5]
+    for row in invalid:
+        db.delete(row)
+    db.commit()
+    return len(invalid)
+
+
+def persist_news_records(db: Session, records: list[dict]) -> int:
+    persisted = 0
+    for record in records:
+        fingerprint = _news_fingerprint(record)
+        raw = db.scalar(select(NewsRaw).where(NewsRaw.fingerprint == fingerprint))
+        raw_payload = dict(record.get("raw_payload") or {})
+        raw_payload["_filter"] = {
+            "passed": bool(record.get("passed_filter")),
+            "reasons": list(record.get("filter_reasons") or []),
+            "source_score": float(record.get("source_score") or 0),
+            "keyword_score": int(record.get("keyword_score") or 0),
+            "content_length": int(record.get("content_length") or 0),
+        }
+        raw_values = {
+            "title": str(record.get("title") or "Untitled"),
+            "content": str(record.get("content") or record.get("summary") or ""),
+            "source": str(record.get("source") or record.get("provider") or "unknown"),
+            "url": str(record.get("url") or ""),
+            "published_utc": str(record.get("published_utc") or record.get("published_at") or ""),
+            "provider": str(record.get("provider") or "unknown"),
+            "keyword": str(record.get("keyword") or ""),
+            "raw_payload": raw_payload,
+        }
+        if raw:
+            for field, value in raw_values.items():
+                setattr(raw, field, value)
+        else:
+            raw = NewsRaw(fingerprint=fingerprint, **raw_values)
+            db.add(raw)
+            db.flush()
+
+        filtered = db.scalar(select(NewsFiltered).where(NewsFiltered.raw_id == raw.id))
+        filter_values = {
+            "source_score": float(record.get("source_score") or 0),
+            "keyword_score": int(record.get("keyword_score") or 0),
+            "duplicate_flag": bool(record.get("duplicate_flag")),
+            "content_length": int(record.get("content_length") or 0),
+            "passed_filter": bool(record.get("passed_filter")),
+            "reliability_score": record.get("reliability_score"),
+        }
+        if filtered:
+            for field, value in filter_values.items():
+                setattr(filtered, field, value)
+        else:
+            db.add(NewsFiltered(raw_id=raw.id, **filter_values))
+        persisted += 1
+    db.commit()
+    return persisted
+
+
+def reconcile_duplicate_news_titles(db: Session) -> int:
+    """Keep raw rows but suppress repeated normalized titles after any refresh."""
+    query = (
+        select(NewsRaw, NewsFiltered)
+        .join(NewsFiltered, NewsFiltered.raw_id == NewsRaw.id)
+        .order_by(NewsRaw.id.asc())
+    )
+    canonical_ids: dict[str, int] = {}
+    duplicate_count = 0
+    for raw, filtered in db.execute(query).all():
+        normalized = normalize_title(raw.title)
+        if not normalized:
+            continue
+        canonical_id = canonical_ids.setdefault(normalized, raw.id)
+        if canonical_id == raw.id:
+            continue
+        filtered.duplicate_flag = True
+        filtered.passed_filter = False
+        payload = dict(raw.raw_payload or {})
+        filter_metadata = dict(payload.get("_filter") or {})
+        reasons = list(filter_metadata.get("reasons") or [])
+        if "duplicate_title_across_refreshes" not in reasons:
+            reasons.append("duplicate_title_across_refreshes")
+        filter_metadata.update({"passed": False, "reasons": reasons})
+        payload["_filter"] = filter_metadata
+        raw.raw_payload = payload
+        duplicate_count += 1
+    db.commit()
+    return duplicate_count
+
+
+def update_provider_statuses(db: Session, statuses: dict[str, dict[str, str]]) -> None:
+    for provider, state in statuses.items():
+        stored = db.get(DataProviderStatus, provider)
+        values = {
+            "status": state.get("status", "unknown"),
+            "message": state.get("message", ""),
+            "fetched_at": datetime.now(timezone.utc),
+        }
+        if stored:
+            for field, value in values.items():
+                setattr(stored, field, value)
+        else:
+            db.add(DataProviderStatus(provider=provider, **values))
+    db.commit()
+
+
+def latest_filtered_news(db: Session, limit: int = 50) -> list[tuple[NewsRaw, NewsFiltered]]:
+    query = (
+        select(NewsRaw, NewsFiltered)
+        .join(NewsFiltered, NewsFiltered.raw_id == NewsRaw.id)
+        .where(NewsFiltered.passed_filter.is_(True))
+        .order_by(NewsRaw.published_utc.desc())
+        .limit(limit)
+    )
+    return list(db.execute(query).all())
+
+
+def latest_stored_news(db: Session, limit: int = 200) -> list[dict]:
+    query = (
+        select(NewsRaw, NewsFiltered)
+        .join(NewsFiltered, NewsFiltered.raw_id == NewsRaw.id)
+        .order_by(NewsRaw.published_utc.desc())
+        .limit(limit)
+    )
+    records: list[dict] = []
+    for raw, filtered in db.execute(query).all():
+        records.append(
+            {
+                "id": raw.id,
+                "title": raw.title,
+                "content": raw.content,
+                "summary": raw.content,
+                "source": raw.source,
+                "url": raw.url,
+                "published_utc": raw.published_utc,
+                "published_at": raw.published_utc,
+                "provider": raw.provider,
+                "keyword": raw.keyword,
+                "raw_payload": raw.raw_payload,
+                "fetched_at": raw.fetched_at.isoformat() if raw.fetched_at else "",
+                "source_score": filtered.source_score,
+                "keyword_score": filtered.keyword_score,
+                "duplicate_flag": filtered.duplicate_flag,
+                "content_length": filtered.content_length,
+                "passed_filter": filtered.passed_filter,
+                "reliability_score": filtered.reliability_score,
+            }
+        )
+    return records
+
+
+def latest_provider_statuses(db: Session) -> dict[str, dict[str, str]]:
+    statuses = {}
+    for row in db.scalars(select(DataProviderStatus)):
+        statuses[row.provider] = {
+            "status": row.status,
+            "message": row.message,
+            "fetched_at": row.fetched_at.isoformat() if row.fetched_at else "",
+        }
+    return statuses
+
+
+def _news_fingerprint(record: dict) -> str:
+    raw = f"{record.get('url', '')}|{record.get('title', '')}".strip().lower()
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def upsert_signal(db: Session, payload: dict) -> Signal:
+    signal = db.scalar(
+        select(Signal).where(
+            Signal.event_key == payload["event_key"],
+            Signal.ticker == payload["ticker"],
+            Signal.trade_date == payload["trade_date"],
+        )
+    )
+    values = {
+        "event_score": payload["event_score"],
+        "market_reaction_score": payload["market_reaction_score"],
+        "signal": payload["signal"],
+        "evidence": payload.get("evidence", {}),
+        "data_source": payload["data_source"],
+    }
+    if signal:
+        for field, value in values.items():
+            setattr(signal, field, value)
+    else:
+        signal = Signal(
+            event_key=payload["event_key"],
+            ticker=payload["ticker"],
+            trade_date=payload["trade_date"],
+            **values,
+        )
+        db.add(signal)
+    db.commit()
+    db.refresh(signal)
+    return signal
+
+
+def latest_signals(db: Session, limit: int = 50) -> list[Signal]:
+    query = select(Signal).order_by(Signal.created_at.desc()).limit(limit)
+    return list(db.scalars(query))
+
+
+def clear_signals(db: Session) -> int:
+    result = db.execute(delete(Signal))
+    db.commit()
+    return int(result.rowcount or 0)
+
+
 def ensure_user(db: Session, user_id: str) -> User:
     user = db.get(User, user_id)
     if user:
@@ -40,6 +314,8 @@ def ensure_user(db: Session, user_id: str) -> User:
 
     user = User(
         id=user_id,
+        provider="local",
+        provider_user_id=user_id,
         username="finlight_user" if user_id == "demo-user" else user_id,
         email="finlight@example.com" if user_id == "demo-user" else f"{user_id}@local.finlight",
         interests=["Semiconductor", "AI", "Policy/Regulation"],
@@ -47,11 +323,94 @@ def ensure_user(db: Session, user_id: str) -> User:
     )
     db.add(user)
     db.flush()
+    _ensure_user_preference(db, user_id)
     _seed_assets(db, user_id)
     _seed_kakao_rules(db, user_id)
     db.commit()
     db.refresh(user)
     return user
+
+
+def get_or_create_oauth_user(
+    db: Session,
+    *,
+    provider: str,
+    provider_user_id: str,
+    email: str,
+    nickname: str,
+    profile_image_url: str | None = None,
+) -> User:
+    user = db.scalar(
+        select(User).where(User.provider == provider, User.provider_user_id == provider_user_id)
+    )
+    now = datetime.now(timezone.utc)
+    if user:
+        user.email = email
+        user.username = nickname or email
+        user.profile_image_url = profile_image_url
+        user.last_login_at = now
+        user.updated_at = now
+        db.commit()
+        db.refresh(user)
+        _ensure_user_preference(db, user.id)
+        return user
+
+    user = User(
+        id=f"{provider}-{hashlib.sha1(provider_user_id.encode('utf-8')).hexdigest()[:24]}",
+        provider=provider,
+        provider_user_id=provider_user_id,
+        username=nickname or email,
+        email=email,
+        profile_image_url=profile_image_url,
+        interests=["Semiconductor", "AI", "Policy/Regulation"],
+        alert_settings=DEFAULT_ALERT_SETTINGS,
+        last_login_at=now,
+    )
+    db.add(user)
+    db.flush()
+    _ensure_user_preference(db, user.id)
+    _seed_assets(db, user.id)
+    _seed_kakao_rules(db, user.id)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def get_user_by_id(db: Session, user_id: str) -> User | None:
+    return db.get(User, user_id)
+
+
+def get_user_preference(db: Session, user_id: str) -> UserPreference:
+    ensure_user(db, user_id)
+    preference = _ensure_user_preference(db, user_id)
+    db.commit()
+    db.refresh(preference)
+    return preference
+
+
+def save_user_preference(
+    db: Session,
+    user_id: str,
+    *,
+    interested_markets: list[str] | None = None,
+    interested_industries: list[str] | None = None,
+    alert_enabled: bool | None = None,
+    notification_channels: list[str] | None = None,
+) -> UserPreference:
+    ensure_user(db, user_id)
+    preference = _ensure_user_preference(db, user_id)
+    if interested_markets is not None:
+        preference.interested_markets = _dedupe_clean(interested_markets)
+    if interested_industries is not None:
+        preference.interested_industries = _dedupe_clean(interested_industries)
+    if alert_enabled is not None:
+        preference.alert_enabled = alert_enabled
+    if notification_channels is not None:
+        preference.notification_channels = _dedupe_clean(notification_channels)
+    preference.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(preference)
+    return preference
 
 
 def list_assets(db: Session, user_id: str) -> list[PortfolioAsset]:
@@ -123,7 +482,8 @@ def update_mypage(db: Session, user_id: str, alert_settings: list[dict] | None, 
     if alert_settings is not None:
         user.alert_settings = alert_settings
     if interests is not None:
-        user.interests = list(dict.fromkeys(item.strip() for item in interests if item.strip()))
+        user.interests = _dedupe_clean(interests)
+        save_user_preference(db, user_id, interested_industries=user.interests)
     db.commit()
     db.refresh(user)
     return user
@@ -196,3 +556,23 @@ def _seed_kakao_rules(db: Session, user_id: str) -> None:
         KakaoAlertRule(user_id=user_id, rule_id=rule_id, icon=icon, label=label, enabled=True)
         for rule_id, icon, label in DEFAULT_KAKAO_RULES
     )
+
+
+def _ensure_user_preference(db: Session, user_id: str) -> UserPreference:
+    preference = db.get(UserPreference, user_id)
+    if preference:
+        return preference
+    preference = UserPreference(
+        user_id=user_id,
+        interested_markets=["KR", "US"],
+        interested_industries=["Semiconductor", "AI", "Policy/Regulation"],
+        alert_enabled=True,
+        notification_channels=["dashboard"],
+    )
+    db.add(preference)
+    db.flush()
+    return preference
+
+
+def _dedupe_clean(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(item.strip() for item in values if item.strip()))

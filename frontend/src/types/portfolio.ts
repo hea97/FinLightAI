@@ -19,6 +19,10 @@ export interface PortfolioAsset {
   relatedNewsCount: number;
   cautionNewsCount: number;
   updatedAt: string;
+  priceDataSource?: "real" | "mock" | "not_connected";
+  priceProvider?: string;
+  priceStatusLabel?: string;
+  priceAsOf?: string;
 }
 
 export interface PortfolioSummary {

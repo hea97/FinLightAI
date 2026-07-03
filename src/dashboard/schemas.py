@@ -1,12 +1,40 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class ApiModel(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
+
+
+class PipelineMetadata(ApiModel):
+    data_source: Literal["real", "mixed", "seed_fallback"] = Field(alias="dataSource")
+    providers: list[str]
+    is_fallback: bool = Field(alias="isFallback")
+    last_updated: str = Field(alias="lastUpdated")
+    warnings: list[str]
+
+
+class SignalItem(ApiModel):
+    event_key: str
+    ticker: str
+    trade_date: str
+    signal: Literal["RED", "YELLOW", "GREEN"]
+    event_score: float
+    market_reaction_score: float
+    data_source: str
+    is_verified: bool
+    evidence: dict[str, Any]
+    created_at: str | None
+
+
+class SignalsResponse(PipelineMetadata):
+    provider_status: dict[str, str] = Field(alias="providerStatus")
+    signal_count: int = Field(alias="signalCount")
+    verified_signal_count: int = Field(alias="verifiedSignalCount")
+    signals: list[SignalItem]
 
 
 class BriefingNews(ApiModel):
@@ -17,7 +45,7 @@ class BriefingNews(ApiModel):
     reliability_score: float = Field(alias="reliabilityScore")
 
 
-class BriefingResponse(ApiModel):
+class BriefingResponse(PipelineMetadata):
     as_of: str = Field(alias="asOf")
     signal: Literal["RED", "YELLOW", "GREEN"]
     risk_score: int = Field(alias="riskScore", ge=0, le=100)
@@ -62,7 +90,7 @@ class QuickFilter(ApiModel):
 
 class ProviderHealth(ApiModel):
     provider: str
-    status: Literal["healthy", "partial", "disabled", "failed"]
+    status: Literal["connected", "timeout", "rate_limited", "disabled", "fallback", "error"]
     message: str
     last_checked_at: str | None = Field(default=None, alias="lastCheckedAt")
 
@@ -71,6 +99,7 @@ class NewsGuardArticle(ApiModel):
     id: str
     title: str
     source: str
+    provider: str
     published_ago: str = Field(alias="publishedAgo")
     summary: str
     reliability_level: Literal["trusted", "watch", "blocked"] = Field(alias="reliabilityLevel")
@@ -81,9 +110,13 @@ class NewsGuardArticle(ApiModel):
     tags: list[str]
     original_url: str = Field(default="", alias="originalUrl")
     reasons: list[str]
+    quality_status: Literal["verified", "low_confidence", "seed_fallback"] = Field(
+        default="low_confidence",
+        alias="qualityStatus",
+    )
 
 
-class NewsGuardResponse(ApiModel):
+class NewsGuardResponse(PipelineMetadata):
     stats: NewsGuardStats
     distribution: ReliabilityDistribution
     block_reasons: list[BlockReason] = Field(alias="blockReasons")
@@ -131,7 +164,7 @@ class IndustryDetail(ApiModel):
     top_news: list[RelatedNews] = Field(alias="topNews")
 
 
-class IndustryImpactResponse(ApiModel):
+class IndustryImpactResponse(PipelineMetadata):
     industries: list[IndustrySummary]
     details: dict[str, IndustryDetail]
 
@@ -160,6 +193,10 @@ class PortfolioAsset(PortfolioAssetInput):
     related_news_count: int = Field(default=0, alias="relatedNewsCount")
     caution_news_count: int = Field(default=0, alias="cautionNewsCount")
     updated_at: str = Field(alias="updatedAt")
+    price_data_source: Literal["real", "mock", "not_connected"] = Field(alias="priceDataSource")
+    price_provider: str | None = Field(default=None, alias="priceProvider")
+    price_status_label: str = Field(alias="priceStatusLabel")
+    price_as_of: str | None = Field(default=None, alias="priceAsOf")
 
 
 class PortfolioSummary(ApiModel):
@@ -196,6 +233,35 @@ class PortfolioResponse(ApiModel):
     assets: list[PortfolioAsset]
     industry_connections: list[IndustryConnection] = Field(alias="industryConnections")
     linked_signals: list[LinkedSignal] = Field(alias="linkedSignals")
+
+
+class AuthUser(ApiModel):
+    id: str
+    provider: str
+    email: str
+    nickname: str
+    profile_image_url: str | None = Field(default=None, alias="profileImageUrl")
+
+
+class AuthMeResponse(ApiModel):
+    authenticated: bool
+    user: AuthUser | None = None
+
+
+class UserPreferenceResponse(ApiModel):
+    user_id: str = Field(alias="userId")
+    interested_markets: list[str] = Field(alias="interestedMarkets")
+    interested_industries: list[str] = Field(alias="interestedIndustries")
+    alert_enabled: bool = Field(alias="alertEnabled")
+    notification_channels: list[str] = Field(alias="notificationChannels")
+    updated_at: str = Field(alias="updatedAt")
+
+
+class UserPreferenceUpdate(ApiModel):
+    interested_markets: list[str] | None = Field(default=None, alias="interestedMarkets")
+    interested_industries: list[str] | None = Field(default=None, alias="interestedIndustries")
+    alert_enabled: bool | None = Field(default=None, alias="alertEnabled")
+    notification_channels: list[str] | None = Field(default=None, alias="notificationChannels")
 
 
 class KakaoAlertRule(ApiModel):

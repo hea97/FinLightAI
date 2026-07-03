@@ -39,7 +39,7 @@ def test_gdelt_results_are_cached(monkeypatch):
     assert NewsCollector.provider_status()["message"] == "Live API cache hit"
 
 
-def test_gdelt_timeout_uses_seed_fallback(monkeypatch):
+def test_gdelt_timeout_reports_failure_without_disguising_seed_as_provider_data(monkeypatch):
     NewsCollector._cache.clear()
 
     def timeout(*args, **kwargs):
@@ -49,5 +49,23 @@ def test_gdelt_timeout_uses_seed_fallback(monkeypatch):
 
     articles = NewsCollector().collect_from_gdelt(keywords=["timeout-test"], max_records=1)
 
-    assert articles[0]["provider"] == "seed"
+    assert articles == []
     assert NewsCollector.provider_status()["status"] == "failed"
+    assert "timed out" in NewsCollector.provider_status()["message"]
+
+
+def test_gdelt_rate_limit_is_reported_with_http_status(monkeypatch):
+    NewsCollector._cache.clear()
+
+    def rate_limited(*args, **kwargs):
+        request = httpx.Request("GET", "https://api.gdeltproject.org/api/v2/doc/doc")
+        response = httpx.Response(429, request=request)
+        raise httpx.HTTPStatusError("rate limited", request=request, response=response)
+
+    monkeypatch.setattr("src.collector.news_collector.httpx.get", rate_limited)
+
+    assert NewsCollector().collect_from_gdelt(keywords=["semiconductor"], max_records=1) == []
+    assert NewsCollector.provider_status() == {
+        "status": "rate_limited",
+        "message": "GDELT returned HTTP 429",
+    }

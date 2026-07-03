@@ -2,7 +2,15 @@ export type NewsGuardFilter = "all" | "trusted" | "watch" | "blocked";
 
 export type ReliabilityLevel = "trusted" | "watch" | "blocked";
 
-export type ProviderStatus = "healthy" | "partial" | "disabled" | "failed";
+export type ProviderStatus =
+  | "connected"
+  | "timeout"
+  | "rate_limited"
+  | "disabled"
+  | "fallback"
+  | "error"
+  | "healthy"
+  | "partial";
 
 export interface ProviderHealth {
   provider: "GDELT" | "NewsAPI" | "Guardian" | "Finnhub" | "BBC RSS";
@@ -42,6 +50,7 @@ export interface NewsArticle {
   id: string;
   title: string;
   source: string;
+  provider?: string;
   publishedAgo: string;
   summary: string;
   reliabilityLevel: ReliabilityLevel;
@@ -52,6 +61,7 @@ export interface NewsArticle {
   tags: string[];
   originalUrl?: string;
   reasons: string[];
+  qualityStatus?: "verified" | "low_confidence" | "seed_fallback";
 }
 
 export interface QuickFilter {
@@ -67,4 +77,9 @@ export interface NewsGuardViewModel {
   quickFilters: QuickFilter[];
   providerHealth: ProviderHealth[];
   articles: NewsArticle[];
+  dataSource?: "real" | "mixed" | "seed_fallback";
+  providers?: string[];
+  isFallback?: boolean;
+  lastUpdated?: string;
+  warnings?: string[];
 }

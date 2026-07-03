@@ -1,24 +1,44 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from config.settings import get_settings
 from src.collector.news_collector import NewsCollector
+from src.dashboard.auth import (
+    AuthConfigurationError,
+    OAuthExchangeError,
+    build_google_authorization_url,
+    create_session_token,
+    exchange_google_code,
+    fetch_google_userinfo,
+    verify_session_token,
+)
 from src.dashboard.database import get_db
 from src.dashboard.models import PortfolioAsset as PortfolioAssetRecord
+from src.dashboard.models import User as UserRecord
+from src.dashboard.services.data_pipeline import PipelineSnapshot, load_pipeline_snapshot
 from src.dashboard.repository import (
     DuplicatePortfolioAssetError,
     create_asset,
     delete_asset,
     ensure_user,
+    get_or_create_oauth_user,
     get_kakao_rules,
+    get_user_by_id,
+    get_user_preference,
     get_user_settings,
+    latest_signals,
+    latest_stock_prices,
     list_assets,
+    save_user_preference,
     save_user_settings,
     update_asset,
     update_kakao_rule,
@@ -38,32 +58,217 @@ from src.dashboard.schemas import (
     PortfolioResponse,
     SettingsResponse,
     SettingsUpdate,
+    SignalsResponse,
+    AuthMeResponse,
+    UserPreferenceResponse,
+    UserPreferenceUpdate,
 )
-from src.processor.gemini_client import GeminiClient
+from src.processor.event_score import EventScoreCalculator
+from src.processor.news_relevance import contains_term
+from src.signal.generator import SignalGenerator
 
 router = APIRouter()
 KST = timezone(timedelta(hours=9))
 
 
-def get_current_user_id(x_user_id: str = Header(default="demo-user")) -> str:
-    user_id = x_user_id.strip()
+def _is_development_env() -> bool:
+    return get_settings().is_development()
+
+
+def _cookie_options() -> dict[str, Any]:
+    settings = get_settings()
+    return {
+        "path": "/",
+        "domain": settings.auth_cookie_domain,
+        "secure": settings.session_cookie_secure(),
+    }
+
+
+def _validate_user_id(user_id: str) -> str:
+    user_id = user_id.strip()
     if not user_id or len(user_id) > 80 or not all(char.isalnum() or char in {"-", "_"} for char in user_id):
         raise HTTPException(status_code=400, detail="Invalid X-User-ID header")
     return user_id
 
 
-@router.get("/signals")
-def get_signals() -> list[dict[str, str | float]]:
-    return [
+def get_optional_session_user(request: Request, db: Session = Depends(get_db)) -> UserRecord | None:
+    settings = get_settings()
+    token = request.cookies.get(settings.auth_cookie_name)
+    if not token:
+        return None
+    user_id = verify_session_token(token, secret=settings.jwt_secret_key)
+    if not user_id:
+        return None
+    return get_user_by_id(db, user_id)
+
+
+def get_current_user_id(
+    request: Request,
+    x_user_id: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> str:
+    session_user = get_optional_session_user(request, db)
+    if session_user:
+        return session_user.id
+    if _is_development_env():
+        return _validate_user_id(x_user_id or "demo-user")
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+
+
+def _auth_user_dict(user: UserRecord) -> dict[str, Any]:
+    return {
+        "id": user.id,
+        "provider": user.provider,
+        "email": user.email,
+        "nickname": user.username,
+        "profileImageUrl": user.profile_image_url,
+    }
+
+
+@router.get("/auth/google/login")
+def google_login() -> RedirectResponse:
+    settings = get_settings()
+    state = secrets.token_urlsafe(32)
+    try:
+        url = build_google_authorization_url(
+            client_id=settings.google_client_id,
+            redirect_uri=settings.google_redirect_uri,
+            state=state,
+        )
+    except AuthConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    response = RedirectResponse(url, status_code=302)
+    response.set_cookie(
+        settings.oauth_state_cookie_name,
+        state,
+        max_age=600,
+        httponly=True,
+        samesite="lax",
+        **_cookie_options(),
+    )
+    return response
+
+
+@router.get("/auth/google/callback")
+def google_callback(
+    request: Request,
+    code: str | None = None,
+    error: str | None = None,
+    state: str | None = None,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    settings = get_settings()
+    redirect_base = (settings.frontend_url or "/").rstrip("/")
+    expected_state = request.cookies.get(settings.oauth_state_cookie_name)
+    if not state or not expected_state or not hmac.compare_digest(state, expected_state):
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+    if error:
+        response = RedirectResponse(f"{redirect_base}/?auth=error", status_code=302)
+        response.delete_cookie(
+            settings.oauth_state_cookie_name,
+            httponly=True,
+            samesite="lax",
+            **_cookie_options(),
+        )
+        return response
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing Google authorization code")
+    try:
+        tokens = exchange_google_code(
+            code=code,
+            client_id=settings.google_client_id,
+            client_secret=settings.google_client_secret,
+            redirect_uri=settings.google_redirect_uri,
+            timeout=settings.external_api_timeout_seconds,
+        )
+        userinfo = fetch_google_userinfo(
+            str(tokens.get("access_token") or ""),
+            timeout=settings.external_api_timeout_seconds,
+        )
+        user = get_or_create_oauth_user(
+            db,
+            provider="google",
+            provider_user_id=str(userinfo["sub"]),
+            email=str(userinfo["email"]),
+            nickname=str(userinfo.get("name") or userinfo["email"]),
+            profile_image_url=userinfo.get("picture"),
+        )
+        session_token = create_session_token(
+            user.id,
+            secret=settings.jwt_secret_key,
+            expire_minutes=settings.jwt_expire_minutes,
+        )
+    except (AuthConfigurationError, OAuthExchangeError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    response = RedirectResponse(f"{redirect_base}/?auth=google_connected", status_code=302)
+    response.delete_cookie(
+        settings.oauth_state_cookie_name,
+        httponly=True,
+        samesite="lax",
+        **_cookie_options(),
+    )
+    response.set_cookie(
+        settings.auth_cookie_name,
+        session_token,
+        max_age=settings.jwt_expire_minutes * 60,
+        httponly=True,
+        samesite=settings.session_cookie_samesite(),
+        **_cookie_options(),
+    )
+    return response
+
+
+@router.get("/auth/me", response_model=AuthMeResponse)
+def auth_me(user: UserRecord | None = Depends(get_optional_session_user)) -> dict[str, Any]:
+    if not user:
+        return {"authenticated": False, "user": None}
+    return {"authenticated": True, "user": _auth_user_dict(user)}
+
+
+@router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
+def auth_logout() -> Response:
+    settings = get_settings()
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(
+        settings.auth_cookie_name,
+        httponly=True,
+        samesite=settings.session_cookie_samesite(),
+        **_cookie_options(),
+    )
+    return response
+
+
+@router.get("/signals", response_model=SignalsResponse)
+def get_signals(db: Session = Depends(get_db)) -> dict[str, Any]:
+    snapshot = load_pipeline_snapshot(db)
+    signals = [
         {
-            "ticker": "005930.KS",
-            "signal": "YELLOW",
-            "headline": "Semiconductor policy update affects AI chip supply",
-            "reliability_score": 0.88,
-            "return_1d": 0.021,
-            "volume_ratio": 2.4,
+            "event_key": row.event_key,
+            "ticker": row.ticker,
+            "trade_date": row.trade_date.isoformat(),
+            "signal": row.signal,
+            "event_score": row.event_score,
+            "market_reaction_score": row.market_reaction_score,
+            "data_source": row.data_source,
+            "is_verified": bool(
+                row.data_source == "real"
+                and row.evidence.get("url")
+                and row.evidence.get("source")
+                and row.evidence.get("provider")
+            ),
+            "evidence": row.evidence,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
         }
+        for row in latest_signals(db)
     ]
+    return {
+        **snapshot.metadata(),
+        "providerStatus": snapshot.provider_status,
+        "signalCount": len(signals),
+        "verifiedSignalCount": sum(bool(signal["is_verified"]) for signal in signals),
+        "signals": signals,
+    }
 
 
 @router.get("/news")
@@ -81,38 +286,88 @@ def get_news() -> list[dict[str, str | float]]:
 
 
 @router.get("/market")
-def get_market() -> dict[str, float | str]:
-    return {"ticker": "005930.KS", "return_1d": 0.021, "volume_ratio": 2.4, "volatility_5d": 0.018}
+def get_market(
+    ticker: str = "005930.KS",
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    rows = latest_stock_prices(db, [ticker])
+    if not rows:
+        return {
+            "ticker": ticker,
+            "dataSource": "not_connected",
+            "provider": None,
+            "lastUpdated": None,
+            "warnings": ["No stored market data is available"],
+        }
+    row = rows[0]
+    return {
+        "ticker": row.ticker,
+        "trade_date": row.trade_date.isoformat(),
+        "close": row.close,
+        "return_1d": row.return_1d,
+        "return_3d": row.return_3d,
+        "return_5d": row.return_5d,
+        "volume_ratio": row.volume_ratio,
+        "volatility_5d": row.volatility_5d,
+        "volatility_ratio": row.volatility_ratio,
+        "dataSource": row.data_source,
+        "provider": row.provider,
+        "lastUpdated": row.fetched_at.isoformat() if row.fetched_at else row.trade_date.isoformat(),
+        "warnings": [],
+    }
 
 
 @router.get("/briefing", response_model=BriefingResponse)
-def get_briefing() -> dict[str, Any]:
-    articles = _load_gdelt_articles(max_records=30)
+def get_briefing(db: Session = Depends(get_db)) -> dict[str, Any]:
+    snapshot = load_pipeline_snapshot(db, max_news=30)
+    articles = snapshot.articles
     top_articles = articles[:5]
     caution_count = sum(1 for article in top_articles if _score_article(article) < 0.7)
-    risk_score = min(100, 42 + caution_count * 9 + len(top_articles) * 2)
-    gemini = GeminiClient()
-    ai_briefing = gemini.generate_briefing(top_articles)
+    market = _strongest_market_reaction(snapshot.market)
+    market_score = EventScoreCalculator.market_reaction_score(market)
+    risk_score = min(100, round(32 + caution_count * 9 + len(top_articles) * 2 + market_score * 36))
+    event_score = EventScoreCalculator().calculate(
+        max((_score_article(article) for article in top_articles), default=0),
+        min((_sentiment_score(article) for article in top_articles), default=0),
+        market,
+    )
+    market["sentiment_score"] = min((_sentiment_score(article) for article in top_articles), default=0)
+    signal = SignalGenerator().generate(event_score, market)
+    ai_briefing = None
+    gemini_status = snapshot.provider_status.get("gemini", "fallback")
     fallback_summary = [
-        "Recent global AI and semiconductor news was collected from GDELT DOC 2.0.",
-        "News Guard currently scores source, URL, and publish-time availability.",
-        "Gemini, Finnhub, and KIS can enrich summaries, price reaction, and portfolio risk.",
+        "Recent relevant AI and semiconductor news was loaded from the available pipeline data.",
+        "News quality, provider state, and market reaction are shown separately.",
+        "This fallback summary is used because the AI briefing provider is unavailable.",
     ]
+    metadata = snapshot.metadata()
+    provider_status = _provider_status(snapshot, gemini_status)
+    if gemini_status not in {"healthy", "cached", "connected"}:
+        metadata["warnings"] = list(
+            dict.fromkeys(
+                [
+                    *metadata["warnings"],
+                    f"Gemini {provider_status['gemini']}; using static briefing fallback",
+                ]
+            )
+        )
 
     return {
         "asOf": _now_label(),
-        "signal": "YELLOW" if risk_score >= 60 else "GREEN",
+        "signal": signal,
         "riskScore": risk_score,
-        "headline": ai_briefing["headline"] if ai_briefing else "GDELT-based market briefing is ready.",
+        "headline": ai_briefing["headline"] if ai_briefing else "Market briefing fallback is ready.",
         "summary": ai_briefing["summary"] if ai_briefing else fallback_summary,
         "keyNews": [_to_briefing_news(article) for article in top_articles],
-        "providerStatus": _provider_status(gemini.last_status),
+        "providerStatus": provider_status,
+        **metadata,
     }
 
 
 @router.get("/news-guard", response_model=NewsGuardResponse)
-def get_news_guard(filter: str = "all") -> dict[str, Any]:
-    raw_articles = _load_gdelt_articles(max_records=50)
+def get_news_guard(filter: str = "all", db: Session = Depends(get_db)) -> dict[str, Any]:
+    snapshot = load_pipeline_snapshot(db, max_news=50)
+    raw_articles = snapshot.articles
     all_articles = [_to_news_guard_article(article) for article in raw_articles]
     articles = all_articles
     if filter in {"trusted", "watch", "blocked"}:
@@ -148,27 +403,35 @@ def get_news_guard(filter: str = "all") -> dict[str, Any]:
             {"id": "ai", "label": "AI", "count": _count_mentions(raw_articles, ["ai", "artificial intelligence", "gpu"])},
             {"id": "policy", "label": "Policy", "count": _count_mentions(raw_articles, ["policy", "export", "control", "regulation"])},
         ],
-        "providerHealth": _provider_health(raw_articles),
+        "providerHealth": _provider_health(snapshot),
         "articles": articles,
+        **snapshot.metadata(),
     }
 
 
 @router.get("/industry-impact", response_model=IndustryImpactResponse)
-def get_industry_impact() -> dict[str, Any]:
-    articles = _load_gdelt_articles(max_records=50)
+def get_industry_impact(db: Session = Depends(get_db)) -> dict[str, Any]:
+    snapshot = load_pipeline_snapshot(db, max_news=50)
+    articles = snapshot.articles
     semiconductor_count = _count_mentions(articles, ["semiconductor", "chip", "nvidia", "samsung", "tsmc", "hynix"])
     ai_count = _count_mentions(articles, ["ai", "artificial intelligence", "gpu"])
     policy_count = _count_mentions(articles, ["policy", "export", "control", "regulation"])
 
+    semiconductor_adjustment = _industry_market_adjustment(snapshot.market, "semiconductor")
+    ai_adjustment = _industry_market_adjustment(snapshot.market, "it")
     summaries = [
-        _industry_summary("semiconductor", "Semiconductor", min(90, 45 + semiconductor_count * 4), semiconductor_count, "CHIP"),
-        _industry_summary("it", "AI/IT", min(85, 38 + ai_count * 4), ai_count, "AI"),
-        _industry_summary("policy", "Policy/Regulation", max(-70, -20 - policy_count * 5), policy_count, "POL"),
+        _industry_summary("semiconductor", "Semiconductor", _bounded_score(semiconductor_count * 8 + semiconductor_adjustment), semiconductor_count, "CHIP"),
+        _industry_summary("it", "AI/IT", _bounded_score(ai_count * 8 + ai_adjustment), ai_count, "AI"),
+        _industry_summary("policy", "Policy/Regulation", _bounded_score(-policy_count * 8), policy_count, "POL"),
     ]
 
     return {
         "industries": summaries,
-        "details": {summary["id"]: _industry_detail(summary, articles) for summary in summaries},
+        "details": {
+            summary["id"]: _industry_detail(summary, articles, bool(snapshot.market))
+            for summary in summaries
+        },
+        **snapshot.metadata(),
     }
 
 
@@ -177,7 +440,9 @@ def get_portfolio(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    return _portfolio_response(list_assets(db, user_id))
+    records = list_assets(db, user_id)
+    market_rows = latest_stock_prices(db)
+    return _portfolio_response(records, market_rows, latest_signals(db, limit=20))
 
 
 @router.post("/portfolio", response_model=PortfolioAsset, status_code=status.HTTP_201_CREATED)
@@ -218,6 +483,33 @@ def remove_portfolio_asset(
     if not delete_asset(db, user_id, asset_id):
         raise HTTPException(status_code=404, detail="Portfolio asset not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/onboarding/preferences", response_model=UserPreferenceResponse)
+def get_onboarding_preferences(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    return _preference_dict(get_user_preference(db, user_id))
+
+
+@router.put("/onboarding/preferences", response_model=UserPreferenceResponse)
+def put_onboarding_preferences(
+    payload: UserPreferenceUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    preference = save_user_preference(
+        db,
+        user_id,
+        interested_markets=payload.interested_markets,
+        interested_industries=payload.interested_industries,
+        alert_enabled=payload.alert_enabled,
+        notification_channels=payload.notification_channels,
+    )
+    if payload.interested_industries is not None:
+        update_mypage(db, user_id, None, payload.interested_industries)
+    return _preference_dict(preference)
 
 
 @router.get("/kakao-alert", response_model=KakaoAlertResponse)
@@ -423,8 +715,16 @@ def put_settings(
     return get_settings_view(user_id, db)
 
 
-def _portfolio_response(records: list[PortfolioAssetRecord]) -> dict[str, Any]:
-    assets = [_portfolio_asset_dict(record) for record in records]
+def _portfolio_response(
+    records: list[PortfolioAssetRecord],
+    market_rows: list[Any] | None = None,
+    signal_rows: list[Any] | None = None,
+) -> dict[str, Any]:
+    market_by_ticker = {row.ticker: row for row in market_rows or []}
+    assets = []
+    for record in records:
+        market_ticker = f"{record.symbol}.KS" if record.market == "KR" and "." not in record.symbol else record.symbol
+        assets.append(_portfolio_asset_dict(record, market_by_ticker.get(market_ticker)))
     rates = {"KRW": 1.0, "USD": 1382.0, "TWD": 43.0}
     total_input = sum(asset["quantity"] * asset["averageBuyPrice"] * rates[asset["currency"]] for asset in assets)
     total_current = sum(asset["quantity"] * asset["currentPrice"] * rates[asset["currency"]] for asset in assets)
@@ -457,21 +757,19 @@ def _portfolio_response(records: list[PortfolioAssetRecord]) -> dict[str, Any]:
             }
             for industry, count in industries.items()
         ],
-        "linkedSignals": [
-            {
-                "id": "signal-gdelt",
-                "industryName": next(iter(industries), "Market"),
-                "time": updated_at[-5:],
-                "title": "GDELT market-news signal",
-                "summary": "News-based risk signal is active until market data APIs are connected.",
-                "relatedAssetCount": len(assets),
-                "tone": "caution",
-            }
-        ] if assets else [],
+        "linkedSignals": [_portfolio_signal_dict(row, assets) for row in (signal_rows or [])[:5]],
     }
 
 
-def _portfolio_asset_dict(record: PortfolioAssetRecord) -> dict[str, Any]:
+def _portfolio_asset_dict(record: PortfolioAssetRecord, market_row: Any | None = None) -> dict[str, Any]:
+    legacy_provider_memos = {
+        "KIS price data is pending. Temporary reference price is displayed.",
+        "Finnhub or Alpha Vantage can replace this with live or delayed price data.",
+    }
+    has_real_market_price = market_row is not None
+    decision_memo = record.decision_memo
+    if has_real_market_price and decision_memo in legacy_provider_memos:
+        decision_memo = "Current price is based on latest persisted yfinance market data."
     return {
         "id": record.id,
         "assetName": record.asset_name,
@@ -480,14 +778,55 @@ def _portfolio_asset_dict(record: PortfolioAssetRecord) -> dict[str, Any]:
         "industry": record.industry,
         "quantity": record.quantity,
         "averageBuyPrice": record.average_buy_price,
-        "currentPrice": record.current_price,
+        "currentPrice": market_row.close if market_row else record.current_price,
         "recentSellPrice": record.recent_sell_price,
         "currency": record.currency,
         "status": record.status,
-        "decisionMemo": record.decision_memo,
+        "decisionMemo": decision_memo,
         "relatedNewsCount": record.related_news_count,
         "cautionNewsCount": record.caution_news_count,
-        "updatedAt": _format_datetime(record.updated_at),
+        "updatedAt": (
+            market_row.fetched_at.isoformat()
+            if market_row and market_row.fetched_at
+            else _format_datetime(record.updated_at)
+        ),
+        "priceDataSource": "real" if has_real_market_price else "mock",
+        "priceProvider": market_row.provider if has_real_market_price else None,
+        "priceStatusLabel": (
+            f"Latest persisted {market_row.provider} market price"
+            if has_real_market_price
+            else "Stored reference price (mock); live market data unavailable"
+        ),
+        "priceAsOf": market_row.trade_date.isoformat() if market_row else None,
+    }
+
+
+def _portfolio_signal_dict(row: Any, assets: list[dict[str, Any]]) -> dict[str, Any]:
+    related = [
+        asset
+        for asset in assets
+        if asset["symbol"] == row.ticker or f"{asset['symbol']}.KS" == row.ticker
+    ]
+    evidence = row.evidence or {}
+    return {
+        "id": f"signal-{row.id}",
+        "industryName": related[0]["industry"] if related else "Market",
+        "time": row.trade_date.isoformat(),
+        "title": evidence.get("title") or evidence.get("headline") or f"{row.ticker} market signal",
+        "summary": f"{row.signal} · event score {row.event_score:.2f}",
+        "relatedAssetCount": len(related),
+        "tone": "negative" if row.signal == "RED" else "caution" if row.signal == "YELLOW" else "neutral",
+    }
+
+
+def _preference_dict(preference: Any) -> dict[str, Any]:
+    return {
+        "userId": preference.user_id,
+        "interestedMarkets": preference.interested_markets,
+        "interestedIndustries": preference.interested_industries,
+        "alertEnabled": preference.alert_enabled,
+        "notificationChannels": preference.notification_channels,
+        "updatedAt": _format_datetime(preference.updated_at),
     }
 
 
@@ -502,8 +841,23 @@ def _load_gdelt_articles(max_records: int = 50) -> list[dict[str, Any]]:
     return collector.deduplicate(collector.collect_from_gdelt(days=1, max_records=max_records))
 
 
+def _strongest_market_reaction(rows: list[dict[str, Any]]) -> dict[str, float]:
+    if not rows:
+        return {}
+    return max(
+        rows,
+        key=lambda row: (
+            abs(float(row.get("return_1d") or 0)),
+            float(row.get("volume_ratio") or 0),
+            float(row.get("volatility_ratio") or 0),
+        ),
+    )
+
+
 def _to_news_guard_article(article: dict[str, Any]) -> dict[str, Any]:
     score = _score_article(article)
+    source = str(article.get("source") or article.get("domain") or "Unknown source")
+    provider = str(article.get("provider") or "unknown")
     if score >= 0.78:
         level = "trusted"
     elif score >= 0.5:
@@ -514,9 +868,13 @@ def _to_news_guard_article(article: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": _article_id(article),
         "title": article.get("title", "Untitled"),
-        "source": article.get("source") or article.get("domain") or "GDELT",
+        "source": source,
+        "provider": provider,
         "publishedAgo": _published_label(article.get("published_at")),
-        "summary": "Collected by GDELT. Full-body verification can be added with additional providers.",
+        "summary": (
+            f"Collected via {provider} from {source}. "
+            "Full-body verification can be added with additional providers."
+        ),
         "reliabilityLevel": level,
         "reliabilityScore": score,
         "impactScore": _impact_score(article),
@@ -524,7 +882,8 @@ def _to_news_guard_article(article: dict[str, Any]) -> dict[str, Any]:
         "industries": _industries_for_article(article),
         "tags": _tags_for_article(article),
         "originalUrl": article.get("url", ""),
-        "reasons": _reasons_for_score(score),
+        "reasons": _reasons_for_score(score, source, provider),
+        "qualityStatus": article.get("quality_status", "low_confidence"),
     }
 
 
@@ -557,22 +916,38 @@ def _industry_summary(industry_id: str, name: str, score: int, news_count: int, 
     return {"id": industry_id, "name": name, "score": score, "tone": tone, "toneLabel": label, "newsCount": news_count, "icon": icon}
 
 
-def _industry_detail(summary: dict[str, Any], articles: list[dict[str, Any]]) -> dict[str, Any]:
-    top_news = [_to_related_news(index, article) for index, article in enumerate(articles[:5], start=1)]
+def _industry_detail(
+    summary: dict[str, Any],
+    articles: list[dict[str, Any]],
+    market_connected: bool,
+) -> dict[str, Any]:
+    matching_articles = _industry_articles(summary["id"], articles)
+    top_news = [
+        _to_related_news(index, article)
+        for index, article in enumerate(matching_articles[:5], start=1)
+    ]
+    market_description = (
+        "Latest yfinance market reactions are included."
+        if market_connected
+        else "Stored market reaction data is not available."
+    )
     return {
         "industryId": summary["id"],
         "title": f"{summary['name']} detail",
         "score": summary["score"],
         "statusLabel": summary["toneLabel"],
-        "description": f"{summary['name']} impact is calculated from GDELT news flow. Market price reaction can be added after price API setup.",
+        "description": (
+            f"{summary['name']} impact uses filtered matching news. "
+            f"{market_description}"
+        ),
         "relatedStocks": _related_stocks(summary["id"]),
         "newsCount": summary["newsCount"],
         "averageSentiment": round(summary["score"] / 100, 2),
         "riskPoints": 2 if summary["score"] < 0 else 1,
         "updatedAt": _now_label(),
         "reasons": {
-            "positive": ["Related news volume detected", "Core technology or policy keywords found"],
-            "caution": ["Price data not connected yet", "Additional source verification recommended"],
+            "positive": ["Filtered industry-matching evidence", "Related market reaction when available"],
+            "caution": ["Low-confidence articles are labeled", "Additional source verification recommended"],
         },
         "topNews": top_news,
     }
@@ -607,6 +982,11 @@ def _score_article(article: dict[str, Any]) -> float:
         score += 0.08
     if article.get("provider") == "GDELT":
         score += 0.02
+    quality_status = article.get("quality_status")
+    if article.get("provider") == "seed" or quality_status == "seed_fallback":
+        score = min(score, 0.5)
+    elif quality_status == "low_confidence":
+        score = min(score, 0.69)
     return round(min(score, 0.96), 2)
 
 
@@ -632,7 +1012,33 @@ def _count_mentions(articles: list[dict[str, Any]], keywords: list[str]) -> int:
 
 def _mentions(article: dict[str, Any], keywords: list[str]) -> bool:
     text = _article_text(article)
-    return any(keyword in text for keyword in keywords)
+    return any(contains_term(text, keyword) for keyword in keywords)
+
+
+def _industry_articles(industry_id: str, articles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    mapping = {
+        "semiconductor": ["semiconductor", "chip", "export control", "nvidia", "amd", "samsung", "sk hynix"],
+        "it": ["ai", "artificial intelligence", "gpu", "nvidia", "amd"],
+        "policy": ["policy", "regulation", "export control", "restriction"],
+    }
+    return [article for article in articles if _mentions(article, mapping.get(industry_id, []))]
+
+
+def _industry_market_adjustment(market: list[dict[str, Any]], industry_id: str) -> int:
+    tickers = {
+        "semiconductor": {"NVDA", "AMD", "005930.KS", "000660.KS"},
+        "it": {"NVDA", "AMD"},
+    }.get(industry_id, set())
+    returns = [
+        float(row.get("return_1d") or 0)
+        for row in market
+        if row.get("ticker") in tickers
+    ]
+    return round(sum(returns) / len(returns) * 100) if returns else 0
+
+
+def _bounded_score(score: int) -> int:
+    return max(-90, min(90, score))
 
 
 def _article_text(article: dict[str, Any]) -> str:
@@ -661,11 +1067,11 @@ def _tags_for_article(article: dict[str, Any]) -> list[str]:
     return tags or ["News"]
 
 
-def _reasons_for_score(score: float) -> list[str]:
+def _reasons_for_score(score: float, source: str, provider: str) -> list[str]:
     if score >= 0.78:
-        return ["URL present", "Source domain present", "Collected by GDELT"]
+        return ["URL present", f"Original source: {source}", f"Provider: {provider}"]
     if score >= 0.5:
-        return ["Collected by GDELT", "Needs cross-source verification"]
+        return [f"Provider: {provider}", "Needs cross-source verification"]
     return ["Weak source evidence", "Full-body analysis needed"]
 
 
@@ -697,38 +1103,56 @@ def _published_label(value: Any) -> str:
     return str(value)
 
 
-def _provider_status(gemini_status: str | None = None) -> dict[str, str]:
+def _provider_status(snapshot: PipelineSnapshot, gemini_status: str | None = None) -> dict[str, str]:
     settings = get_settings()
-    return {
-        "gdelt": "connected",
-        "newsapi": "connected" if settings.news_api_key else "waiting_for_api_key",
-        "guardian": "connected" if settings.guardian_api_key else "waiting_for_api_key",
-        "finnhub": "connected" if settings.finnhub_api_key else "waiting_for_api_key",
-        "alphaVantage": "connected" if settings.alpha_vantage_api_key else "waiting_for_api_key",
-        "gemini": gemini_status or ("configured" if settings.gemini_api_key else "waiting_for_api_key"),
-        "kis": "connected" if settings.kis_app_key and settings.kis_app_secret else "waiting_for_api_key",
-        "openai": "connected" if settings.openai_api_key else "waiting_for_api_key",
-        "kakao": "connected" if settings.kakao_rest_api_key else "waiting_for_api_key",
+    result = dict(snapshot.provider_status)
+    result.update(
+        {
+            "newsapi": result.get("newsapi", "connected" if settings.news_api_key else "disabled"),
+            "guardian": result.get("guardian", "connected" if settings.guardian_api_key else "disabled"),
+            "finnhub": result.get("finnhub", "connected" if settings.finnhub_api_key else "disabled"),
+            "alphaVantage": "connected" if settings.alpha_vantage_api_key else "disabled",
+            "kis": "connected" if settings.kis_app_key and settings.kis_app_secret else "disabled",
+            "openai": "connected" if settings.openai_api_key else "disabled",
+            "kakao": "connected" if settings.kakao_rest_api_key else "disabled",
+        }
+    )
+    gemini_mapping = {
+        "healthy": "connected",
+        "cached": "connected",
+        "ready": "connected",
+        "not_configured": "disabled",
+        "rate_limited": "rate_limited",
+        "timeout": "timeout",
+        "fallback": "fallback",
     }
+    result["gemini"] = gemini_mapping.get(gemini_status or "", "error")
+    return result
 
 
-def _provider_health(articles: list[dict[str, Any]]) -> list[dict[str, str]]:
-    using_seed = any(article.get("provider") == "seed" for article in articles)
-    collector_status = NewsCollector.provider_status()
-    gdelt_status = collector_status["status"]
-    gdelt_message = collector_status["message"]
-    if gdelt_status not in {"healthy", "partial", "failed"}:
-        gdelt_status = "partial"
-    if using_seed and gdelt_status == "healthy":
-        gdelt_status = "partial"
-        gdelt_message = "Using seed fallback; live call returned no data"
+def _provider_health(snapshot: PipelineSnapshot) -> list[dict[str, str]]:
+    settings = get_settings()
+    status = snapshot.provider_status
     return [
-        {"provider": "GDELT", "status": gdelt_status, "message": gdelt_message, "lastCheckedAt": _now_label()},
-        {"provider": "NewsAPI", "status": "disabled", "message": "API key pending"},
-        {"provider": "Guardian", "status": "disabled", "message": "API key pending"},
-        {"provider": "Finnhub", "status": "disabled", "message": "API key pending"},
-        {"provider": "BBC RSS", "status": "partial", "message": "Backup provider candidate"},
+        {"provider": "GDELT", "status": status.get("gdelt", "error"), "message": _status_message(status.get("gdelt", "error")), "lastCheckedAt": snapshot.last_updated},
+        {"provider": "NewsAPI", "status": status.get("newsapi", "connected" if settings.news_api_key else "disabled"), "message": _status_message(status.get("newsapi", "disabled"))},
+        {"provider": "Guardian", "status": "connected" if settings.guardian_api_key else "disabled", "message": "Configured" if settings.guardian_api_key else "API key pending"},
+        {"provider": "Finnhub", "status": "connected" if settings.finnhub_api_key else "disabled", "message": "Configured" if settings.finnhub_api_key else "API key pending"},
+        {"provider": "BBC RSS", "status": status.get("bbcrss", "error"), "message": _status_message(status.get("bbcrss", "error")), "lastCheckedAt": snapshot.last_updated},
+        {"provider": "Google News RSS", "status": status.get("googlenewsrss", "error"), "message": _status_message(status.get("googlenewsrss", "error")), "lastCheckedAt": snapshot.last_updated},
     ]
+
+
+def _status_message(status: str) -> str:
+    messages = {
+        "connected": "Connected",
+        "timeout": "Timed out; using stored or fallback data",
+        "rate_limited": "Rate limited",
+        "disabled": "Not configured",
+        "fallback": "Fallback data active",
+        "error": "Provider unavailable",
+    }
+    return messages.get(status, "Provider state unknown")
 
 
 def _now_label() -> str:

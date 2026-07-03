@@ -162,7 +162,7 @@ export const marketData: Record<MarketTab, MarketViewData> = {
 export const briefingReadiness: BriefingReadinessData = {
   headline: "AI 브리핑은 6개 출처와 3개 시장 축을 교차 확인한 뒤 생성됩니다.",
   confidence: 82,
-  updatedAt: "2026.06.23 09:30 KST",
+  updatedAt: "Demo data - not connected",
   metrics: [
     { label: "수집 뉴스", value: "186건", note: "최근 24시간 기준", status: "ready" },
     { label: "검증 통과", value: "129건", note: "중복/저신뢰 제외", status: "ready" },

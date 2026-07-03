@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, JSON, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.dashboard.database import Base
@@ -16,15 +16,33 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(40), default="local", index=True)
+    provider_user_id: Mapped[str | None] = mapped_column(String(255), index=True)
     username: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False)
+    profile_image_url: Mapped[str | None] = mapped_column(Text)
     language: Mapped[str] = mapped_column(String(30), default="Korean")
     alert_channel: Mapped[str] = mapped_column(String(80), default="Kakao Channel")
     channel_connected: Mapped[bool] = mapped_column(default=False)
     interests: Mapped[list[str]] = mapped_column(JSON, default=list)
     alert_settings: Mapped[list[dict]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
     last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (UniqueConstraint("provider", "provider_user_id", name="uq_user_provider_identity"),)
+
+
+class UserPreference(Base):
+    __tablename__ = "user_preferences"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    interested_markets: Mapped[list[str]] = mapped_column(JSON, default=list)
+    interested_industries: Mapped[list[str]] = mapped_column(JSON, default=list)
+    alert_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    notification_channels: Mapped[list[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
 
 class PortfolioAsset(Base):
@@ -79,3 +97,85 @@ class AlertHistory(Base):
     trigger: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(40), nullable=False)
     tone: Mapped[str] = mapped_column(String(30), nullable=False)
+
+
+class StockPrice(Base):
+    __tablename__ = "stock_prices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    trade_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    open: Mapped[float | None] = mapped_column(Float)
+    high: Mapped[float | None] = mapped_column(Float)
+    low: Mapped[float | None] = mapped_column(Float)
+    close: Mapped[float] = mapped_column(Float, nullable=False)
+    volume: Mapped[float | None] = mapped_column(Float)
+    return_1d: Mapped[float | None] = mapped_column(Float)
+    return_3d: Mapped[float | None] = mapped_column(Float)
+    return_5d: Mapped[float | None] = mapped_column(Float)
+    volume_ratio: Mapped[float | None] = mapped_column(Float)
+    volatility_5d: Mapped[float | None] = mapped_column(Float)
+    volatility_ratio: Mapped[float | None] = mapped_column(Float)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    data_source: Mapped[str] = mapped_column(String(30), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (UniqueConstraint("ticker", "trade_date", name="uq_stock_price_ticker_trade_date"),)
+
+
+class NewsRaw(Base):
+    __tablename__ = "news_raw"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, default="")
+    source: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str] = mapped_column(Text, default="")
+    published_utc: Mapped[str] = mapped_column(String(80), nullable=False)
+    provider: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
+    keyword: Mapped[str] = mapped_column(String(255), default="")
+    raw_payload: Mapped[dict | None] = mapped_column(JSON)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class NewsFiltered(Base):
+    __tablename__ = "news_filtered"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    raw_id: Mapped[int] = mapped_column(ForeignKey("news_raw.id", ondelete="CASCADE"), unique=True, index=True)
+    source_score: Mapped[float] = mapped_column(Float, nullable=False)
+    keyword_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    duplicate_flag: Mapped[bool] = mapped_column(Boolean, default=False)
+    content_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    passed_filter: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    reliability_score: Mapped[float | None] = mapped_column(Float)
+    filtered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class DataProviderStatus(Base):
+    __tablename__ = "data_provider_status"
+
+    provider: Mapped[str] = mapped_column(String(60), primary_key=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    message: Mapped[str] = mapped_column(Text, default="")
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class Signal(Base):
+    __tablename__ = "signals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    trade_date: Mapped[date] = mapped_column(Date, nullable=False)
+    event_score: Mapped[float] = mapped_column(Float, nullable=False)
+    market_reaction_score: Mapped[float] = mapped_column(Float, nullable=False)
+    signal: Mapped[str] = mapped_column(String(10), nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    data_source: Mapped[str] = mapped_column(String(30), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("event_key", "ticker", "trade_date", name="uq_signal_event_ticker_date"),
+    )
