@@ -11,7 +11,7 @@ from src.dashboard.services.data_pipeline import refresh_pipeline_data  # noqa: 
 
 def main() -> None:
     with SessionLocal() as db:
-        print(refresh_pipeline_data(db))
+        print(refresh_pipeline_data(db, trigger="scheduled"))
 
 
 if __name__ == "__main__":

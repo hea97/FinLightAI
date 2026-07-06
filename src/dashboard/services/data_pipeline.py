@@ -11,12 +11,14 @@ from src.collector.news_collector import NewsCollector
 from src.collector.stock_collector import StockCollector
 from src.dashboard.repository import (
     clear_signals,
+    finish_refresh_run,
     latest_provider_statuses,
     latest_stored_news,
     latest_stock_prices,
     persist_news_records,
     reconcile_duplicate_news_titles,
     remove_weekend_stock_prices,
+    start_refresh_run,
     update_provider_statuses,
     upsert_stock_prices,
     upsert_signal,
@@ -25,6 +27,7 @@ from src.processor.event_score import EventScoreCalculator
 from src.processor.news_filter import NewsFilter
 from src.processor.news_relevance import relevance_score
 from src.processor.sentiment import SentimentAnalyzer
+from src.processor.trading_calendar import event_date_for_exchange, next_trading_day
 from src.signal.generator import SignalGenerator
 
 
@@ -168,55 +171,75 @@ def load_pipeline_snapshot(db: Session, max_news: int = 50) -> PipelineSnapshot:
     )
 
 
-def refresh_pipeline_data(db: Session, max_news: int = 100) -> dict[str, Any]:
+def refresh_pipeline_data(
+    db: Session,
+    max_news: int = 100,
+    *,
+    trigger: str = "manual",
+) -> dict[str, Any]:
     """Explicitly refresh external data; dashboard GET requests never call this."""
-    collector = NewsCollector()
-    news_result = collector.collect_all(max_records=max_news)
-    collected = collector.deduplicate(news_result.articles)
-    prepared = NewsFilter().prepare_records(collected)
-    persist_news_records(db, prepared)
-    duplicate_news_rows = reconcile_duplicate_news_titles(db)
-    provider_states = collector.provider_statuses()
+    run = start_refresh_run(db, trigger=trigger)
+    try:
+        collector = NewsCollector()
+        news_result = collector.collect_all(max_records=max_news)
+        collected = collector.deduplicate(news_result.articles)
+        prepared = NewsFilter().prepare_records(collected)
+        persist_news_records(db, prepared)
+        duplicate_news_rows = reconcile_duplicate_news_titles(db)
+        provider_states = collector.provider_statuses()
 
-    market_rows = StockCollector().collect_daily(period="1mo")
-    if market_rows:
-        remove_weekend_stock_prices(db, StockCollector.DEFAULT_TICKERS)
-        upsert_stock_prices(db, market_rows)
-        provider_states["yfinance"] = {
-            "status": "healthy",
-            "message": f"Collected {len(market_rows)} daily market rows",
+        market_rows = StockCollector().collect_daily(period="1mo")
+        if market_rows:
+            remove_weekend_stock_prices(db, StockCollector.DEFAULT_TICKERS)
+            upsert_stock_prices(db, market_rows)
+            provider_states["yfinance"] = {
+                "status": "healthy",
+                "message": f"Collected {len(market_rows)} daily market rows",
+            }
+        else:
+            provider_states["yfinance"] = {
+                "status": "failed",
+                "message": "yfinance returned no market rows",
+            }
+        update_provider_statuses(db, provider_states, run_id=run.id)
+        signal_market = [
+            {
+                **row,
+                "trade_date": (
+                    row["trade_date"].isoformat()
+                    if isinstance(row.get("trade_date"), date)
+                    else str(row.get("trade_date"))
+                ),
+            }
+            for row in market_rows
+        ]
+        signal_articles = _eligible_signal_articles(prepared)
+        clear_signals(db)
+        signal_count = _persist_generated_signals(db, signal_articles, signal_market)
+        counts = {
+            "news_rows": len(prepared),
+            "verified_news_rows": sum(1 for row in prepared if row["passed_filter"]),
+            "market_rows": len(market_rows),
+            "signal_rows": signal_count,
+            "duplicate_news_rows": duplicate_news_rows,
         }
-    else:
-        provider_states["yfinance"] = {
-            "status": "failed",
-            "message": "yfinance returned no market rows",
+        unhealthy = [
+            provider
+            for provider, state in provider_states.items()
+            if str(state.get("status", "")).lower() not in {"healthy", "connected", "cached"}
+        ]
+        run_status = "partial" if unhealthy or not prepared or not market_rows else "succeeded"
+        finish_refresh_run(db, run.id, status=run_status, counts=counts)
+        return {
+            **counts,
+            "run_id": run.id,
+            "status": run_status,
+            "provider_status": provider_states,
         }
-    update_provider_statuses(db, provider_states)
-    latest_market = latest_stock_prices(db, list(StockCollector.DEFAULT_TICKERS))
-    signal_market = [
-        {
-            "ticker": row.ticker,
-            "trade_date": row.trade_date.isoformat(),
-            "return_1d": row.return_1d,
-            "return_3d": row.return_3d,
-            "return_5d": row.return_5d,
-            "volume_ratio": row.volume_ratio,
-            "volatility_5d": row.volatility_5d,
-            "volatility_ratio": row.volatility_ratio,
-        }
-        for row in latest_market
-    ]
-    signal_articles = _eligible_signal_articles(prepared)
-    clear_signals(db)
-    signal_count = _persist_generated_signals(db, signal_articles, signal_market)
-    return {
-        "news_rows": len(prepared),
-        "verified_news_rows": sum(1 for row in prepared if row["passed_filter"]),
-        "market_rows": len(market_rows),
-        "signal_rows": signal_count,
-        "duplicate_news_rows": duplicate_news_rows,
-        "provider_status": provider_states,
-    }
+    except Exception as exc:
+        db.rollback()
+        finish_refresh_run(db, run.id, status="failed", error_message=str(exc))
+        raise
 
 
 def _provider_key(provider: str) -> str:
@@ -262,21 +285,39 @@ def _persist_generated_signals(
     calculator = EventScoreCalculator()
     generator = SignalGenerator()
     sentiment_analyzer = SentimentAnalyzer()
-    market_by_ticker = {row["ticker"]: row for row in market_rows}
+    market_by_ticker: dict[str, list[dict[str, Any]]] = {}
+    for row in market_rows:
+        market_by_ticker.setdefault(str(row["ticker"]), []).append(row)
+    for rows in market_by_ticker.values():
+        rows.sort(key=lambda row: str(row["trade_date"]))
     persisted = 0
     for article in articles:
         if article.get("duplicate_flag"):
             continue
-        published_date = _published_date(article)
+        published_at = _published_datetime(article)
         text = f"{article.get('title', '')} {article.get('content', '')}"
         sentiment = sentiment_analyzer.analyze(text)
         for ticker in calculator.affected_tickers(article):
-            market = market_by_ticker.get(ticker)
-            if not market:
+            candidates = market_by_ticker.get(ticker, [])
+            if not candidates:
                 continue
-            trade_date = date.fromisoformat(market["trade_date"])
-            if published_date and trade_date < published_date:
+            event_date = event_date_for_exchange(published_at, ticker) if published_at else None
+            expected_trade_date = next_trading_day(event_date, ticker) if event_date else None
+            market = (
+                next(
+                    (
+                        row
+                        for row in candidates
+                        if date.fromisoformat(str(row["trade_date"])) == expected_trade_date
+                    ),
+                    None,
+                )
+                if expected_trade_date
+                else candidates[-1]
+            )
+            if market is None:
                 continue
+            trade_date = date.fromisoformat(str(market["trade_date"]))
             market_with_sentiment = {**market, "sentiment_score": float(sentiment["score"])}
             event_score = calculator.calculate(
                 float(article.get("reliability_score") or article.get("source_score") or 0),
@@ -286,6 +327,14 @@ def _persist_generated_signals(
             event_key = hashlib.sha256(
                 f"{article.get('url', '')}|{article.get('title', '')}".lower().encode("utf-8")
             ).hexdigest()
+            evidence = calculator.evidence(article, market_with_sentiment)
+            evidence.update(
+                {
+                    "event_date": event_date.isoformat() if event_date else None,
+                    "expected_trade_date": expected_trade_date.isoformat() if expected_trade_date else None,
+                    "market_match": "exact" if expected_trade_date else "latest_without_event_date",
+                }
+            )
             upsert_signal(
                 db,
                 {
@@ -295,7 +344,7 @@ def _persist_generated_signals(
                     "event_score": event_score,
                     "market_reaction_score": calculator.market_reaction_score(market_with_sentiment),
                     "signal": generator.generate(event_score, market_with_sentiment),
-                    "evidence": calculator.evidence(article, market_with_sentiment),
+                    "evidence": evidence,
                     "data_source": "seed_fallback" if article.get("provider") == "seed" else "real",
                 },
             )
@@ -303,16 +352,16 @@ def _persist_generated_signals(
     return persisted
 
 
-def _published_date(article: dict[str, Any]) -> date | None:
+def _published_datetime(article: dict[str, Any]) -> datetime | None:
     raw = str(article.get("published_utc") or article.get("published_at") or "")
     if not raw:
         return None
     try:
         if raw.endswith("Z"):
             raw = f"{raw[:-1]}+00:00"
-        return datetime.fromisoformat(raw).date()
+        return datetime.fromisoformat(raw)
     except ValueError:
         try:
-            return datetime.strptime(raw[:8], "%Y%m%d").date()
+            return datetime.strptime(raw[:8], "%Y%m%d").replace(tzinfo=timezone.utc)
         except ValueError:
             return None

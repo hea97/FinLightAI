@@ -495,6 +495,24 @@ function PipelineStatusBar({ metadata }: { metadata: PipelineMetadataView | null
   );
 }
 
+function DataState({
+  title,
+  message,
+  tone = "empty",
+}: {
+  title: string;
+  message: string;
+  tone?: "error" | "empty" | "loading";
+}) {
+  return (
+    <section className={`panel data-state data-state--${tone}`} role={tone === "error" ? "alert" : "status"}>
+      <h2>{title}</h2>
+      <p>{message}</p>
+      {tone === "error" ? <button type="button" onClick={() => window.location.reload()}>다시 시도</button> : null}
+    </section>
+  );
+}
+
 function BriefingDashboard({
   currentMarket,
   marketTab,
@@ -785,15 +803,21 @@ function NewsGuardPage() {
   const [filter, setFilter] = useState<NewsGuardFilter>("all");
   const [data, setData] = useState<NewsGuardViewModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
 
     async function load() {
       setIsLoading(true);
+      setLoadError(null);
       try {
         const result = await fetchNewsGuardData(filter);
         if (!ignore) setData(result);
+      } catch (error) {
+        if (!ignore) {
+          setLoadError(error instanceof Error ? error.message : "뉴스 데이터를 불러오지 못했습니다.");
+        }
       } finally {
         if (!ignore) setIsLoading(false);
       }
@@ -828,8 +852,11 @@ function NewsGuardPage() {
             <button type="button">최신순⌄</button>
             <button type="button" className="filter-button">필터</button>
           </div>
+          {loadError ? <p className="api-error" role="alert">{loadError}</p> : null}
           <div className="news-guard-list">
-            {data.articles.map((article) => (
+            {data.articles.length === 0 ? (
+              <DataState title="조건에 맞는 뉴스가 없습니다." message="필터를 바꾸거나 다음 데이터 갱신 후 다시 확인해 주세요." />
+            ) : data.articles.map((article) => (
               <NewsGuardArticleCard article={article} key={article.id} />
             ))}
           </div>

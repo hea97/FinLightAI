@@ -107,6 +107,33 @@ button {
   font-weight: 700;
 }
 
+.data-state {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.data-state h2,
+.data-state p {
+  margin: 0;
+}
+
+.data-state p {
+  margin-top: 8px;
+  color: var(--text-secondary);
+}
+
+.data-state--error {
+  border-color: rgba(239, 103, 94, 0.45);
+}
+
+.data-state button {
+  margin-top: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-3);
+  padding: 9px 16px;
+}
+
 .public-shell {
   min-height: 100vh;
   padding: 24px clamp(18px, 5vw, 72px) 64px;

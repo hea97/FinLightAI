@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from config.settings import get_settings
-from src.dashboard.database import create_tables
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
+from src.dashboard.database import SessionLocal
 from src.dashboard.routes.api import router as api_router
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -32,7 +35,6 @@ app.mount(
     StaticFiles(directory=PROJECT_ROOT / "src" / "dashboard" / "static"),
     name="static",
 )
-create_tables()
 
 
 @app.get("/")
@@ -59,4 +61,24 @@ def kakao_auth_callback(state: str = "kakao_connected_existing_user") -> Redirec
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+    return {"status": "ok"}
+
+
+@app.get("/health/live")
+def liveness() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/health/ready", status_code=status.HTTP_200_OK)
+def readiness() -> dict[str, str]:
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
     return {"status": "ok"}

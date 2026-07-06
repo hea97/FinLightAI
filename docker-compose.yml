@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: finlightai
+      POSTGRES_USER: finlightai
+      POSTGRES_PASSWORD: finlightai
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finlightai -d finlightai"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://finlightai:finlightai@db:5432/finlightai
+      FRONTEND_URL: http://localhost:8000
+      CORS_ORIGINS: http://localhost:8000
+      JWT_SECRET_KEY: local-docker-only-change-me
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

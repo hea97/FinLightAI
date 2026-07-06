@@ -10,10 +10,12 @@ from sqlalchemy.orm import Session
 
 from src.dashboard.models import (
     DataProviderStatus,
+    DataRefreshRun,
     KakaoAlertRule,
     NewsFiltered,
     NewsRaw,
     PortfolioAsset,
+    ProviderHealthEvent,
     Signal,
     StockPrice,
     User,
@@ -188,19 +190,80 @@ def reconcile_duplicate_news_titles(db: Session) -> int:
     return duplicate_count
 
 
-def update_provider_statuses(db: Session, statuses: dict[str, dict[str, str]]) -> None:
+HEALTHY_PROVIDER_STATES = {"healthy", "connected", "cached"}
+
+
+def start_refresh_run(db: Session, trigger: str = "manual") -> DataRefreshRun:
+    run = DataRefreshRun(id=str(uuid4()), trigger=trigger, status="running")
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    return run
+
+
+def finish_refresh_run(
+    db: Session,
+    run_id: str,
+    *,
+    status: str,
+    counts: dict | None = None,
+    error_message: str | None = None,
+) -> DataRefreshRun:
+    run = db.get(DataRefreshRun, run_id)
+    if run is None:
+        raise ValueError(f"Unknown refresh run: {run_id}")
+    run.status = status
+    run.finished_at = datetime.now(timezone.utc)
+    run.counts = counts or {}
+    run.error_message = error_message
+    db.commit()
+    db.refresh(run)
+    return run
+
+
+def latest_refresh_runs(db: Session, limit: int = 20) -> list[DataRefreshRun]:
+    query = select(DataRefreshRun).order_by(DataRefreshRun.started_at.desc()).limit(limit)
+    return list(db.scalars(query))
+
+
+def latest_provider_events(db: Session, limit: int = 100) -> list[ProviderHealthEvent]:
+    query = select(ProviderHealthEvent).order_by(ProviderHealthEvent.checked_at.desc()).limit(limit)
+    return list(db.scalars(query))
+
+
+def update_provider_statuses(
+    db: Session,
+    statuses: dict[str, dict[str, str]],
+    *,
+    run_id: str | None = None,
+) -> None:
+    checked_at = datetime.now(timezone.utc)
     for provider, state in statuses.items():
         stored = db.get(DataProviderStatus, provider)
+        provider_status = state.get("status", "unknown")
+        is_healthy = provider_status.lower() in HEALTHY_PROVIDER_STATES
         values = {
-            "status": state.get("status", "unknown"),
+            "status": provider_status,
             "message": state.get("message", ""),
-            "fetched_at": datetime.now(timezone.utc),
+            "fetched_at": checked_at,
+            "consecutive_failures": 0 if is_healthy else ((stored.consecutive_failures if stored else 0) + 1),
+            "first_failed_at": None if is_healthy else ((stored.first_failed_at if stored else None) or checked_at),
+            "last_success_at": checked_at if is_healthy else (stored.last_success_at if stored else None),
         }
         if stored:
             for field, value in values.items():
                 setattr(stored, field, value)
         else:
             db.add(DataProviderStatus(provider=provider, **values))
+        db.add(
+            ProviderHealthEvent(
+                run_id=run_id,
+                provider=provider,
+                status=provider_status,
+                message=state.get("message", ""),
+                checked_at=checked_at,
+            )
+        )
     db.commit()
 
 
@@ -256,6 +319,9 @@ def latest_provider_statuses(db: Session) -> dict[str, dict[str, str]]:
             "status": row.status,
             "message": row.message,
             "fetched_at": row.fetched_at.isoformat() if row.fetched_at else "",
+            "consecutive_failures": row.consecutive_failures,
+            "first_failed_at": row.first_failed_at.isoformat() if row.first_failed_at else "",
+            "last_success_at": row.last_success_at.isoformat() if row.last_success_at else "",
         }
     return statuses
 

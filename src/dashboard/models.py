@@ -160,6 +160,35 @@ class DataProviderStatus(Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     message: Mapped[str] = mapped_column(Text, default="")
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
+    first_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DataRefreshRun(Base):
+    __tablename__ = "data_refresh_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    trigger: Mapped[str] = mapped_column(String(40), nullable=False, default="manual")
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="running", index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    counts: Mapped[dict] = mapped_column(JSON, default=dict)
+    error_message: Mapped[str | None] = mapped_column(Text)
+
+
+class ProviderHealthEvent(Base):
+    __tablename__ = "provider_health_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("data_refresh_runs.id", ondelete="SET NULL"),
+        index=True,
+    )
+    provider: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    message: Mapped[str] = mapped_column(Text, default="")
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
 
 
 class Signal(Base):

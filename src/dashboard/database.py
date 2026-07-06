@@ -31,12 +31,6 @@ engine = _create_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
-def create_tables() -> None:
-    from src.dashboard import models  # noqa: F401
-
-    Base.metadata.create_all(bind=engine)
-
-
 def get_db() -> Generator[Session, None, None]:
     with SessionLocal() as session:
         yield session

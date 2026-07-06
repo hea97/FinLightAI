@@ -36,6 +36,9 @@ from src.dashboard.repository import (
     get_user_preference,
     get_user_settings,
     latest_signals,
+    latest_provider_events,
+    latest_provider_statuses,
+    latest_refresh_runs,
     latest_stock_prices,
     list_assets,
     save_user_preference,
@@ -237,6 +240,83 @@ def auth_logout() -> Response:
         **_cookie_options(),
     )
     return response
+
+
+@router.post("/auth/e2e/session")
+def create_e2e_session(db: Session = Depends(get_db)) -> Response:
+    """Issue a real HttpOnly session only for the isolated browser-test environment."""
+    settings = get_settings()
+    if settings.app_env.lower() != "e2e":
+        raise HTTPException(status_code=404, detail="Not found")
+    user = ensure_user(db, "e2e-user")
+    token = create_session_token(
+        user.id,
+        secret=settings.jwt_secret_key,
+        expire_minutes=settings.jwt_expire_minutes,
+    )
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.set_cookie(
+        settings.auth_cookie_name,
+        token,
+        max_age=settings.jwt_expire_minutes * 60,
+        httponly=True,
+        samesite=settings.session_cookie_samesite(),
+        **_cookie_options(),
+    )
+    return response
+
+
+@router.get("/operations/status")
+def operations_status(
+    _user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    runs = latest_refresh_runs(db)
+    provider_states = latest_provider_statuses(db)
+    events = latest_provider_events(db, limit=50)
+    return {
+        "status": (
+            "degraded"
+            if any(state["consecutive_failures"] > 0 for state in provider_states.values())
+            else "ok"
+        ),
+        "latestRun": (
+            {
+                "id": runs[0].id,
+                "trigger": runs[0].trigger,
+                "status": runs[0].status,
+                "startedAt": runs[0].started_at.isoformat(),
+                "finishedAt": runs[0].finished_at.isoformat() if runs[0].finished_at else None,
+                "counts": runs[0].counts,
+                "error": runs[0].error_message,
+            }
+            if runs
+            else None
+        ),
+        "providers": provider_states,
+        "recentRuns": [
+            {
+                "id": run.id,
+                "trigger": run.trigger,
+                "status": run.status,
+                "startedAt": run.started_at.isoformat(),
+                "finishedAt": run.finished_at.isoformat() if run.finished_at else None,
+                "counts": run.counts,
+                "error": run.error_message,
+            }
+            for run in runs
+        ],
+        "recentProviderEvents": [
+            {
+                "provider": event.provider,
+                "status": event.status,
+                "message": event.message,
+                "checkedAt": event.checked_at.isoformat(),
+                "runId": event.run_id,
+            }
+            for event in events
+        ],
+    }
 
 
 @router.get("/signals", response_model=SignalsResponse)

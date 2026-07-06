@@ -39,7 +39,47 @@ Local development uses `sqlite:///./data/finlightai.db` by default. To use Postg
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/finlightai
 ```
 
-`python scripts/setup_db.py` creates the SQLAlchemy tables for the configured database. The PostgreSQL reference schema is in `database/schema.sql`.
+`python scripts/setup_db.py` upgrades the configured database to the latest Alembic revision. Application startup does not create or mutate tables. Create new revisions with:
+
+```powershell
+python -m alembic revision --autogenerate -m "describe change"
+python -m alembic upgrade head
+python -m alembic check
+```
+
+The migration history in `database/migrations/` is the schema source of truth. A legacy database without an `alembic_version` table is stamped at the baseline revision before operational migrations are applied.
+
+## Docker
+
+Run the application and PostgreSQL together:
+
+```powershell
+docker compose up --build
+```
+
+The container applies Alembic migrations before Uvicorn starts. Liveness and database readiness endpoints are available at `/health/live` and `/health/ready`.
+
+## Operational monitoring
+
+Every data refresh records its trigger, status, timestamps, row counts, and error. Provider checks retain an event history plus the current failure streak and recovery timestamp.
+
+- `GET /api/operations/status` — latest refresh, recent refreshes, provider state, and recent provider events
+- `python scripts/refresh_pipeline_data.py` — scheduled/manual refresh entrypoint
+
+Signal generation maps each article to the next session from the NYSE or KRX exchange calendar and records the expected session and match quality in signal evidence.
+
+## Verification
+
+```powershell
+python -m pytest -q
+cd frontend
+npm ci
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
+
+Playwright covers cross-origin credentialed cookies and error, empty, and fallback UI states. GitHub Actions runs backend, frontend, E2E, migration-drift, and Docker build jobs.
 
 ## Dashboard API
 

@@ -407,6 +407,8 @@ def test_generated_signal_is_persisted_without_future_market_leakage() -> None:
     assert stored is not None
     assert stored.trade_date >= date(2026, 6, 25)
     assert stored.evidence["provider"] == "GDELT"
+    assert stored.evidence["expected_trade_date"] == "2026-06-26"
+    assert stored.evidence["market_match"] == "exact"
 
 
 def test_signal_api_exposes_verified_real_news_evidence(isolated_dashboard_database) -> None:
@@ -482,8 +484,7 @@ def test_signal_refresh_snapshot_clears_stale_market_dates() -> None:
     _persist_generated_signals(session, [article], current_market)
 
     stored = list(session.scalars(select(Signal)))
-    assert len(stored) == 1
-    assert stored[0].trade_date == date(2026, 6, 29)
+    assert stored == []
 
 
 def test_dashboard_pipeline_endpoints_expose_fallback_metadata(monkeypatch) -> None:
