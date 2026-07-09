@@ -1,4 +1,4 @@
-export type MyPageAlertId = "kakao" | "daily-briefing" | "red-signal" | "portfolio-news" | "news-guard";
+export type MyPageAlertId = "kakao" | "email" | "daily-briefing" | "red-signal" | "portfolio-news" | "news-guard";
 export type MyPageConnectionStatus = "normal" | "connected";
 export type MyPageShortcutTarget = "portfolio" | "kakao" | "guard" | "industry";
 
