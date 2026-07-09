@@ -45,8 +45,8 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 | 이메일 확인/수신 거부 | 구현 | double opt-in, unsubscribe API, 로컬 테스트 통과 |
 | 이메일 실제 발송 | 구현, 운영 검증 필요 | Resend/SMTP adapter, provider 환경 검증 필요 |
 | 일일 요약/즉시 알림 | 구현, 운영 검증 필요 | script와 dispatch 흐름, 배포 smoke test 필요 |
-| 카카오 알림 규칙 | 구현 | 외부 카카오 메시지 전송은 MVP 제외 |
-| 카카오 챗봇 + n8n | 후순위 | 카카오 승인 후 확장 기능 |
+| 카카오 알림 규칙 | 구현, 외부 발송 제외 | 규칙/preview/준비 상태만 제공 |
+| 카카오 챗봇 + n8n | 향후 확장 | 카카오 승인 후 별도 운영 기능 |
 
 ## 5. 핵심 기능 정책
 
@@ -92,6 +92,8 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 - 발표와 문서에서는 `카카오는 향후 확장, 현재 MVP는 이메일 알림`으로 표현을 통일한다.
 - 메시지는 투자 행동 유도가 아니라 상태, 근거, 대시보드 CTA로 구성한다.
 - 알림 채널 범위는 MVP에서 `이메일`로 한정하고, 카카오는 규칙/preview/향후 연동 안내만 제공한다.
+- 카카오 OAuth는 MVP 로그인 경로가 아니며, 실제 사용자 인증은 Google OAuth로 설명한다.
+- 카카오 관련 화면은 완료 기능이 아니라 향후 확장 계획과 상태 확인 화면으로만 소개한다.
 
 ### 이메일 레터
 
@@ -132,7 +134,7 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 - 개발 기본값은 SQLite다.
 - 운영은 `DATABASE_URL` 기반 PostgreSQL을 지원한다.
 - 일반 `postgres://`/`postgresql://` URL은 psycopg v3 형식으로 정규화한다.
-- 알림 관련 테이블은 Alembic migration 초안이 추가됐으며 배포 전 `alembic upgrade head` 검증이 필요하다.
+- 알림 관련 테이블은 Alembic migration으로 관리하며, 신규 및 기존 SQLite DB 기준 `alembic upgrade head` 검증을 통과했다. 운영 PostgreSQL에서는 배포 후 동일 migration 적용을 확인해야 한다.
 - 기존 SQLite 사용자 테이블에는 누락 OAuth 컬럼을 보완하는 idempotent 호환 패치를 적용한다.
 
 ## 7. 실제 API
@@ -183,7 +185,27 @@ PATCH             /api/kakao-alert/rules/{rule_id}
 8. 발송 실패 재시도와 suppression list 운영 정책 정리
 9. 카카오 채널 + n8n 연동 착수
 
-## 10. 최신 검증
+## 10. 발표 및 보고서 문구
+
+발표 PPT의 기능 상태 문구는 아래 한 문장으로 통일한다.
+
+> 이메일 알림 MVP 구현, 카카오는 향후 확장
+
+발표에서 구현 완료로 말할 수 있는 범위:
+
+- Google OAuth 기반 로그인 API와 httpOnly 세션 쿠키
+- 이메일 구독 저장, 24시간 double opt-in 확인 링크, 수신 거부 링크
+- 일일 요약과 RED/YELLOW 즉시 알림 dispatch, GREEN 즉시 발송 제외
+- `notification_deliveries` 기반 발송 성공/실패/중복/bounce/complaint 이력 구조
+
+발표에서 운영 검증 필요로 말해야 하는 범위:
+
+- Render/Vercel 실제 URL 기반 OAuth callback, CORS, cookie smoke test
+- Resend 또는 SMTP 실제 발신 도메인 검증과 테스트 메일 수신
+- provider webhook signature와 bounce/complaint 운영 검증
+- 카카오 채널, n8n workflow, 실제 카카오 메시지 발송
+
+## 11. 최신 검증
 
 - 2026-07-08: 이메일 알림 MVP TODO 기준으로 제품 범위를 이메일 우선으로 재정렬
 - 2026-07-09: backend `python -m pytest` 78개 통과

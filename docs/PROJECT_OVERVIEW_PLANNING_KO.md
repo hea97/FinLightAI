@@ -268,6 +268,15 @@ flowchart TD
 실제 운영 전에는 Resend 또는 SMTP provider 설정, 발신 도메인 검증,
 webhook signature 검증, 발송 실패 재시도 정책을 보완해야 한다.
 
+보고서에는 이메일 알림 MVP를 다음 구조로 설명한다.
+
+- Double opt-in: 사용자가 이메일과 수신 동의를 제출하면 구독 상태를 `pending`으로 저장하고, 24시간 만료 확인 토큰을 발급한다. 사용자가 `GET /api/email-subscription/confirm` 링크를 열면 토큰 hash와 만료 시각을 검증한 뒤 상태를 `active`로 바꾸고 동의 시각을 기록한다.
+- Unsubscribe: 모든 발송 본문에는 사용자와 이메일에 묶인 수신 거부 토큰 링크를 포함한다. 사용자가 `GET /api/email-subscription/unsubscribe` 링크를 열면 상태를 `unsubscribed`로 바꾸고 이후 dispatch 대상에서 제외한다.
+- 발송 이력: `notification_deliveries`는 사용자, 채널, 알림 종류, 수신자, dedupe key, provider, provider message ID, 오류 메시지, 중복 횟수를 저장한다. 성공/실패뿐 아니라 provider webhook의 bounce/complaint/delay 상태까지 추적할 수 있게 설계했다.
+- 중복 방지: 일일 요약은 KST 기준 날짜별 key를 사용하고, 즉시 알림은 사용자별 `event_key + ticker + trade_date` 성격의 dedupe key를 사용한다. 같은 key가 다시 들어오면 새 메일을 보내지 않고 기존 delivery의 duplicate count를 증가시킨다.
+
+발표 PPT 문구는 `이메일 알림 MVP 구현, 카카오는 향후 확장`으로 통일한다. 카카오 채널과 n8n은 설계/preview/향후 확장 항목으로만 설명하고, 실제 운영 알림 채널은 이메일 MVP로 설명한다.
+
 ## 7. 시스템 구조
 
 현재 프로젝트 구조는 다음 역할을 기준으로 구성한다.

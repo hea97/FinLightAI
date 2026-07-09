@@ -38,13 +38,13 @@ provider 수집
 | R06 | 사용자 설정 | 마이페이지, preference, 설정을 사용자별 저장한다. | 구현 |
 | R07 | Google 인증 | login, callback, me, logout과 세션 쿠키를 제공한다. | 구현 |
 | R08 | 온보딩 | 관심 시장, 산업, 알림 여부를 저장한다. | 구현 |
-| R09 | 카카오 규칙 | 알림 규칙을 조회하고 변경한다. | 구현 |
-| R10 | 카카오 발송 | n8n과 카카오 채널을 통해 메시지를 발송한다. | MVP 제외 |
+| R09 | 카카오 규칙 | 알림 규칙을 조회하고 preview/준비 상태를 제공한다. | 구현, 외부 발송 제외 |
+| R10 | 카카오 발송 | n8n과 카카오 채널을 통해 메시지를 발송한다. | 향후 확장 |
 | R11 | 데이터 갱신 | 요청 처리와 분리된 명령으로 파이프라인을 갱신한다. | 구현 |
 | R12 | 운영 배포 | Vercel/Render/PostgreSQL 환경에서 전체 흐름을 검증한다. | 검증 필요 |
 | R13 | 이메일 구독 | 이메일과 수신 동의를 사용자별 저장하고 상태를 조회한다. | 구현 |
 | R14 | 이메일 확인/해지 | double opt-in, 수신 거부, 구독 상태를 관리한다. | 구현 |
-| R15 | 이메일 발송 | 일일 요약, RED/YELLOW 즉시 알림, 발송 이력을 관리한다. | 구현, 운영 provider 검증 필요 |
+| R15 | 이메일 발송 | 일일 요약, RED/YELLOW 즉시 알림, 발송 이력을 관리한다. | 구현, 배포/provider 검증 필요 |
 
 ## 4. 상세 요구사항
 
@@ -128,7 +128,7 @@ provider 수집
 - 확인 완료 전 상태는 `pending`, 확인 완료 후 상태는 `active`로 관리한다.
 - 수신 거부 링크를 모든 발송 본문에 포함하고, 수신 거부 후 상태를 `unsubscribed`로 변경한다.
 - provider bounce/complaint 이벤트가 들어오면 구독 상태를 `suppressed`로 변경한다.
-- 발송 provider는 Resend 또는 SMTP를 지원하며, `notification_deliveries`에 `sent`, `failed`, `duplicate`, `delivered`, `delayed`, `bounced`, `complained` 상태를 저장한다.
+- 발송 provider는 Resend 또는 SMTP를 지원하며, `notification_deliveries`에 `sent`, `failed`, `duplicate`, `delivered`, `delayed`, `bounced`, `complained` 상태와 중복 횟수를 저장한다.
 - 일일 요약은 KST 기준 날짜별 중복 발송을 막는다.
 - RED/YELLOW 즉시 알림은 사용자 설정을 반영하며 GREEN 신호는 즉시 발송 대상에서 제외한다.
 - 동일 `event_key + ticker + trade_date` 알림은 중복 발송하지 않고 중복 이력을 증가시킨다.
@@ -159,7 +159,7 @@ fallbackUsed
 - email subscriptions에는 user ID, 이메일, 상태, 알림 설정, token hash, 동의/해지/만료 시각을 저장한다.
 - notification deliveries에는 user ID, channel, notification type, recipient, dedupe key, status, provider, provider message ID, 오류, 중복 횟수를 저장한다.
 - 외부 PostgreSQL URL은 psycopg v3 driver 형식으로 정규화한다.
-- 운영 데이터 사용 전 `create_all`을 versioned migration으로 교체해야 한다.
+- 운영 DB 초기화는 `scripts/setup_db.py`와 Alembic versioned migration으로 수행한다. `create_all` 호출은 테스트 fixture 경로에만 남긴다.
 - 기존 SQLite `users` 테이블은 idempotent 호환 패치로 OAuth 필드를 보완한다.
 
 ## 7. 비기능 요구사항
@@ -186,12 +186,12 @@ fallbackUsed
 - 배포 후 로그인, callback, me, logout과 사용자별 CRUD를 smoke test한다.
 - 데이터 refresh는 scheduler에서 명시적 명령으로 실행한다.
 - 이메일 provider 환경 변수와 발신 도메인을 설정한다.
-- `alembic upgrade head`로 `email_subscriptions`, `notification_deliveries` 생성 여부를 확인한다.
+- `scripts/setup_db.py` 또는 `alembic upgrade head`로 `email_subscriptions`, `notification_deliveries` 생성 여부를 확인한다.
 - 배포 후 이메일 구독, 확인 링크, 수신 거부, 일일 요약, RED/YELLOW 즉시 알림을 smoke test한다.
 
 ## 9. 알려진 제약
 
-- 카카오 채널 실제 발송과 n8n은 MVP 범위에서 제외됐다.
+- 카카오 채널 실제 발송과 n8n 운영 workflow는 MVP 범위에서 제외됐으며, 발표와 제품 문서에서는 `카카오는 향후 확장`으로 표현한다.
 - Guardian/Finnhub는 credential 준비 후 추가한다.
 - 거래일 계산은 exchange calendar 도입 전까지 제한이 있다.
 - 무료 provider의 rate limit과 일시 장애가 데이터 최신성에 영향을 줄 수 있다.

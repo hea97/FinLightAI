@@ -1,6 +1,6 @@
 # Backend deployment preparation
 
-FinLightAI currently deploys the React/Vite frontend separately from the FastAPI backend. This document prepares the backend deployment step without starting Kakao OAuth implementation.
+FinLightAI deploys the React/Vite frontend separately from the FastAPI backend. This document prepares the Google OAuth and email-notification MVP backend deployment while keeping Kakao/n8n as a future expansion.
 
 ## FastAPI entrypoint
 
@@ -44,14 +44,19 @@ DATABASE_URL=postgresql+psycopg://...
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=https://your-backend-api.example/api/auth/google/callback
-KAKAO_REST_API_KEY=
-KAKAO_CLIENT_SECRET=
-KAKAO_REDIRECT_URI=https://your-backend-api.example/api/auth/kakao/callback
 JWT_SECRET_KEY=
 JWT_EXPIRE_MINUTES=1440
 AUTH_COOKIE_SAMESITE=none
 AUTH_COOKIE_SECURE=true
 # AUTH_COOKIE_DOMAIN=  # Leave empty for the default Render host.
+
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=
+SMTP_FROM=FinLightAI <alerts@your-verified-domain.example>
+EMAIL_WEBHOOK_SECRET=
+NOTIFICATION_SECRET=
+NOTIFICATION_TOKEN_SECRET=
+
 GEMINI_API_KEY=
 NEWS_API_KEY=
 GDELT_BASE_URL=https://api.gdeltproject.org/api/v2/doc/doc
@@ -68,6 +73,17 @@ Optional collector/provider variables can remain empty until each provider is en
 - `KIS_APP_KEY`
 - `KIS_APP_SECRET`
 - `KIS_ACCOUNT_NO`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `KAKAO_CHANNEL_ID`
+- `KAKAO_CHANNEL_APPROVED`
+- `N8N_KAKAO_WEBHOOK_URL`
+- `N8N_WEBHOOK_TOKEN`
+
+Kakao/n8n variables are for future expansion. The MVP login path is Google
+OAuth, and the MVP notification channel is email.
 
 ## CORS configuration
 
@@ -195,15 +211,15 @@ The frontend API client already reads `VITE_API_BASE_URL`. If this value is empt
 
 Only put browser-safe values in Vercel `VITE_` variables. Vite exposes `VITE_` variables to client-side JavaScript, so never place Kakao client secrets, JWT secrets, database URLs, or private API keys in Vercel frontend environment variables.
 
-## URL consistency before OAuth implementation
+## URL consistency before Google OAuth production
 
-Confirm these four values before starting Kakao OAuth:
+Confirm these values before production Google OAuth smoke testing:
 
 ```env
 FRONTEND_URL=https://your-vercel-frontend.example
 BACKEND_URL=https://your-render-backend.example
 CORS_ORIGINS=https://your-vercel-frontend.example
-KAKAO_REDIRECT_URI=https://your-render-backend.example/api/auth/kakao/callback
+GOOGLE_REDIRECT_URI=https://your-render-backend.example/api/auth/google/callback
 ```
 
 Then set the Vercel frontend variables:
@@ -214,9 +230,48 @@ VITE_API_BASE_URL=https://your-render-backend.example
 
 Do not set `VITE_ENABLE_DEV_USER_HEADER=true` in Vercel production.
 `VITE_USER_ID` is only a local-development fallback and is not an
-authentication credential.
+authentication credential. In `APP_ENV=production`, authenticated user APIs
+must use the Google session cookie; `X-User-ID` is rejected as a production
+identity substitute.
 
-The `KAKAO_REDIRECT_URI` value in Render must exactly match the Kakao Developers Redirect URI registration.
+The `GOOGLE_REDIRECT_URI` value in Render must exactly match the Google Cloud
+OAuth Client's Authorized redirect URI.
+
+## Email notification variables
+
+Email is the MVP notification channel. With the recommended Resend provider,
+set:
+
+```env
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_...
+SMTP_FROM=FinLightAI <alerts@your-verified-domain.example>
+EMAIL_WEBHOOK_SECRET=...
+NOTIFICATION_SECRET=...
+NOTIFICATION_TOKEN_SECRET=...
+```
+
+`SMTP_FROM` is still required with Resend because it is the visible sender
+address. Verify the sender domain or single sender in the provider dashboard
+before running production smoke tests.
+
+If using SMTP instead of Resend:
+
+```env
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=...
+SMTP_PASSWORD=...
+SMTP_FROM=FinLightAI <alerts@your-verified-domain.example>
+NOTIFICATION_SECRET=...
+NOTIFICATION_TOKEN_SECRET=...
+```
+
+`NOTIFICATION_SECRET` protects manual/cron dispatch requests.
+`NOTIFICATION_TOKEN_SECRET` signs confirmation and unsubscribe tokens.
+`EMAIL_WEBHOOK_SECRET` protects provider event webhook verification when
+bounce/complaint events are enabled.
 
 ## Backend smoke test checklist
 
@@ -261,12 +316,26 @@ Auth and browser checks:
     sibling domains or a same-origin API proxy instead of weakening cookie
     security.
 
+Email checks:
+
+1. After Google login, save an email subscription from the Vercel UI.
+2. Confirm the API request uses the Google `finlight_session` cookie, not
+   `X-User-ID`.
+3. Confirm the response becomes `pending` and the double opt-in email arrives.
+4. Open the confirmation link and verify the response becomes `active`.
+5. Dispatch one daily summary or RED/YELLOW smoke notification with
+   `X-Notification-Secret`.
+6. Confirm `notification_deliveries` records `sent` or `failed`, and repeat
+   the same dedupe key once to confirm duplicate tracking.
+7. Open the unsubscribe link and verify the subscription becomes
+   `unsubscribed`.
+
 ## Deployment risks
 
 - A fresh hosted PostgreSQL database will be empty until setup and pipeline refresh run.
-- `create_all()` creates a fresh schema but does not migrate existing tables.
-  Before reusing a database across releases, add and run versioned migrations
-  (for example Alembic); otherwise new auth columns can be missing.
+- `create_all()` is retained for tests only. Production setup must run
+  `scripts/setup_db.py` or Alembic migrations against the deployed
+  PostgreSQL database before traffic.
 - `GDELT` can return `429` or timeout and should remain non-blocking.
 - `GEMINI_API_KEY` can stay empty for static briefing fallback until Gemini integration is explicitly enabled.
 - Hosted schedulers or cron jobs are not configured yet; data refresh may need a separate job after the API is live.

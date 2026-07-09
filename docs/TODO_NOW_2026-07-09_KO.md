@@ -2,12 +2,12 @@
 
 ## 현재 기준
 
-- 기준 브랜치: `codex/p0-deployment`
-- 현재 브랜치 상태: `origin/codex/p0-deployment`보다 2커밋 앞섬
-- 최신 커밋: `64f2ea2 Add email notification MVP`
+- 기준 브랜치: `main`
+- 현재 브랜치 상태: `origin/main`보다 1커밋 앞섬
+- 최신 커밋: `ff8f172 Prepare deployment smoke checks`
 - 현재 범위: 실제 카카오 메시지 발송 제외, 이메일 알림 MVP 중심
-- 현재 작업 트리: 문서와 `render.yaml`에 미커밋 변경 있음
-- 새 문서 후보: `docs/PRE_DEPLOY_CHECKLIST_KO.md`
+- 현재 작업 트리: 문서 정합성 보완 중
+- 새 문서 후보: `docs/PRE_DEPLOY_CHECKLIST_KO.md` 추적 완료
 
 ## 오늘 목표
 
@@ -83,13 +83,13 @@
 
 ## 7순위: 문서와 발표 자료 정리
 
-- [ ] `docs/SRS.md`의 구현 상태가 실제 코드와 일치하는지 확인
-- [ ] `docs/PRODUCT_PLANNING_KO.md`에서 카카오 제외 범위가 명확한지 확인
-- [ ] `docs/BACKLOG_API_PLANNING.md`에서 남은 일을 배포/운영 중심으로 정리
-- [ ] `docs/BACKEND_DEPLOY.md`에 이메일 환경변수 누락이 없는지 확인
+- [x] `docs/SRS.md`의 구현 상태가 실제 코드와 일치하는지 확인
+- [x] `docs/PRODUCT_PLANNING_KO.md`에서 카카오 제외 범위가 명확한지 확인
+- [x] `docs/BACKLOG_API_PLANNING.md`에서 남은 일을 배포/운영 중심으로 정리
+- [x] `docs/BACKEND_DEPLOY.md`에 이메일 환경변수 누락이 없는지 확인
 - [x] `docs/PRE_DEPLOY_CHECKLIST_KO.md`를 최종 배포 체크리스트로 다듬기 - production 이메일 smoke test를 Google 세션 쿠키 기반으로 수정
-- [ ] 발표 PPT에는 "이메일 알림 MVP 구현, 카카오는 향후 확장"으로 통일
-- [ ] 보고서에는 double opt-in, unsubscribe, 발송 이력, 중복 방지 구조를 설명
+- [x] 발표 PPT에는 "이메일 알림 MVP 구현, 카카오는 향후 확장"으로 통일 - `docs/PRODUCT_PLANNING_KO.md`, `docs/PROJECT_OVERVIEW_PLANNING_KO.md`에 고정 문구 반영
+- [x] 보고서에는 double opt-in, unsubscribe, 발송 이력, 중복 방지 구조를 설명 - `docs/PROJECT_OVERVIEW_PLANNING_KO.md`에 설명 추가
 
 ## 오늘 완료 기준
 

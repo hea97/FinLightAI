@@ -241,7 +241,12 @@ Invoke-RestMethod "https://your-render-api.onrender.com/api/email-subscription/u
 - PostgreSQL 마이그레이션과 연결 확인 완료
 - `/health/live` HTTP 200
 - `/health/ready` HTTP 200
+- CORS 응답이 실제 Vercel origin과 `Access-Control-Allow-Credentials: true`를 반환
+- Google OAuth login/callback/me/logout smoke test 통과
+- `finlight_session` cookie가 API host에 `HttpOnly`, `Secure`, `SameSite=None`, `Path=/`로 생성됨
 - 이메일 구독 `pending` 생성 확인
 - 확인 링크로 `active` 전환 확인
 - 일일 요약 발송 확인
+- `notification_deliveries`에 발송 성공/실패 이력과 중복 호출 이력이 남는지 확인
 - 수신 거부 링크로 `unsubscribed` 전환 확인
+- 수신 거부 사용자가 후속 dispatch 발송 대상에서 제외되는지 확인
