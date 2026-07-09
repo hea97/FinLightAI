@@ -1,7 +1,7 @@
 # FinLightAI 전체 기획서
 
 작성일: 2026-05-29
-최종 업데이트: 2026-07-08
+최종 업데이트: 2026-07-09
 문서 상태: 실제 API, Google OAuth, 이메일 알림 MVP 범위 반영
 
 ## 1. 한 줄 정의
@@ -42,9 +42,9 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 | 마이페이지/설정 | 구현 | 사용자별 조회 및 변경 |
 | Google OAuth | 구현 | 운영 Google/Render 설정 필요 |
 | 이메일 레터 구독 | 구현 | modal, API, 사용자별 DB 저장 |
-| 이메일 확인/수신 거부 | 구현 초안 | double opt-in, unsubscribe API, 검증 필요 |
-| 이메일 실제 발송 | 구현 초안 | Resend/SMTP adapter, provider 환경 검증 필요 |
-| 일일 요약/즉시 알림 | 구현 초안 | script와 dispatch 흐름, 배포 smoke test 필요 |
+| 이메일 확인/수신 거부 | 구현 | double opt-in, unsubscribe API, 로컬 테스트 통과 |
+| 이메일 실제 발송 | 구현, 운영 검증 필요 | Resend/SMTP adapter, provider 환경 검증 필요 |
+| 일일 요약/즉시 알림 | 구현, 운영 검증 필요 | script와 dispatch 흐름, 배포 smoke test 필요 |
 | 카카오 알림 규칙 | 구현 | 외부 카카오 메시지 전송은 MVP 제외 |
 | 카카오 챗봇 + n8n | 후순위 | 카카오 승인 후 확장 기능 |
 
@@ -91,6 +91,7 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 - 실제 카카오 채널 발송과 n8n 운영 workflow는 2026-07-08 MVP 범위에서 제외한다.
 - 발표와 문서에서는 `카카오는 향후 확장, 현재 MVP는 이메일 알림`으로 표현을 통일한다.
 - 메시지는 투자 행동 유도가 아니라 상태, 근거, 대시보드 CTA로 구성한다.
+- 알림 채널 범위는 MVP에서 `이메일`로 한정하고, 카카오는 규칙/preview/향후 연동 안내만 제공한다.
 
 ### 이메일 레터
 
@@ -104,6 +105,7 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 - 즉시 알림은 RED/YELLOW 신호만 대상으로 하며 GREEN은 제외한다.
 - 동일 날짜 또는 동일 `event_key + ticker + trade_date` 발송은 중복 저장/발송을 막는다.
 - 실제 운영 전 provider 도메인, 발신 주소, webhook, bounce/complaint 처리를 검증한다.
+- 발송 실패 재시도, provider rate limit, suppression list 운영은 P1 안정화 과제로 관리한다.
 
 ## 6. 기술 및 데이터 구조
 
@@ -178,10 +180,12 @@ PATCH             /api/kakao-alert/rules/{rule_id}
 5. 이메일 provider 환경 변수와 발신 도메인 검증
 6. 이메일 구독/확인/수신 거부/일일 요약/RED-YELLOW 알림 smoke test
 7. DB migration 적용과 CI 도입
-8. 카카오 채널 + n8n 연동 착수
+8. 발송 실패 재시도와 suppression list 운영 정책 정리
+9. 카카오 채널 + n8n 연동 착수
 
 ## 10. 최신 검증
 
 - 2026-07-08: 이메일 알림 MVP TODO 기준으로 제품 범위를 이메일 우선으로 재정렬
 - 2026-07-08: backend `pytest` 70개 통과
 - 2026-07-08: frontend TypeScript 검사 및 Vite production build 통과
+- 2026-07-09: 알림/운영 관련 회귀 테스트 16개 통과, 문서와 발표 범위를 이메일 MVP 기준으로 갱신

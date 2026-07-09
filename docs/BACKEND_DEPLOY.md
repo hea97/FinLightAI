@@ -10,7 +10,7 @@ FinLightAI currently deploys the React/Vite frontend separately from the FastAPI
 | Source file | `src/dashboard/app.py` |
 | Local command | `uvicorn src.dashboard.app:app --reload --port 8000` |
 | Production command | `uvicorn src.dashboard.app:app --host 0.0.0.0 --port $PORT` |
-| Health check | `GET /health` |
+| Health check | `GET /health/live`, `GET /health/ready` |
 | API prefix | `/api` |
 
 Do not add Vercel's FastAPI `[tool.vercel]` entrypoint configuration yet. The current Vercel task is frontend-only.
@@ -178,7 +178,7 @@ Recommended values:
 | Runtime | Python |
 | Build Command | `pip install -r requirements.txt` |
 | Start Command | `uvicorn src.dashboard.app:app --host 0.0.0.0 --port $PORT` |
-| Health Check Path | `/health` |
+| Health Check Path | `/health/ready` |
 | Environment | `Python 3` runtime |
 
 Add environment variables in the Render dashboard. Do not commit `.env`.
@@ -223,7 +223,8 @@ The `KAKAO_REDIRECT_URI` value in Render must exactly match the Kakao Developers
 Run these after backend deployment and database initialization:
 
 ```bash
-curl https://your-backend-api.example/health
+curl https://your-backend-api.example/health/live
+curl https://your-backend-api.example/health/ready
 curl https://your-backend-api.example/api/briefing
 curl https://your-backend-api.example/api/news-guard
 curl https://your-backend-api.example/api/industry-impact

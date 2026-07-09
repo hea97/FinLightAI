@@ -2,7 +2,7 @@
 
 **프로젝트명**: FinLightAI
 **버전**: v4.2
-**최종 업데이트**: 2026-07-08
+**최종 업데이트**: 2026-07-09
 **상태**: 실제 API, Google OAuth, 이메일 알림 MVP 범위 기준
 
 ## 1. 목적과 범위
@@ -43,8 +43,8 @@ provider 수집
 | R11 | 데이터 갱신 | 요청 처리와 분리된 명령으로 파이프라인을 갱신한다. | 구현 |
 | R12 | 운영 배포 | Vercel/Render/PostgreSQL 환경에서 전체 흐름을 검증한다. | 검증 필요 |
 | R13 | 이메일 구독 | 이메일과 수신 동의를 사용자별 저장하고 상태를 조회한다. | 구현 |
-| R14 | 이메일 확인/해지 | double opt-in, 수신 거부, 구독 상태를 관리한다. | 구현 초안 |
-| R15 | 이메일 발송 | 일일 요약, RED/YELLOW 즉시 알림, 발송 이력을 관리한다. | 구현 초안 |
+| R14 | 이메일 확인/해지 | double opt-in, 수신 거부, 구독 상태를 관리한다. | 구현 |
+| R15 | 이메일 발송 | 일일 요약, RED/YELLOW 즉시 알림, 발송 이력을 관리한다. | 구현, 운영 provider 검증 필요 |
 
 ## 4. 상세 요구사항
 
@@ -121,17 +121,18 @@ provider 수집
   - `POST /api/notifications/dispatch`
   - `POST /api/notifications/email-events`
 - 이메일 주소는 trim 후 소문자로 정규화한다.
-- 명시적 수신 동의가 없거나 형식이 잘못된 이메일은 `400`으로 거부한다.
+- 형식이 잘못된 이메일은 `422`로 거부한다.
 - 구독 상태, 이메일, 동의 시각을 인증 사용자 기준으로 저장한다.
 - 활성 구독은 마이페이지와 알림 화면의 기본 전달 채널로 표시한다.
 - 구독 신청 시 24시간 만료 double opt-in 토큰을 생성하고 확인 메일을 발송한다.
 - 확인 완료 전 상태는 `pending`, 확인 완료 후 상태는 `active`로 관리한다.
 - 수신 거부 링크를 모든 발송 본문에 포함하고, 수신 거부 후 상태를 `unsubscribed`로 변경한다.
 - provider bounce/complaint 이벤트가 들어오면 구독 상태를 `suppressed`로 변경한다.
+- 발송 provider는 Resend 또는 SMTP를 지원하며, `notification_deliveries`에 `sent`, `failed`, `duplicate`, `delivered`, `delayed`, `bounced`, `complained` 상태를 저장한다.
 - 일일 요약은 KST 기준 날짜별 중복 발송을 막는다.
 - RED/YELLOW 즉시 알림은 사용자 설정을 반영하며 GREEN 신호는 즉시 발송 대상에서 제외한다.
 - 동일 `event_key + ticker + trade_date` 알림은 중복 발송하지 않고 중복 이력을 증가시킨다.
-- 운영 전 provider 환경 변수, 발신 도메인, webhook signature, 배포 smoke test를 완료해야 한다.
+- 운영 전 provider 환경 변수, 발신 도메인 검증, webhook signature, 배포 smoke test, 발송 실패 처리 정책을 완료해야 한다.
 
 ## 5. 데이터 및 API 계약
 
@@ -195,11 +196,13 @@ fallbackUsed
 - 거래일 계산은 exchange calendar 도입 전까지 제한이 있다.
 - 무료 provider의 rate limit과 일시 장애가 데이터 최신성에 영향을 줄 수 있다.
 - 자동 뉴스 품질 점수는 사람의 검토를 대체하지 않는다.
-- 이메일 발송 코드는 추가됐지만 실제 provider 환경, 발신 도메인, 배포 smoke test가 완료되어야 운영 기능으로 볼 수 있다.
+- 이메일 알림 MVP 코드는 구현됐지만 실제 provider 환경 설정, 발신 도메인 검증, 배포 smoke test가 완료되어야 운영 기능으로 볼 수 있다.
+- 발송 실패 재시도, 장기 suppression list, provider rate limit 대응은 운영 보완 과제로 남아 있다.
 
 ## 10. 검증 기준
 
 - 2026-07-08 기준 backend test 70개 통과
+- 2026-07-09 기준 알림/운영 관련 회귀 테스트 16개 통과
 - 이메일 구독 저장, 동의 필수, 이메일 형식 오류, double opt-in, 수신 거부, 발송 이력 테스트 포함
 - 2026-07-08 기준 frontend TypeScript 검사와 Vite production build 통과
-- 2026-07-08 기준 추가 검증 대상: 실제 provider 발송, 배포 smoke test, provider webhook, Alembic migration
+- 2026-07-09 기준 추가 검증 대상: 실제 provider 발송, 배포 smoke test, provider webhook, Alembic migration
