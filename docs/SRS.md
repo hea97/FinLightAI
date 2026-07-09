@@ -201,8 +201,9 @@ fallbackUsed
 
 ## 10. 검증 기준
 
-- 2026-07-08 기준 backend test 70개 통과
-- 2026-07-09 기준 알림/운영 관련 회귀 테스트 16개 통과
+- 2026-07-09 기준 backend `python -m pytest` 78개 통과
+- 2026-07-09 기준 알림 지정 테스트 12개 통과: `tests/test_notifications.py`, `tests/test_daily_summary.py`
 - 이메일 구독 저장, 동의 필수, 이메일 형식 오류, double opt-in, 수신 거부, 발송 이력 테스트 포함
-- 2026-07-08 기준 frontend TypeScript 검사와 Vite production build 통과
-- 2026-07-09 기준 추가 검증 대상: 실제 provider 발송, 배포 smoke test, provider webhook, Alembic migration
+- 2026-07-09 기준 신규 및 기존 SQLite DB에서 Alembic `upgrade head` 통과, `email_subscriptions`와 `notification_deliveries` 생성 확인
+- 2026-07-09 기준 frontend TypeScript 검사와 Vite production build 통과
+- 2026-07-09 기준 추가 검증 대상: 실제 provider 발송, 배포 smoke test, provider webhook, PostgreSQL 운영 DB migration 적용

@@ -186,6 +186,7 @@ PATCH             /api/kakao-alert/rules/{rule_id}
 ## 10. 최신 검증
 
 - 2026-07-08: 이메일 알림 MVP TODO 기준으로 제품 범위를 이메일 우선으로 재정렬
-- 2026-07-08: backend `pytest` 70개 통과
-- 2026-07-08: frontend TypeScript 검사 및 Vite production build 통과
-- 2026-07-09: 알림/운영 관련 회귀 테스트 16개 통과, 문서와 발표 범위를 이메일 MVP 기준으로 갱신
+- 2026-07-09: backend `python -m pytest` 78개 통과
+- 2026-07-09: 알림 지정 테스트 `python -m pytest tests/test_notifications.py tests/test_daily_summary.py` 12개 통과
+- 2026-07-09: 신규 및 기존 SQLite DB 기준 Alembic `upgrade head` 통과, `email_subscriptions`와 `notification_deliveries` 생성 확인
+- 2026-07-09: frontend TypeScript 검사 및 Vite production build 통과

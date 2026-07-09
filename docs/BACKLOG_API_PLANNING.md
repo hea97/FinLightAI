@@ -20,7 +20,7 @@
 - [x] 이메일 구독 조회/저장 API와 DB model
 - [x] 이메일 구독 modal과 주요 화면 상태 연결
 - [x] SQLite 기존 사용자 테이블 OAuth 필드 호환 패치
-- [x] backend test 70개 및 frontend production build 통과
+- [x] backend test 78개 및 frontend production build 통과
 - [x] 이메일 double opt-in 확인/수신 거부 API 초안
 - [x] SMTP/Resend 이메일 발송 adapter 초안
 - [x] 일일 요약 발송 script 초안
@@ -39,7 +39,7 @@
 - [ ] `EMAIL_PROVIDER` 결정: Resend 권장, SMTP 대안
 - [ ] `SMTP_FROM`, `RESEND_API_KEY` 또는 SMTP 계정 설정
 - [ ] `NOTIFICATION_SECRET`, `NOTIFICATION_TOKEN_SECRET`, `EMAIL_WEBHOOK_SECRET` 설정
-- [ ] `alembic upgrade head`로 `email_subscriptions`, `notification_deliveries` 생성 확인
+- [x] 신규 및 기존 SQLite DB에서 `alembic upgrade head`로 `email_subscriptions`, `notification_deliveries` 생성 확인
 - [ ] login/callback/me/logout 배포 smoke test
 - [ ] portfolio/preferences/settings 사용자 격리 smoke test
 - [ ] refresh command 정기 스케줄 등록
@@ -51,7 +51,7 @@
 
 ## P1: 운영 안정성
 
-- [ ] 알림 migration을 포함한 Alembic versioned migration 운영 검증
+- [ ] 알림 migration을 포함한 Alembic versioned migration PostgreSQL 운영 DB 적용 검증
 - [ ] exchange calendar 기반 다음 거래일 계산
 - [ ] refresh 실행 이력과 provider 장애 모니터링
 - [ ] GitHub Actions에서 backend test와 frontend build 실행

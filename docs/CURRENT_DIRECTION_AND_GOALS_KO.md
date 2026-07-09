@@ -44,7 +44,7 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 - `email_subscriptions`, `notification_deliveries` Alembic migration 초안
 - Vercel 프론트엔드와 Render 백엔드 배포 문서 및 설정
 - `/about`, `/login`, `/signup`, `/privacy`, `/terms` 공개 페이지
-- 2026-07-08 로컬 기준 backend test 70개와 frontend production build 통과
+- 2026-07-09 로컬 기준 backend test 78개, 알림 지정 테스트 12개, Alembic 신규/기존 SQLite DB 적용, frontend production build 통과
 
 ### 운영 환경 확인 필요
 
@@ -149,4 +149,4 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 
 FinLightAI MVP의 핵심 화면과 API 연결은 완료됐다. 2026-07-08 기준 제품 방향은 카카오 메시지 실발송을 이번 범위에서 제외하고, 이메일 알림을 검증 가능한 MVP 기본 채널로 고정하는 것이다.
 
-2026-07-08 로컬 검증 기준으로 백엔드 테스트 70개와 프론트엔드 production build가 통과했다. 다음 판단 기준은 배포 환경에서 이메일 구독, double opt-in, 수신 거부, 일일 요약, RED/YELLOW 즉시 알림이 실제 provider 또는 sandbox로 재현되는지다. 카카오는 발표와 문서에서 `향후 확장`으로 통일한다.
+2026-07-09 로컬 검증 기준으로 백엔드 테스트 78개, 알림 지정 테스트 12개, Alembic 신규/기존 SQLite DB 적용, 프론트엔드 production build가 통과했다. 다음 판단 기준은 배포 환경에서 이메일 구독, double opt-in, 수신 거부, 일일 요약, RED/YELLOW 즉시 알림이 실제 provider 또는 sandbox로 재현되는지다. 카카오는 발표와 문서에서 `향후 확장`으로 통일한다.
