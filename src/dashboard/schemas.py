@@ -322,6 +322,38 @@ class KakaoAlertResponse(ApiModel):
     preview_messages: list[KakaoPreviewMessage] = Field(alias="previewMessages")
 
 
+class EmailSubscriptionUpdate(ApiModel):
+    email: str
+    daily_summary: bool = Field(default=True, alias="dailySummary")
+    immediate_red: bool = Field(default=True, alias="immediateRed")
+    immediate_yellow: bool = Field(default=True, alias="immediateYellow")
+
+
+class EmailSubscriptionResponse(ApiModel):
+    email: str
+    status: Literal["none", "pending", "active", "unsubscribed", "suppressed"]
+    daily_summary: bool = Field(alias="dailySummary")
+    immediate_red: bool = Field(alias="immediateRed")
+    immediate_yellow: bool = Field(alias="immediateYellow")
+    consented_at: str | None = Field(default=None, alias="consentedAt")
+
+
+class NotificationDispatchRequest(ApiModel):
+    type: Literal["daily_summary", "signal"]
+    subject: str
+    body: str
+    dedupe_key: str = Field(alias="dedupeKey")
+    signal: Literal["RED", "YELLOW", "GREEN"] | None = None
+    channels: list[Literal["email", "kakao"]] = Field(default_factory=lambda: ["email", "kakao"])
+
+
+class NotificationDispatchResponse(ApiModel):
+    sent: int
+    failed: int
+    duplicate: int
+    skipped: int
+
+
 class MyPageProfile(ApiModel):
     username: str
     email: str

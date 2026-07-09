@@ -1,7 +1,7 @@
 # API 및 제품 백로그
 
 작성일: 2026-06-23
-최종 업데이트: 2026-07-03
+최종 업데이트: 2026-07-08
 
 ## 현재 완료 범위
 
@@ -20,9 +20,15 @@
 - [x] 이메일 구독 조회/저장 API와 DB model
 - [x] 이메일 구독 modal과 주요 화면 상태 연결
 - [x] SQLite 기존 사용자 테이블 OAuth 필드 호환 패치
-- [x] backend test 62개 및 frontend production build 통과
+- [x] backend test 70개 및 frontend production build 통과
+- [x] 이메일 double opt-in 확인/수신 거부 API 초안
+- [x] SMTP/Resend 이메일 발송 adapter 초안
+- [x] 일일 요약 발송 script 초안
+- [x] RED/YELLOW 즉시 알림 dispatch와 GREEN 제외 로직 초안
+- [x] `notification_deliveries` 기반 발송 성공/실패/중복/bounce/complaint 이력 구조 초안
+- [x] 알림 관련 Alembic migration 초안
 
-## P0: 배포 완료
+## P0: 이메일 알림 MVP 및 배포 완료
 
 - [ ] Render 백엔드와 PostgreSQL 생성
 - [ ] `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 설정
@@ -30,20 +36,29 @@
 - [ ] 충분히 긴 `JWT_SECRET_KEY` 설정
 - [ ] Vercel `VITE_API_BASE_URL` 설정
 - [ ] Google OAuth Consent Screen, test user, Web Client 설정
+- [ ] `EMAIL_PROVIDER` 결정: Resend 권장, SMTP 대안
+- [ ] `SMTP_FROM`, `RESEND_API_KEY` 또는 SMTP 계정 설정
+- [ ] `NOTIFICATION_SECRET`, `NOTIFICATION_TOKEN_SECRET`, `EMAIL_WEBHOOK_SECRET` 설정
+- [ ] `alembic upgrade head`로 `email_subscriptions`, `notification_deliveries` 생성 확인
 - [ ] login/callback/me/logout 배포 smoke test
 - [ ] portfolio/preferences/settings 사용자 격리 smoke test
 - [ ] refresh command 정기 스케줄 등록
 - [ ] 이메일 구독 API 배포 smoke test
+- [ ] 이메일 확인 링크와 수신 거부 링크 smoke test
+- [ ] `scripts/send_daily_summary.py` 배포 환경 실행 확인
+- [ ] RED/YELLOW 즉시 알림 dispatch와 중복 방지 smoke test
+- [ ] provider webhook bounce/complaint 처리 smoke test
 
 ## P1: 운영 안정성
 
-- [ ] Alembic 기반 versioned migration
+- [ ] 알림 migration을 포함한 Alembic versioned migration 운영 검증
 - [ ] exchange calendar 기반 다음 거래일 계산
 - [ ] refresh 실행 이력과 provider 장애 모니터링
 - [ ] GitHub Actions에서 backend test와 frontend build 실행
 - [ ] 세션 만료/로그아웃/교차 origin 쿠키 E2E 테스트
 - [ ] API 오류와 빈 데이터 UI 상태 시각 검증
 - [ ] SQLite 임시 패치를 Alembic 등 versioned migration으로 대체
+- [ ] 이메일 발신 도메인, SPF/DKIM/DMARC, provider rate limit 운영 기준 정리
 
 ## P2: 데이터 확장
 
@@ -55,12 +70,10 @@
 
 ## P3: 알림 확장
 
-- [ ] 이메일 발송 provider 선정(Resend, SES, SendGrid 등)
-- [ ] double opt-in과 인증 token
-- [ ] 수신 거부 및 즉시 해지 API
-- [ ] 일일/주간 레터와 RED/YELLOW 즉시 알림 분리
-- [ ] 발송 성공/실패/bounce/complaint 이력
-- [ ] 개인정보처리방침과 수신 동의 문구 검토
+- [ ] 주간 레터와 개인화 요약 고도화
+- [ ] 이메일 템플릿 HTML 버전과 브랜드 스타일 적용
+- [ ] 개인정보처리방침과 수신 동의 문구 법무/운영 검토
+- [ ] 발송 실패 재시도 정책과 suppression list 운영
 
 - [ ] 카카오 비즈니스 채널과 챗봇 준비
 - [ ] n8n webhook workflow
@@ -72,5 +85,6 @@
 
 - Discord 실제 연동은 현재 제품 방향에서 제외한다.
 - 카카오 OAuth 프로토타입은 MVP 인증 경로로 사용하지 않는다.
-- 이메일은 카카오 승인 전 기본 채널이지만 현재 실제 발송은 하지 않는다.
+- 실제 카카오 메시지와 n8n 운영 workflow는 이번 MVP 범위에서 제외한다.
+- 이메일은 카카오 승인 전 기본 채널이며, provider 환경과 배포 smoke test가 끝나야 운영 완료로 본다.
 - `src/dashboard/static/` 레거시 화면은 React 배포 안정화 후 유지 여부를 결정한다.

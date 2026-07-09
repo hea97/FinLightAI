@@ -49,6 +49,26 @@ services:
         sync: false
       - key: NEWS_API_KEY
         sync: false
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: EMAIL_WEBHOOK_SECRET
+        sync: false
+      - key: NOTIFICATION_SECRET
+        generateValue: true
+      - key: NOTIFICATION_TOKEN_SECRET
+        generateValue: true
+      - key: KAKAO_CHANNEL_ID
+        sync: false
+      - key: KAKAO_CHANNEL_APPROVED
+        value: false
+      - key: N8N_KAKAO_WEBHOOK_URL
+        sync: false
+      - key: N8N_WEBHOOK_TOKEN
+        sync: false
 
   # Render cron jobs require a paid instance. Confirm the selected plan before
   # applying this Blueprint in a billing-enabled workspace.

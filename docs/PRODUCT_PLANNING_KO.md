@@ -1,8 +1,8 @@
 # FinLightAI 전체 기획서
 
 작성일: 2026-05-29
-최종 업데이트: 2026-07-03
-문서 상태: 실제 API, Google OAuth, 이메일 구독 구현 반영
+최종 업데이트: 2026-07-08
+문서 상태: 실제 API, Google OAuth, 이메일 알림 MVP 범위 반영
 
 ## 1. 한 줄 정의
 
@@ -27,6 +27,7 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 -> 뉴스 가드/산업 근거 확인
 -> 관심 자산 등록
 -> 이메일 레터 구독
+-> 이메일 확인 및 알림 수신 설정
 -> 설정 및 알림 규칙 관리
 ```
 
@@ -41,9 +42,11 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 | 마이페이지/설정 | 구현 | 사용자별 조회 및 변경 |
 | Google OAuth | 구현 | 운영 Google/Render 설정 필요 |
 | 이메일 레터 구독 | 구현 | modal, API, 사용자별 DB 저장 |
-| 이메일 실제 발송 | 미구현 | provider, double opt-in, 해지 필요 |
-| 카카오 알림 규칙 | 구현 | 외부 카카오 메시지 전송은 미연결 |
-| 카카오 챗봇 + n8n | 계획 | OAuth 로그인과 별도 후속 기능 |
+| 이메일 확인/수신 거부 | 구현 초안 | double opt-in, unsubscribe API, 검증 필요 |
+| 이메일 실제 발송 | 구현 초안 | Resend/SMTP adapter, provider 환경 검증 필요 |
+| 일일 요약/즉시 알림 | 구현 초안 | script와 dispatch 흐름, 배포 smoke test 필요 |
+| 카카오 알림 규칙 | 구현 | 외부 카카오 메시지 전송은 MVP 제외 |
+| 카카오 챗봇 + n8n | 후순위 | 카카오 승인 후 확장 기능 |
 
 ## 5. 핵심 기능 정책
 
@@ -85,17 +88,22 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 ### 카카오 알림
 
 - 현재 화면과 규칙 저장 API는 구현됐다.
-- 실제 카카오 채널 발송과 n8n workflow는 아직 운영 연결 전이다.
+- 실제 카카오 채널 발송과 n8n 운영 workflow는 2026-07-08 MVP 범위에서 제외한다.
+- 발표와 문서에서는 `카카오는 향후 확장, 현재 MVP는 이메일 알림`으로 표현을 통일한다.
 - 메시지는 투자 행동 유도가 아니라 상태, 근거, 대시보드 CTA로 구성한다.
 
 ### 이메일 레터
 
-- 카카오 채널 승인 전 기본 알림 채널로 사용한다.
+- 카카오 채널 승인 전 MVP 기본 알림 채널로 사용한다.
 - 사용자는 modal에서 이메일과 수신 동의를 제출한다.
 - `GET/PUT /api/email-subscription`으로 사용자별 구독 상태를 조회·저장한다.
 - 구독 완료 상태는 헤더, 포트폴리오, 마이페이지, 설정, 로그인 화면에 일관되게 표시한다.
-- 현재 단계는 구독 정보 저장까지이며 실제 메일 발송 완료로 표현하지 않는다.
-- 운영 전 발송 provider, double opt-in, 수신 거부, bounce/complaint 처리가 필요하다.
+- 구독 신청 후 double opt-in 확인 링크로 `active` 상태를 만든다.
+- 사용자는 이메일 링크로 수신 거부할 수 있으며 이후 발송 대상에서 제외한다.
+- 일일 요약은 RED/YELLOW/GREEN 수와 최신 신호 하이라이트를 제공한다.
+- 즉시 알림은 RED/YELLOW 신호만 대상으로 하며 GREEN은 제외한다.
+- 동일 날짜 또는 동일 `event_key + ticker + trade_date` 발송은 중복 저장/발송을 막는다.
+- 실제 운영 전 provider 도메인, 발신 주소, webhook, bounce/complaint 처리를 검증한다.
 
 ## 6. 기술 및 데이터 구조
 
@@ -113,13 +121,16 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 - `src/dashboard/repository.py`: 사용자/시장 데이터 저장
 - `src/dashboard/services/data_pipeline.py`: 수집-분석-저장 orchestration
 - `src/collector/`, `src/processor/`, `src/signal/`: 분석 파이프라인
+- `src/notifier/email_sender.py`: SMTP/Resend 이메일 발송 adapter
+- `src/notifier/notification_service.py`: 구독 확인, 수신 거부, dispatch, 발송 이력 관리
+- `scripts/send_daily_summary.py`: KST 기준 일일 요약 발송 entrypoint
 
 저장소:
 
 - 개발 기본값은 SQLite다.
 - 운영은 `DATABASE_URL` 기반 PostgreSQL을 지원한다.
 - 일반 `postgres://`/`postgresql://` URL은 psycopg v3 형식으로 정규화한다.
-- 현재 `create_all` 방식이며 운영 전 versioned migration이 필요하다.
+- 알림 관련 테이블은 Alembic migration 초안이 추가됐으며 배포 전 `alembic upgrade head` 검증이 필요하다.
 - 기존 SQLite 사용자 테이블에는 누락 OAuth 컬럼을 보완하는 idempotent 호환 패치를 적용한다.
 
 ## 7. 실제 API
@@ -140,6 +151,10 @@ GET/POST          /api/portfolio
 PATCH/DELETE      /api/portfolio/{asset_id}
 GET/PUT           /api/onboarding/preferences
 GET/PUT           /api/email-subscription
+GET               /api/email-subscription/confirm
+GET               /api/email-subscription/unsubscribe
+POST              /api/notifications/dispatch
+POST              /api/notifications/email-events
 GET/PATCH         /api/mypage
 GET/PUT           /api/settings
 GET               /api/kakao-alert
@@ -160,11 +175,13 @@ PATCH             /api/kakao-alert/rules/{rule_id}
 2. Google OAuth Consent Screen/Client 등록
 3. 배포 로그인과 사용자별 API smoke test
 4. 데이터 refresh scheduler 구성
-5. 이메일 실제 발송과 구독 해지 구현
-6. DB versioned migration과 CI 도입
-7. 카카오 채널 + n8n 연동 착수
+5. 이메일 provider 환경 변수와 발신 도메인 검증
+6. 이메일 구독/확인/수신 거부/일일 요약/RED-YELLOW 알림 smoke test
+7. DB migration 적용과 CI 도입
+8. 카카오 채널 + n8n 연동 착수
 
 ## 10. 최신 검증
 
-- 2026-07-03: backend `pytest` 62개 통과
-- 2026-07-03: frontend TypeScript 검사 및 Vite production build 통과
+- 2026-07-08: 이메일 알림 MVP TODO 기준으로 제품 범위를 이메일 우선으로 재정렬
+- 2026-07-08: backend `pytest` 70개 통과
+- 2026-07-08: frontend TypeScript 검사 및 Vite production build 통과

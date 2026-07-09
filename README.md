@@ -68,6 +68,36 @@ Every data refresh records its trigger, status, timestamps, row counts, and erro
 
 Signal generation maps each article to the next session from the NYSE or KRX exchange calendar and records the expected session and match quality in signal evidence.
 
+## Email Provider
+
+The MVP email provider is Resend. SMTP remains the fallback option for local
+or customer-managed mail infrastructure.
+
+Required Resend settings:
+
+```dotenv
+EMAIL_PROVIDER=resend
+SMTP_FROM=FinLightAI <alerts@your-verified-domain.example>
+RESEND_API_KEY=re_xxx
+EMAIL_WEBHOOK_SECRET=whsec_xxx
+```
+
+`SMTP_FROM` must use a sender address on a domain or single sender identity
+verified in Resend before production smoke testing. Register the Resend webhook
+URL as `POST /api/notifications/email-events` and store its signing secret in
+`EMAIL_WEBHOOK_SECRET`.
+
+SMTP alternative:
+
+```dotenv
+EMAIL_PROVIDER=smtp
+SMTP_FROM=FinLightAI <alerts@your-domain.example>
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=...
+SMTP_PASSWORD=...
+```
+
 ## Verification
 
 ```powershell
@@ -92,6 +122,11 @@ The React dashboard uses these FastAPI endpoints:
 - `PATCH|DELETE /api/portfolio/{asset_id}`
 - `GET /api/kakao-alert`
 - `PATCH /api/kakao-alert/rules/{rule_id}`
+- `GET/PUT /api/email-subscription`
+- `GET /api/email-subscription/confirm`
+- `GET /api/email-subscription/unsubscribe`
+- `POST /api/notifications/dispatch`
+- `POST /api/notifications/email-events`
 - `GET|PATCH /api/mypage`
 - `GET|PUT /api/settings`
 

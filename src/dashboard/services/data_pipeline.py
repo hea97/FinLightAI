@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.collector.news_collector import NewsCollector
@@ -23,12 +24,14 @@ from src.dashboard.repository import (
     upsert_stock_prices,
     upsert_signal,
 )
+from src.dashboard.models import Signal
 from src.processor.event_score import EventScoreCalculator
 from src.processor.news_filter import NewsFilter
 from src.processor.news_relevance import relevance_score
 from src.processor.sentiment import SentimentAnalyzer
 from src.processor.trading_calendar import event_date_for_exchange, next_trading_day
 from src.signal.generator import SignalGenerator
+from src.notifier.notification_service import NotificationService
 
 
 @dataclass
@@ -216,12 +219,16 @@ def refresh_pipeline_data(
         signal_articles = _eligible_signal_articles(prepared)
         clear_signals(db)
         signal_count = _persist_generated_signals(db, signal_articles, signal_market)
+        notification_counts = _dispatch_signal_notifications(db)
         counts = {
             "news_rows": len(prepared),
             "verified_news_rows": sum(1 for row in prepared if row["passed_filter"]),
             "market_rows": len(market_rows),
             "signal_rows": signal_count,
             "duplicate_news_rows": duplicate_news_rows,
+            "notification_sent": notification_counts["sent"],
+            "notification_failed": notification_counts["failed"],
+            "notification_duplicate": notification_counts["duplicate"],
         }
         unhealthy = [
             provider
@@ -240,6 +247,33 @@ def refresh_pipeline_data(
         db.rollback()
         finish_refresh_run(db, run.id, status="failed", error_message=str(exc))
         raise
+
+
+def _dispatch_signal_notifications(db: Session) -> dict[str, int]:
+    totals = {"sent": 0, "failed": 0, "duplicate": 0, "skipped": 0}
+    service = NotificationService(db)
+    signals = db.scalars(
+        select(Signal)
+        .where(Signal.signal.in_(("RED", "YELLOW")))
+        .order_by(Signal.created_at.desc())
+    ).all()
+    for signal in signals:
+        result = service.dispatch(
+            notification_type="signal",
+            subject=f"[FinLightAI] {signal.ticker} {signal.signal} 시장 상태 신호",
+            body=(
+                f"종목: {signal.ticker}\n"
+                f"시장 상태: {signal.signal}\n"
+                f"이벤트 점수: {signal.event_score:.1f}\n"
+                "본 알림은 투자 추천이 아닌 시장 상태 정보입니다."
+            ),
+            dedupe_key=f"signal:{signal.event_key}:{signal.ticker}:{signal.trade_date.isoformat()}",
+            signal=signal.signal,
+            channels=("email",),
+        )
+        for key in totals:
+            totals[key] += getattr(result, key)
+    return totals
 
 
 def _provider_key(provider: str) -> str:

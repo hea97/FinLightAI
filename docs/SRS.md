@@ -1,9 +1,9 @@
 # 소프트웨어 요구사항 명세서 (SRS)
 
 **프로젝트명**: FinLightAI
-**버전**: v4.1
-**최종 업데이트**: 2026-07-03
-**상태**: 실제 API, Google OAuth, 이메일 구독 구현 기준
+**버전**: v4.2
+**최종 업데이트**: 2026-07-08
+**상태**: 실제 API, Google OAuth, 이메일 알림 MVP 범위 기준
 
 ## 1. 목적과 범위
 
@@ -39,11 +39,12 @@ provider 수집
 | R07 | Google 인증 | login, callback, me, logout과 세션 쿠키를 제공한다. | 구현 |
 | R08 | 온보딩 | 관심 시장, 산업, 알림 여부를 저장한다. | 구현 |
 | R09 | 카카오 규칙 | 알림 규칙을 조회하고 변경한다. | 구현 |
-| R10 | 카카오 발송 | n8n과 카카오 채널을 통해 메시지를 발송한다. | 미구현 |
+| R10 | 카카오 발송 | n8n과 카카오 채널을 통해 메시지를 발송한다. | MVP 제외 |
 | R11 | 데이터 갱신 | 요청 처리와 분리된 명령으로 파이프라인을 갱신한다. | 구현 |
 | R12 | 운영 배포 | Vercel/Render/PostgreSQL 환경에서 전체 흐름을 검증한다. | 검증 필요 |
 | R13 | 이메일 구독 | 이메일과 수신 동의를 사용자별 저장하고 상태를 조회한다. | 구현 |
-| R14 | 이메일 발송 | 인증, 해지, 발송 및 실패 이력을 관리한다. | 미구현 |
+| R14 | 이메일 확인/해지 | double opt-in, 수신 거부, 구독 상태를 관리한다. | 구현 초안 |
+| R15 | 이메일 발송 | 일일 요약, RED/YELLOW 즉시 알림, 발송 이력을 관리한다. | 구현 초안 |
 
 ## 4. 상세 요구사항
 
@@ -107,18 +108,30 @@ provider 수집
 
 - API: `GET /api/kakao-alert`, `PATCH /api/kakao-alert/rules/{rule_id}`
 - 알림 규칙 저장과 메시지 preview를 제공한다.
-- 실제 카카오 채널 발송과 n8n webhook은 후속 요구사항이다.
+- 실제 카카오 채널 발송과 n8n 운영 workflow는 이번 MVP 범위에서 제외한다.
+- UI와 문서는 `카카오는 향후 확장, 현재 MVP는 이메일 알림`으로 표현한다.
 - 메시지에는 상태, 근거, 갱신 시각, 투자 추천 아님 고지를 포함한다.
 
 ### 4.8 이메일 레터
 
-- API: `GET/PUT /api/email-subscription`
+- API:
+  - `GET/PUT /api/email-subscription`
+  - `GET /api/email-subscription/confirm`
+  - `GET /api/email-subscription/unsubscribe`
+  - `POST /api/notifications/dispatch`
+  - `POST /api/notifications/email-events`
 - 이메일 주소는 trim 후 소문자로 정규화한다.
 - 명시적 수신 동의가 없거나 형식이 잘못된 이메일은 `400`으로 거부한다.
 - 구독 상태, 이메일, 동의 시각을 인증 사용자 기준으로 저장한다.
 - 활성 구독은 마이페이지와 알림 화면의 기본 전달 채널로 표시한다.
-- 실제 메일 발송 전에는 UI에 `발송 준비` 또는 `발송 서비스 연결 전` 상태를 표시한다.
-- 운영 전 double opt-in, 수신 거부, 발송 실패, bounce/complaint 요구사항을 구현한다.
+- 구독 신청 시 24시간 만료 double opt-in 토큰을 생성하고 확인 메일을 발송한다.
+- 확인 완료 전 상태는 `pending`, 확인 완료 후 상태는 `active`로 관리한다.
+- 수신 거부 링크를 모든 발송 본문에 포함하고, 수신 거부 후 상태를 `unsubscribed`로 변경한다.
+- provider bounce/complaint 이벤트가 들어오면 구독 상태를 `suppressed`로 변경한다.
+- 일일 요약은 KST 기준 날짜별 중복 발송을 막는다.
+- RED/YELLOW 즉시 알림은 사용자 설정을 반영하며 GREEN 신호는 즉시 발송 대상에서 제외한다.
+- 동일 `event_key + ticker + trade_date` 알림은 중복 발송하지 않고 중복 이력을 증가시킨다.
+- 운영 전 provider 환경 변수, 발신 도메인, webhook signature, 배포 smoke test를 완료해야 한다.
 
 ## 5. 데이터 및 API 계약
 
@@ -142,7 +155,8 @@ fallbackUsed
 - 개발 환경은 SQLite를 사용할 수 있다.
 - 운영 환경은 `DATABASE_URL` 기반 PostgreSQL을 사용한다.
 - users, preferences, portfolio, settings, alert rules, news, market prices, signals, provider status를 저장한다.
-- email subscriptions에는 user ID, 이메일, 상태, 동의 시각, 변경 시각을 저장한다.
+- email subscriptions에는 user ID, 이메일, 상태, 알림 설정, token hash, 동의/해지/만료 시각을 저장한다.
+- notification deliveries에는 user ID, channel, notification type, recipient, dedupe key, status, provider, provider message ID, 오류, 중복 횟수를 저장한다.
 - 외부 PostgreSQL URL은 psycopg v3 driver 형식으로 정규화한다.
 - 운영 데이터 사용 전 `create_all`을 versioned migration으로 교체해야 한다.
 - 기존 SQLite `users` 테이블은 idempotent 호환 패치로 OAuth 필드를 보완한다.
@@ -159,7 +173,8 @@ fallbackUsed
 | NF06 | 반응형 | 모바일/데스크톱에서 overflow와 겹침이 없어야 한다. |
 | NF07 | 테스트 | auth, API, pipeline, DB, settings 회귀 테스트를 유지한다. |
 | NF08 | 규정 표현 | 투자 추천 또는 확정적 수익 표현을 금지한다. |
-| NF09 | 이메일 준수 | 동의, 해지, 개인정보 및 발송 상태를 추적할 수 있어야 한다. |
+| NF09 | 이메일 준수 | 동의, 확인, 해지, 개인정보 및 발송 상태를 추적할 수 있어야 한다. |
+| NF10 | 알림 중복 방지 | 동일 이벤트와 동일 날짜 요약은 중복 발송하지 않아야 한다. |
 
 ## 8. 배포 요구사항
 
@@ -169,18 +184,22 @@ fallbackUsed
 - Google redirect URI는 백엔드 callback과 정확히 일치해야 한다.
 - 배포 후 로그인, callback, me, logout과 사용자별 CRUD를 smoke test한다.
 - 데이터 refresh는 scheduler에서 명시적 명령으로 실행한다.
+- 이메일 provider 환경 변수와 발신 도메인을 설정한다.
+- `alembic upgrade head`로 `email_subscriptions`, `notification_deliveries` 생성 여부를 확인한다.
+- 배포 후 이메일 구독, 확인 링크, 수신 거부, 일일 요약, RED/YELLOW 즉시 알림을 smoke test한다.
 
 ## 9. 알려진 제약
 
-- 카카오 채널 실제 발송과 n8n은 연결 전이다.
+- 카카오 채널 실제 발송과 n8n은 MVP 범위에서 제외됐다.
 - Guardian/Finnhub는 credential 준비 후 추가한다.
 - 거래일 계산은 exchange calendar 도입 전까지 제한이 있다.
 - 무료 provider의 rate limit과 일시 장애가 데이터 최신성에 영향을 줄 수 있다.
 - 자동 뉴스 품질 점수는 사람의 검토를 대체하지 않는다.
-- 이메일 구독 정보는 저장되지만 실제 이메일 발송은 아직 제공하지 않는다.
+- 이메일 발송 코드는 추가됐지만 실제 provider 환경, 발신 도메인, 배포 smoke test가 완료되어야 운영 기능으로 볼 수 있다.
 
 ## 10. 검증 기준
 
-- 2026-07-03 기준 backend test 62개 통과
-- 이메일 구독 저장, 동의 필수, 이메일 형식 오류 테스트 포함
-- frontend TypeScript 검사와 Vite production build 통과
+- 2026-07-08 기준 backend test 70개 통과
+- 이메일 구독 저장, 동의 필수, 이메일 형식 오류, double opt-in, 수신 거부, 발송 이력 테스트 포함
+- 2026-07-08 기준 frontend TypeScript 검사와 Vite production build 통과
+- 2026-07-08 기준 추가 검증 대상: 실제 provider 발송, 배포 smoke test, provider webhook, Alembic migration

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from config.settings import get_settings
@@ -23,7 +26,11 @@ from src.dashboard.auth import (
 )
 from src.dashboard.database import get_db
 from src.dashboard.models import PortfolioAsset as PortfolioAssetRecord
+from src.dashboard.models import EmailSubscription as EmailSubscriptionRecord
+from src.dashboard.models import NotificationDelivery
 from src.dashboard.models import User as UserRecord
+from src.notifier.email_sender import EmailProviderError
+from src.notifier.notification_service import NotificationService, verify_resend_webhook
 from src.dashboard.services.data_pipeline import PipelineSnapshot, load_pipeline_snapshot
 from src.dashboard.repository import (
     DuplicatePortfolioAssetError,
@@ -65,6 +72,10 @@ from src.dashboard.schemas import (
     AuthMeResponse,
     UserPreferenceResponse,
     UserPreferenceUpdate,
+    EmailSubscriptionResponse,
+    EmailSubscriptionUpdate,
+    NotificationDispatchRequest,
+    NotificationDispatchResponse,
 )
 from src.processor.event_score import EventScoreCalculator
 from src.processor.news_relevance import contains_term
@@ -72,6 +83,7 @@ from src.signal.generator import SignalGenerator
 
 router = APIRouter()
 KST = timezone(timedelta(hours=9))
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def _is_development_env() -> bool:
@@ -592,6 +604,127 @@ def put_onboarding_preferences(
     return _preference_dict(preference)
 
 
+def _email_subscription_dict(subscription: EmailSubscriptionRecord | None, fallback_email: str = "") -> dict[str, Any]:
+    return {
+        "email": subscription.email if subscription else fallback_email,
+        "status": subscription.status if subscription else "none",
+        "dailySummary": subscription.daily_summary if subscription else True,
+        "immediateRed": subscription.immediate_red if subscription else True,
+        "immediateYellow": subscription.immediate_yellow if subscription else True,
+        "consentedAt": subscription.consented_at.isoformat() if subscription and subscription.consented_at else None,
+    }
+
+
+def _normalize_email_subscription_address(email: str) -> str:
+    normalized = email.strip().lower()
+    if len(normalized) > 255 or not EMAIL_PATTERN.fullmatch(normalized):
+        raise HTTPException(status_code=422, detail="Valid email is required")
+    return normalized
+
+
+@router.get("/email-subscription", response_model=EmailSubscriptionResponse)
+def get_email_subscription(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    user = ensure_user(db, user_id)
+    return _email_subscription_dict(db.get(EmailSubscriptionRecord, user_id), user.email)
+
+
+@router.put("/email-subscription", response_model=EmailSubscriptionResponse)
+def put_email_subscription(
+    payload: EmailSubscriptionUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    email = _normalize_email_subscription_address(payload.email)
+    ensure_user(db, user_id)
+    try:
+        subscription = NotificationService(db).subscribe(
+            user_id,
+            email,
+            daily_summary=payload.daily_summary,
+            immediate_red=payload.immediate_red,
+            immediate_yellow=payload.immediate_yellow,
+        )
+    except EmailProviderError as exc:
+        db.rollback()
+        raise HTTPException(status_code=502, detail=f"Confirmation email failed: {exc}") from exc
+    return _email_subscription_dict(subscription)
+
+
+@router.get("/email-subscription/confirm", response_model=EmailSubscriptionResponse)
+def confirm_email_subscription(token: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    subscription = NotificationService(db).confirm(token)
+    if not subscription:
+        raise HTTPException(status_code=400, detail="Confirmation token is invalid or expired")
+    return _email_subscription_dict(subscription)
+
+
+@router.get("/email-subscription/unsubscribe", response_model=EmailSubscriptionResponse)
+def unsubscribe_email(token: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    subscription = NotificationService(db).unsubscribe(token)
+    if not subscription:
+        raise HTTPException(status_code=400, detail="Unsubscribe token is invalid")
+    return _email_subscription_dict(subscription)
+
+
+@router.post("/notifications/dispatch", response_model=NotificationDispatchResponse)
+def dispatch_notifications(
+    payload: NotificationDispatchRequest,
+    x_notification_secret: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    configured_secret = get_settings().notification_secret
+    if not configured_secret:
+        raise HTTPException(status_code=503, detail="NOTIFICATION_SECRET is not configured")
+    if not x_notification_secret or not hmac.compare_digest(x_notification_secret, configured_secret):
+        raise HTTPException(status_code=401, detail="Invalid notification secret")
+    if payload.type == "signal" and not payload.signal:
+        raise HTTPException(status_code=422, detail="signal is required for signal notifications")
+    result = NotificationService(db).dispatch(
+        notification_type=payload.type,
+        subject=payload.subject,
+        body=payload.body,
+        dedupe_key=payload.dedupe_key,
+        signal=payload.signal,
+        channels=tuple(payload.channels),
+    )
+    return result.__dict__
+
+
+@router.post("/notifications/email-events")
+async def email_provider_event(
+    request: Request,
+    svix_id: str | None = Header(default=None),
+    svix_timestamp: str | None = Header(default=None),
+    svix_signature: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    configured_secret = get_settings().email_webhook_secret
+    if not configured_secret:
+        raise HTTPException(status_code=503, detail="EMAIL_WEBHOOK_SECRET is not configured")
+    raw_body = await request.body()
+    if not all([svix_id, svix_timestamp, svix_signature]) or not verify_resend_webhook(
+        raw_body=raw_body,
+        message_id=svix_id or "",
+        timestamp=svix_timestamp or "",
+        signature_header=svix_signature or "",
+        secret=configured_secret,
+    ):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    try:
+        payload = json.loads(raw_body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON") from exc
+    event_type = str(payload.get("type", ""))
+    data = payload.get("data") or {}
+    message_id = str(data.get("email_id") or data.get("id") or "")
+    if not event_type or not message_id:
+        raise HTTPException(status_code=422, detail="Provider event type and message id are required")
+    return {"updated": NotificationService(db).record_provider_event(event_type, message_id)}
+
+
 @router.get("/kakao-alert", response_model=KakaoAlertResponse)
 def get_kakao_alert(
     user_id: str = Depends(get_current_user_id),
@@ -599,12 +732,22 @@ def get_kakao_alert(
 ) -> dict[str, Any]:
     settings = get_settings()
     rules = get_kakao_rules(db, user_id)
-    kakao_ready = bool(settings.kakao_rest_api_key and settings.kakao_channel_id)
+    kakao_ready = bool(
+        settings.kakao_channel_approved
+        and settings.kakao_channel_id
+        and settings.n8n_kakao_webhook_url
+    )
+    deliveries = db.scalars(
+        select(NotificationDelivery)
+        .where(NotificationDelivery.user_id == user_id, NotificationDelivery.channel == "kakao")
+        .order_by(NotificationDelivery.created_at.desc())
+        .limit(20)
+    ).all()
     return {
         "badges": [
-            "Kakao API configured" if kakao_ready else "Kakao key pending",
+            "Kakao channel approved" if kakao_ready else "Kakao approval pending",
             "Alert rules persisted",
-            "Test send available after OAuth",
+            "n8n webhook connected" if settings.n8n_kakao_webhook_url else "n8n webhook pending",
         ],
         "rules": [{"id": rule.rule_id, "icon": rule.icon, "label": rule.label, "enabled": rule.enabled} for rule in rules],
         "questions": [
@@ -617,15 +760,33 @@ def get_kakao_alert(
                 "id": "channel",
                 "icon": "K",
                 "label": "Kakao Channel",
-                "value": "Configured" if kakao_ready else "Application required",
+                "value": "Approved" if kakao_ready else "Approval required",
                 "health": "connected" if kakao_ready else "ready",
+            },
+            {
+                "id": "n8n",
+                "icon": "n8n",
+                "label": "n8n Webhook",
+                "value": "Configured" if settings.n8n_kakao_webhook_url else "Not configured",
+                "health": "normal" if settings.n8n_kakao_webhook_url else "ready",
             },
             {"id": "api", "icon": "FL", "label": "FinLightAI API", "value": "Ready", "health": "normal"},
         ],
-        "history": [],
+        "history": [
+            {
+                "id": delivery.id,
+                "sentAt": _format_datetime(delivery.created_at),
+                "type": delivery.notification_type,
+                "trigger": delivery.dedupe_key,
+                "status": delivery.status,
+                "tone": "red" if delivery.metadata_json.get("signal") == "RED" else "yellow",
+            }
+            for delivery in deliveries
+        ],
         "flow": [
             {"id": "api", "icon": "FL", "title": "FinLightAI API", "subtitle": "Market/news analysis"},
-            {"id": "kakao", "icon": "K", "title": "Kakao Message", "subtitle": "Send after key setup"},
+            {"id": "n8n", "icon": "n8n", "title": "n8n Webhook", "subtitle": "Authenticated delivery bridge"},
+            {"id": "kakao", "icon": "K", "title": "Kakao Message", "subtitle": "Send after channel approval"},
         ],
         "previewMessages": [
             {

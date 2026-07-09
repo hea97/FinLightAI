@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_from: str | None = None
     alert_email_to: str | None = None
+    email_provider: Literal["smtp", "resend"] = "smtp"
+    resend_api_key: str | None = None
+    email_webhook_secret: str | None = None
+    notification_secret: str | None = None
+    notification_token_secret: str | None = None
+    n8n_kakao_webhook_url: str | None = None
+    n8n_webhook_token: str | None = None
+    kakao_channel_approved: bool = False
     log_level: str = "INFO"
 
     min_reliability_score: float = Field(default=0.65, ge=0, le=1)

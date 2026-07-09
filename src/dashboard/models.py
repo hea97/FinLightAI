@@ -99,6 +99,50 @@ class AlertHistory(Base):
     tone: Mapped[str] = mapped_column(String(30), nullable=False)
 
 
+class EmailSubscription(Base):
+    __tablename__ = "email_subscriptions"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending", index=True)
+    daily_summary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    immediate_red: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    immediate_yellow: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    confirm_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    unsubscribe_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    unsubscribed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class NotificationDelivery(Base):
+    __tablename__ = "notification_deliveries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    channel: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    notification_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    recipient: Mapped[str] = mapped_column(String(255), nullable=False)
+    dedupe_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    provider_message_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    duplicate_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_duplicate_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        UniqueConstraint("channel", "dedupe_key", name="uq_notification_delivery_channel_dedupe"),
+    )
+
+
 class StockPrice(Base):
     __tablename__ = "stock_prices"
 

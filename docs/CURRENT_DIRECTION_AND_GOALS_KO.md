@@ -1,7 +1,7 @@
 # FinLightAI 현재 방향성과 목표 계획서
 
 작성일: 2026-06-21
-최종 업데이트: 2026-07-03
+최종 업데이트: 2026-07-08
 기준 브랜치: `deploy/vercel-frontend`
 
 ## 1. 현재 목표
@@ -21,7 +21,7 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 
 제품은 투자 추천이나 자동 매매가 아니라 참고용 시장 상태와 근거를 제공한다.
 
-## 2. 2026-07-01 구현 현황
+## 2. 2026-07-08 구현 현황
 
 ### 완료
 
@@ -35,10 +35,16 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 - Google OAuth 로그인, callback, 세션 쿠키, 로그아웃
 - 로그인 사용자 기준 포트폴리오/설정/온보딩 데이터 분리
 - 이메일 레터 구독 modal, 구독 API, 사용자별 DB 저장
-- 카카오 승인 전 이메일을 기본 알림 채널로 표시
+- 이메일 double opt-in 확인, 수신 거부, 발송 이력 저장 모델과 API 초안
+- SMTP/Resend 기반 이메일 발송 adapter와 provider webhook 처리 초안
+- 일일 요약 발송 script와 RED/YELLOW 즉시 알림 dispatch 흐름
+- 카카오 승인 전 이메일을 MVP 기본 알림 채널로 확정
+- 알림 delivery 중복 방지와 성공/실패/중복/bounce/complaint 상태 저장 구조
 - 기존 SQLite `users` 테이블용 idempotent 호환 마이그레이션
+- `email_subscriptions`, `notification_deliveries` Alembic migration 초안
 - Vercel 프론트엔드와 Render 백엔드 배포 문서 및 설정
 - `/about`, `/login`, `/signup`, `/privacy`, `/terms` 공개 페이지
+- 2026-07-08 로컬 기준 backend test 70개와 frontend production build 통과
 
 ### 운영 환경 확인 필요
 
@@ -47,13 +53,16 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 - Render 백엔드 및 PostgreSQL 배포
 - 배포 환경에서 로그인과 사용자별 API smoke test
 - 정기 데이터 refresh 스케줄러 연결
-- 실제 이메일 발송 provider, double opt-in, 수신 거부 연결
+- 이메일 provider 결정 및 환경 변수 설정: Resend 권장, SMTP 대안
+- `SMTP_FROM`, `EMAIL_PROVIDER`, `RESEND_API_KEY` 또는 SMTP 계정 설정
+- `NOTIFICATION_SECRET`, `NOTIFICATION_TOKEN_SECRET`, `EMAIL_WEBHOOK_SECRET` 설정
+- `alembic upgrade head`로 알림 관련 migration 적용 확인
+- 이메일 구독, 확인 링크, 수신 거부, 일일 요약, RED/YELLOW 즉시 알림 smoke test
 
 ### 후속 범위
 
 - 카카오 채널 챗봇 + n8n 실연동 및 심사
 - Guardian/Finnhub adapter와 선택적 pykrx provider
-- DB migration 도구 도입
 - 정확한 거래일 계산용 exchange calendar
 - CI, Docker, 모델 고도화
 
@@ -66,6 +75,8 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 - Gemini 요약 실패 시 원문 기반 정적 요약으로 대체하고 상태를 표시한다.
 - 인증은 최소 권한 Google OAuth(`openid`, `email`, `profile`)를 사용한다.
 - 카카오 OAuth와 카카오 알림은 별도 기능이며, MVP 로그인은 Google이다.
+- 실제 카카오 메시지와 n8n 운영 workflow는 이번 MVP 범위에서 제외한다.
+- 현재 MVP 알림 채널은 이메일이며, 카카오는 향후 확장으로 표현한다.
 
 ## 4. 화면별 목표
 
@@ -75,8 +86,8 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 | 뉴스 가드 | 신뢰/주의/차단 뉴스와 판단 사유 | 저장된 필터 뉴스 |
 | 산업 영향도 | 산업별 점수와 산업 일치 근거 뉴스 | 실제 뉴스 기반 계산 |
 | 포트폴리오 | 관심 자산 CRUD와 평가/뉴스 연결 | 사용자별 DB 저장 |
-| 카카오 알림 | 규칙 관리와 향후 연동 흐름 | 사용자별 DB, 외부 전송 미연결 |
-| 이메일 레터 | 이메일 구독 및 기본 알림 채널 설정 | 사용자별 DB 저장, 실제 발송 미연결 |
+| 카카오 알림 | 규칙 관리와 향후 연동 흐름 | 사용자별 DB, MVP 외부 전송 제외 |
+| 이메일 레터 | 이메일 구독, 확인, 수신 거부, 기본 알림 채널 | 사용자별 DB 저장, provider 검증 필요 |
 | 마이페이지 | 프로필, 관심 산업, 연결 상태 | 사용자별 DB 저장 |
 | 설정 | 데이터/뉴스/알림/표시 설정 | 사용자별 DB 저장 |
 | 로그인/온보딩 | Google 로그인과 관심 설정 | API 구현, 운영 OAuth 설정 필요 |
@@ -95,7 +106,8 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 - `X-User-ID` fallback은 로컬/개발 환경에서만 허용한다.
 - Google의 Gmail, Drive, Calendar 등 민감 권한은 요청하지 않는다.
 - 카카오 OAuth 프로토타입 화면은 레거시 참고용이며 실제 MVP 진입 경로가 아니다.
-- 이메일 구독은 인증 사용자 기준으로 저장하며, 현재 실제 메일을 발송하지 않는다.
+- 이메일 구독은 인증 사용자 기준으로 저장하며, 확인 전 상태는 `pending`, 확인 완료 후 `active`로 관리한다.
+- 수신 거부와 bounce/complaint 발생 사용자는 후속 발송 대상에서 제외한다.
 
 ## 6. 데이터 신뢰성 방향
 
@@ -108,13 +120,15 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 
 ## 7. 개발 우선순위
 
-### P0: 배포 검증
+### P0: 이메일 알림 MVP 및 배포 검증
 
 - Render + PostgreSQL 배포
 - Vercel 환경 변수와 CORS 설정
 - Google OAuth 운영 설정 및 로그인 smoke test
 - refresh command 정기 실행
-- 이메일 구독 API의 배포 DB smoke test
+- 이메일 구독/확인/수신 거부 API smoke test
+- 일일 요약 이메일과 RED/YELLOW 즉시 알림 dispatch 검증
+- `notification_deliveries` 중복 방지와 실패 이력 저장 검증
 
 ### P1: 운영 안정성
 
@@ -122,7 +136,7 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 - provider 장애 모니터링과 refresh 로그
 - exchange calendar 기반 거래일 정합성
 - GitHub Actions CI
-- 이메일 provider 선정, double opt-in, 해지와 발송 이력 구현
+- 이메일 provider 도메인 검증, webhook 운영 검증, bounce/complaint 대응 정책 정리
 
 ### P2: 기능 확장
 
@@ -133,6 +147,6 @@ FinLightAI는 금융 뉴스와 시장 데이터를 함께 분석해 사용자가
 
 ## 8. 현재 판단
 
-FinLightAI MVP의 핵심 화면과 API 연결은 완료됐다. 지금 가장 중요한 일은 기능을 더 늘리는 것이 아니라 배포 환경에서 인증, DB, CORS, 데이터 갱신을 끝까지 검증하는 것이다.
+FinLightAI MVP의 핵심 화면과 API 연결은 완료됐다. 2026-07-08 기준 제품 방향은 카카오 메시지 실발송을 이번 범위에서 제외하고, 이메일 알림을 검증 가능한 MVP 기본 채널로 고정하는 것이다.
 
-2026-07-03 로컬 검증 기준으로 백엔드 테스트 62개와 프론트엔드 production build가 통과했다. 이메일 레터는 구독 저장 단계까지 완료됐으며 실제 발송 기능으로 오해되지 않게 표시해야 한다.
+2026-07-08 로컬 검증 기준으로 백엔드 테스트 70개와 프론트엔드 production build가 통과했다. 다음 판단 기준은 배포 환경에서 이메일 구독, double opt-in, 수신 거부, 일일 요약, RED/YELLOW 즉시 알림이 실제 provider 또는 sandbox로 재현되는지다. 카카오는 발표와 문서에서 `향후 확장`으로 통일한다.
