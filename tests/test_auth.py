@@ -22,6 +22,10 @@ def _settings(**overrides):
         "auth_cookie_samesite": None,
         "auth_cookie_secure": None,
         "oauth_state_cookie_name": "finlight_oauth_state",
+        "exhibition_demo_login_enabled": False,
+        "exhibition_demo_access_code": None,
+        "exhibition_demo_email": "demo@finlightai.local",
+        "exhibition_demo_name": "FinLightAI Demo",
         "external_api_timeout_seconds": 10,
         "news_api_key": None,
         "guardian_api_key": None,
@@ -174,6 +178,143 @@ def test_auth_me_is_anonymous_without_session(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {"authenticated": False, "user": None}
+
+
+def test_demo_login_is_blocked_when_feature_flag_is_false(monkeypatch):
+    monkeypatch.setattr(api_routes, "get_settings", lambda: _settings())
+
+    response = TestClient(app).post("/api/auth/demo")
+
+    assert response.status_code == 404
+    assert "finlight_session=" not in response.headers.get("set-cookie", "")
+
+
+def test_demo_login_succeeds_when_enabled_and_sets_session_cookie(monkeypatch, isolated_dashboard_database):
+    monkeypatch.setattr(api_routes, "get_settings", lambda: _settings(exhibition_demo_login_enabled=True))
+    client = TestClient(app)
+
+    response = client.post("/api/auth/demo")
+
+    assert response.status_code == 200
+    assert "finlight_session=" in response.headers["set-cookie"]
+    payload = response.json()
+    assert payload["authenticated"] is True
+    assert payload["user"]["provider"] == "demo"
+    assert payload["user"]["email"] == "demo@finlightai.local"
+    assert payload["user"]["nickname"] == "FinLightAI Demo"
+
+    current = client.get("/api/auth/me")
+    assert current.status_code == 200
+    assert current.json()["user"]["provider"] == "demo"
+
+    with isolated_dashboard_database() as db:
+        assert db.query(User).filter_by(provider="demo", provider_user_id=api_routes.DEMO_PROVIDER_USER_ID).count() == 1
+
+
+def test_demo_login_rejects_wrong_access_code_without_echoing_secret(monkeypatch):
+    secret_code = "correct-demo-code"
+    monkeypatch.setattr(
+        api_routes,
+        "get_settings",
+        lambda: _settings(
+            exhibition_demo_login_enabled=True,
+            exhibition_demo_access_code=secret_code,
+        ),
+    )
+
+    response = TestClient(app).post("/api/auth/demo", json={"accessCode": "wrong-demo-code"})
+
+    assert response.status_code == 401
+    assert secret_code not in response.text
+    assert "wrong-demo-code" not in response.text
+    assert "finlight_session=" not in response.headers.get("set-cookie", "")
+
+
+def test_demo_login_accepts_matching_access_code_from_body(monkeypatch):
+    monkeypatch.setattr(
+        api_routes,
+        "get_settings",
+        lambda: _settings(
+            exhibition_demo_login_enabled=True,
+            exhibition_demo_access_code="body-code",
+        ),
+    )
+
+    response = TestClient(app).post("/api/auth/demo", json={"accessCode": "body-code"})
+
+    assert response.status_code == 200
+    assert response.json()["user"]["provider"] == "demo"
+    assert "finlight_session=" in response.headers["set-cookie"]
+
+
+def test_demo_login_accepts_matching_access_code_from_header(monkeypatch):
+    monkeypatch.setattr(
+        api_routes,
+        "get_settings",
+        lambda: _settings(
+            exhibition_demo_login_enabled=True,
+            exhibition_demo_access_code="header-code",
+        ),
+    )
+
+    response = TestClient(app).post("/api/auth/demo", headers={"X-Demo-Access-Code": "header-code"})
+
+    assert response.status_code == 200
+    assert response.json()["user"]["provider"] == "demo"
+
+
+def test_demo_login_reuses_existing_demo_user(monkeypatch, isolated_dashboard_database):
+    monkeypatch.setattr(api_routes, "get_settings", lambda: _settings(exhibition_demo_login_enabled=True))
+    client = TestClient(app)
+
+    first = client.post("/api/auth/demo")
+    second = client.post("/api/auth/demo")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["user"]["id"] == second.json()["user"]["id"]
+    with isolated_dashboard_database() as db:
+        assert db.query(User).filter_by(provider="demo", provider_user_id=api_routes.DEMO_PROVIDER_USER_ID).count() == 1
+
+
+def test_demo_login_session_can_logout_and_auth_me_becomes_anonymous(monkeypatch):
+    monkeypatch.setattr(api_routes, "get_settings", lambda: _settings(exhibition_demo_login_enabled=True))
+    client = TestClient(app)
+
+    assert client.post("/api/auth/demo").status_code == 200
+    assert client.get("/api/auth/me").json()["authenticated"] is True
+
+    logout = client.post("/api/auth/logout")
+
+    assert logout.status_code == 204
+    assert "finlight_session=" in logout.headers["set-cookie"]
+    assert client.get("/api/auth/me").json() == {"authenticated": False, "user": None}
+
+
+def test_production_demo_login_cookie_is_secure_and_cross_site(monkeypatch):
+    monkeypatch.setattr(
+        api_routes,
+        "get_settings",
+        lambda: _settings(app_env="production", exhibition_demo_login_enabled=True),
+    )
+
+    response = TestClient(app, base_url="https://backend.example.com").post("/api/auth/demo")
+
+    assert response.status_code == 200
+    cookie = response.headers["set-cookie"]
+    assert "finlight_session=" in cookie
+    assert "HttpOnly" in cookie
+    assert "Secure" in cookie
+    assert "SameSite=none" in cookie
+
+
+def test_google_oauth_routes_still_exist_with_demo_login_enabled(monkeypatch):
+    monkeypatch.setattr(api_routes, "get_settings", lambda: _settings(exhibition_demo_login_enabled=True))
+
+    response = TestClient(app).get("/api/auth/google/login", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["location"].startswith(auth_helpers.GOOGLE_AUTH_URL)
 
 
 def test_google_callback_rejects_invalid_oauth_state(monkeypatch):

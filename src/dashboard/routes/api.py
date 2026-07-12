@@ -70,6 +70,7 @@ from src.dashboard.schemas import (
     SettingsUpdate,
     SignalsResponse,
     AuthMeResponse,
+    DemoLoginRequest,
     UserPreferenceResponse,
     UserPreferenceUpdate,
     EmailSubscriptionResponse,
@@ -84,6 +85,7 @@ from src.signal.generator import SignalGenerator
 router = APIRouter()
 KST = timezone(timedelta(hours=9))
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+DEMO_PROVIDER_USER_ID = "finlightai-exhibition-demo"
 
 
 def _is_development_env() -> bool:
@@ -238,6 +240,51 @@ def google_callback(
 def auth_me(user: UserRecord | None = Depends(get_optional_session_user)) -> dict[str, Any]:
     if not user:
         return {"authenticated": False, "user": None}
+    return {"authenticated": True, "user": _auth_user_dict(user)}
+
+
+@router.post("/auth/demo", response_model=AuthMeResponse)
+def demo_login(
+    response: Response,
+    payload: DemoLoginRequest | None = None,
+    x_demo_access_code: str | None = Header(default=None, alias="X-Demo-Access-Code"),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    settings = get_settings()
+    if not settings.exhibition_demo_login_enabled:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    expected_code = (settings.exhibition_demo_access_code or "").strip()
+    if expected_code:
+        provided_code = ((payload.access_code if payload else None) or x_demo_access_code or "").strip()
+        if not hmac.compare_digest(provided_code, expected_code):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid demo access code")
+
+    try:
+        user = get_or_create_oauth_user(
+            db,
+            provider="demo",
+            provider_user_id=DEMO_PROVIDER_USER_ID,
+            email=settings.exhibition_demo_email,
+            nickname=settings.exhibition_demo_name,
+            profile_image_url=None,
+        )
+        session_token = create_session_token(
+            user.id,
+            secret=settings.jwt_secret_key,
+            expire_minutes=settings.jwt_expire_minutes,
+        )
+    except AuthConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    response.set_cookie(
+        settings.auth_cookie_name,
+        session_token,
+        max_age=settings.jwt_expire_minutes * 60,
+        httponly=True,
+        samesite=settings.session_cookie_samesite(),
+        **_cookie_options(),
+    )
     return {"authenticated": True, "user": _auth_user_dict(user)}
 
 

@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     auth_cookie_samesite: Literal["lax", "strict", "none"] | None = None
     auth_cookie_secure: bool | None = None
     oauth_state_cookie_name: str = "finlight_oauth_state"
+    exhibition_demo_login_enabled: bool = False
+    exhibition_demo_access_code: str | None = None
+    exhibition_demo_email: str = "demo@finlightai.local"
+    exhibition_demo_name: str = "FinLightAI Demo"
     bbc_rss_url: str = "https://feeds.bbci.co.uk/news/world/rss.xml"
     google_news_rss_url: str = "https://news.google.com/rss/search"
     discord_webhook_url: str | None = None
