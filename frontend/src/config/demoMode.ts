@@ -1,5 +1,7 @@
 export const isExhibitionDemoMode =
-  import.meta.env.VITE_EXHIBITION_DEMO_MODE === "true";
+  String(import.meta.env.VITE_EXHIBITION_DEMO_MODE)
+    .trim()
+    .toLowerCase() === "true";
 
 export const DEMO_STORAGE_KEYS = {
   portfolio: "finlight_exhibition_demo_portfolio",

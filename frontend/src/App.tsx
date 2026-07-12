@@ -673,6 +673,19 @@ function PipelineStatusBar({ metadata }: { metadata: PipelineMetadataView | null
   const updated = metadata?.lastUpdated ?? "not available";
   const isDemo = metadata?.isDemo || source === "exhibition_demo";
 
+  if (isDemo) {
+    return (
+      <section className="pipeline-status pipeline-status--exhibition_demo demo-status-banner" aria-label="전시용 데모 데이터 상태">
+        <div>
+          <strong>전시용 데모 데이터</strong>
+          <time>{updated}</time>
+        </div>
+        <p>실시간 API가 아닌 미리 구성한 샘플 데이터를 표시하고 있습니다.</p>
+        <p>FinLightAI의 신호와 샘플 데이터는 투자 추천이나 매수·매도 지시가 아닌 서비스 시연용 정보입니다.</p>
+      </section>
+    );
+  }
+
   return (
     <section className={`pipeline-status pipeline-status--${source}`} aria-label="데이터 파이프라인 상태">
       <div>
@@ -1281,11 +1294,13 @@ function QuickFilterPanel({ filters }: { filters: QuickFilter[] }) {
 }
 
 function ApiStatusCard({ providers, lastUpdated }: { providers: ProviderHealth[]; lastUpdated?: string }) {
+  const isDemo = providers.every((provider) => provider.provider === "Exhibition Demo");
+
   return (
     <section className="side-card">
       <div className="side-card-header">
-        <h2>API 연동 상태</h2>
-        <button type="button" aria-label="API 상태 새로고침">↻</button>
+        <h2>{isDemo ? "전시 데이터 상태" : "API 연동 상태"}</h2>
+        {isDemo ? null : <button type="button" aria-label="API 상태 새로고침">↻</button>}
       </div>
       <div className="provider-grid">
         {providers.map((provider) => (
@@ -1295,7 +1310,7 @@ function ApiStatusCard({ providers, lastUpdated }: { providers: ProviderHealth[]
           </div>
         ))}
       </div>
-      <p className="last-updated">마지막 업데이트: {lastUpdated ?? "not available"}</p>
+      <p className="last-updated">마지막 업데이트: {lastUpdated ?? (isDemo ? "2026-07-13 09:00 KST" : "not available")}</p>
     </section>
   );
 }
