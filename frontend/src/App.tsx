@@ -11,7 +11,14 @@ import {
   type NewsImpact,
   type Tone,
 } from "./data/mockData";
-import { fetchCurrentUser, logout, redirectToGoogleLogin, saveOnboardingPreferences } from "./services/authApi";
+import {
+  fetchCurrentUser,
+  isExhibitionDemoLoginVisible,
+  loginWithExhibitionDemo,
+  logout,
+  redirectToGoogleLogin,
+  saveOnboardingPreferences,
+} from "./services/authApi";
 import { fetchBriefingData } from "./services/briefingApi";
 import { fetchIndustryImpactData } from "./services/industryImpactApi";
 import { fetchMyPageData, updateMyPageData } from "./services/myPageApi";
@@ -421,7 +428,13 @@ function App() {
           {view === "portfolio" && <PortfolioPage onViewChange={setView} />}
           {view === "mypage" && <MyPageDashboard onViewChange={setView} />}
           {view === "settings" && <SettingsDashboard />}
-          {view === "login" && <GoogleAuthFlowView authError={authError} onViewChange={setView} />}
+          {view === "login" && (
+            <ExhibitionDemoLoginView
+              authError={authError}
+              onAuthStateChange={setAuthState}
+              onViewChange={setView}
+            />
+          )}
         </main>
       )}
 
@@ -2526,6 +2539,156 @@ function SettingsSliderRow({ label, max = 1, value }: { label: string; max?: num
 }
 
 type AuthStep = "login" | "signup" | "complete";
+
+function getDemoLoginErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  const normalized = message.toLowerCase();
+  if (normalized.includes("disabled") || normalized.includes("404")) {
+    return "전시용 데모 로그인이 아직 활성화되지 않았습니다.";
+  }
+  if (normalized.includes("access") || normalized.includes("code") || normalized.includes("401") || normalized.includes("403")) {
+    return "전시 접근 코드를 확인해 주세요.";
+  }
+  return "전시용 데모를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+function ExhibitionDemoLoginView({
+  authError,
+  onAuthStateChange,
+  onViewChange,
+}: {
+  authError: string | null;
+  onAuthStateChange: (payload: AuthMeResponse) => void;
+  onViewChange: (view: ViewId) => void;
+}) {
+  const [selectedIndustries, setSelectedIndustries] = useState(["Semiconductor", "AI"]);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [demoAccessCode, setDemoAccessCode] = useState("");
+  const [demoLoginError, setDemoLoginError] = useState<string | null>(null);
+  const [isDemoLoginPending, setIsDemoLoginPending] = useState(false);
+  const industryOptions = ["Semiconductor", "AI", "Policy/Regulation", "Finance"];
+
+  function toggleIndustry(industry: string) {
+    setSelectedIndustries((current) =>
+      current.includes(industry) ? current.filter((item) => item !== industry) : [...current, industry],
+    );
+  }
+
+  async function handleDemoLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isDemoLoginPending) return;
+
+    try {
+      setDemoLoginError(null);
+      setOnboardingError(null);
+      setIsDemoLoginPending(true);
+      await loginWithExhibitionDemo(demoAccessCode.trim() || undefined);
+      setDemoAccessCode("");
+      const refreshedUser = await fetchCurrentUser();
+      onAuthStateChange(refreshedUser);
+      onViewChange("briefing");
+    } catch (error) {
+      setDemoLoginError(getDemoLoginErrorMessage(error));
+      setDemoAccessCode("");
+    } finally {
+      setIsDemoLoginPending(false);
+    }
+  }
+
+  async function completeOnboarding() {
+    try {
+      setOnboardingError(null);
+      await saveOnboardingPreferences({
+        interestedMarkets: ["KR", "US"],
+        interestedIndustries: selectedIndustries,
+        alertEnabled: true,
+        notificationChannels: ["dashboard"],
+      });
+      onViewChange("mypage");
+    } catch (error) {
+      setOnboardingError(error instanceof Error ? error.message : "Onboarding save failed");
+    }
+  }
+
+  return (
+    <section className="auth-flow-shell">
+      <div className="auth-flow-heading">
+        <div>
+          <h1>FinLightAI 전시 데모</h1>
+          <p>DEMO LOGIN / PORTFOLIO / EMAIL ALERTS</p>
+        </div>
+        <span>Google 로그인은 운영 설정 준비 중입니다.</span>
+      </div>
+      {authError ? <p className="api-error" role="alert">{authError}</p> : null}
+      {demoLoginError ? <p className="api-error" role="alert">{demoLoginError}</p> : null}
+      {onboardingError ? <p className="api-error" role="alert">{onboardingError}</p> : null}
+
+      <div className="auth-flow-grid">
+        <AuthCardFrame label="Exhibition Demo" path="/api/auth/demo">
+          <div className="auth-login-hero">
+            <p>AI FINANCIAL SIGNAL BOARD</p>
+            <h2>전시용 데모 시작하기</h2>
+            <small>
+              별도의 회원가입 없이 전시용 계정으로 FinLightAI의
+              포트폴리오, 설정, 이메일 알림 기능을 체험할 수 있습니다.
+            </small>
+          </div>
+          <form className="auth-paper-card" onSubmit={handleDemoLogin}>
+            <div className="auth-paper-head">
+              <h3>전시 데모</h3>
+              <span>Demo session</span>
+            </div>
+            <p>
+              전시용 데모 계정의 데이터는 다른 시연 사용자와 공유될 수 있습니다.
+              민감한 개인정보나 실제 자산 정보를 입력하지 마세요.
+            </p>
+            {isExhibitionDemoLoginVisible ? (
+              <>
+                <label>
+                  전시 접근 코드
+                  <input
+                    autoComplete="off"
+                    name="demoAccessCode"
+                    placeholder="필요한 경우에만 입력"
+                    type="password"
+                    value={demoAccessCode}
+                    onChange={(event) => setDemoAccessCode(event.target.value)}
+                  />
+                </label>
+                <button className="auth-primary-btn" disabled={isDemoLoginPending} type="submit">
+                  {isDemoLoginPending ? "시작하는 중..." : "전시용 데모 시작하기"}
+                </button>
+              </>
+            ) : (
+              <p className="auth-muted-note">전시용 데모 로그인은 Vercel 표시 환경변수 설정 후 노출됩니다.</p>
+            )}
+            <small>프론트 표시 변수는 보안 제어가 아니며, 실제 허용 여부는 백엔드 환경변수로 제한됩니다.</small>
+          </form>
+          <div className="auth-google-note">
+            <strong>Google 로그인</strong>
+            <span>코드는 구현되어 있으며 Google Cloud Console 운영 credential 연결 후 사용할 예정입니다.</span>
+          </div>
+        </AuthCardFrame>
+
+        <AuthCardFrame label="Onboarding" path="/api/onboarding/preferences">
+          <div className="auth-paper-card signup">
+            <h3>관심 산업 설정</h3>
+            <p>로그인 후 관심 시장과 산업을 사용자 ID에 연결합니다.</p>
+            <div className="auth-industry-picker">
+              {industryOptions.map((industry) => (
+                <button className={selectedIndustries.includes(industry) ? "selected" : ""} key={industry} type="button" onClick={() => toggleIndustry(industry)}>
+                  {industry}
+                  <small>{selectedIndustries.includes(industry) ? "selected" : "click to add"}</small>
+                </button>
+              ))}
+            </div>
+            <button className="auth-primary-btn" type="button" onClick={completeOnboarding}>온보딩 저장 후 마이페이지로 이동</button>
+          </div>
+        </AuthCardFrame>
+      </div>
+    </section>
+  );
+}
 
 function GoogleAuthFlowView({ authError, onViewChange }: { authError: string | null; onViewChange: (view: ViewId) => void }) {
   const [selectedIndustries, setSelectedIndustries] = useState(["Semiconductor", "AI"]);
