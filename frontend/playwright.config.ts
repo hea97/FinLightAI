@@ -34,6 +34,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         VITE_API_BASE_URL: "http://localhost:8011",
+        VITE_EXHIBITION_DEMO_MODE: process.env.VITE_EXHIBITION_DEMO_MODE ?? "false",
       },
     },
   ],
