@@ -6,10 +6,79 @@ This project is an analysis and alerting platform, not an investment recommendat
 
 ## Exhibition authentication status
 
-- Google OAuth code: implemented, production Google Cloud Console is not connected yet.
 - Exhibition authentication: environment-gated demo login with `POST /api/auth/demo`.
-- Full self-service signup, password storage, and password reset are outside the exhibition scope.
+- Google OAuth: implemented in code, but the production Google Cloud Console is not connected yet.
+- Full self-service signup, password storage, password reset, and email/password account creation are outside the exhibition scope.
 - The exhibition notification channel is email only.
+- RED/YELLOW/GREEN are informational market-state signals, not buy/sell instructions or profit guarantees.
+
+The exhibition demo login flow is:
+
+```text
+Login page
+-> 전시용 데모 시작하기
+-> POST /api/auth/demo
+-> Find or create the fixed demo provider user
+-> Issue the existing signed finlight_session cookie
+-> Reuse the same portfolio, preferences, settings, onboarding, and email subscription APIs
+```
+
+Demo login security rules:
+
+- `EXHIBITION_DEMO_LOGIN_ENABLED` defaults to `false`.
+- Enable demo login explicitly in Render only for the exhibition.
+- Set `EXHIBITION_DEMO_ACCESS_CODE` for the exhibition whenever possible.
+- Pass the access code in the JSON body or `X-Demo-Access-Code` header, never in a URL query string.
+- Do not enter sensitive personal information or real asset information into the demo account.
+- Demo account data can be shared by multiple demonstration users.
+- Disable demo login after the exhibition by setting `EXHIBITION_DEMO_LOGIN_ENABLED=false`.
+
+## Exhibition deployment configuration
+
+Render environment variables:
+
+```dotenv
+EXHIBITION_DEMO_LOGIN_ENABLED=true
+EXHIBITION_DEMO_ACCESS_CODE=
+EXHIBITION_DEMO_EMAIL=demo@finlightai.local
+EXHIBITION_DEMO_NAME=FinLightAI Demo
+FRONTEND_URL=https://your-project.vercel.app
+BACKEND_URL=https://your-service.onrender.com
+CORS_ORIGINS=https://your-project.vercel.app
+JWT_SECRET_KEY=replace-with-a-long-random-secret
+DATABASE_URL=provided-by-render
+```
+
+Optional or post-exhibition Google OAuth variables:
+
+```dotenv
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=
+```
+
+Do not commit actual Google client secrets, JWT secrets, database URLs, email provider keys, or demo access codes.
+
+Vercel environment variables:
+
+```dotenv
+VITE_API_BASE_URL=https://your-service.onrender.com
+VITE_EXHIBITION_DEMO_LOGIN_ENABLED=true
+```
+
+Do not append `/api` to `VITE_API_BASE_URL`; the frontend already sends requests such as `/api/auth/demo`.
+
+Post-merge exhibition smoke sequence:
+
+1. Configure Render environment variables.
+2. Configure Vercel environment variables.
+3. Merge this branch into `main`.
+4. Confirm the latest Render deployment.
+5. Confirm the latest Vercel Production deployment.
+6. Open the login page and start the exhibition demo.
+7. Confirm `/api/auth/me` returns the demo user.
+8. Confirm portfolio, preferences, settings, onboarding, and email subscription persistence.
+9. Confirm logout clears the session.
 
 ## Quick Start
 
@@ -122,6 +191,11 @@ Playwright covers cross-origin credentialed cookies and error, empty, and fallba
 
 The React dashboard uses these FastAPI endpoints:
 
+- `GET /api/auth/google/login`
+- `GET /api/auth/google/callback`
+- `POST /api/auth/demo`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
 - `GET /api/briefing`
 - `GET /api/news-guard`
 - `GET /api/industry-impact`
