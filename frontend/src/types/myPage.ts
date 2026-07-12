@@ -1,6 +1,6 @@
-export type MyPageAlertId = "kakao" | "email" | "daily-briefing" | "red-signal" | "portfolio-news" | "news-guard";
+export type MyPageAlertId = "email" | "daily-briefing" | "red-signal" | "portfolio-news" | "news-guard";
 export type MyPageConnectionStatus = "normal" | "connected";
-export type MyPageShortcutTarget = "portfolio" | "kakao" | "guard" | "industry";
+export type MyPageShortcutTarget = "portfolio" | "guard" | "industry";
 
 export interface MyPageProfile {
   username: string;

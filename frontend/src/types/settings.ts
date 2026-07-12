@@ -42,12 +42,6 @@ export interface NotificationSetting {
   enabled: boolean;
 }
 
-export interface KakaoChannelReceiveSettings {
-  botName: string;
-  statusLabel: string;
-  description: string;
-}
-
 export interface ApiConnection {
   id: string;
   name: string;
@@ -64,7 +58,6 @@ export interface DisplaySettings {
 export interface MiscSettings {
   searchLogRetention: string;
   sessionTimeout: string;
-  kakaoNotice: string;
 }
 
 export interface SettingsResponse {
@@ -72,7 +65,6 @@ export interface SettingsResponse {
   dataCollection: DataCollectionSettings;
   newsGuard: NewsGuardSettings;
   notifications: NotificationSetting[];
-  kakaoChannel: KakaoChannelReceiveSettings;
   apiConnections: ApiConnection[];
   display: DisplaySettings;
   misc: MiscSettings;

@@ -6,7 +6,7 @@ export type ViewId =
   | "industry"
   | "guard"
   | "portfolio"
-  | "kakao"
+  | "Email"
   | "briefing"
   | "settings";
 
@@ -22,7 +22,7 @@ export const navLabels: Record<Locale, Record<ViewId, string>> = {
     industry: "산업 영향도",
     guard: "뉴스 가드",
     portfolio: "포트폴리오",
-    kakao: "카카오 알림",
+    Email: "이메일 알림",
     briefing: "AI 브리핑",
     settings: "설정",
   },
@@ -32,7 +32,7 @@ export const navLabels: Record<Locale, Record<ViewId, string>> = {
     industry: "Industry Impact",
     guard: "News Guard",
     portfolio: "Portfolio",
-    kakao: "Kakao Alerts",
+    Email: "Email Alerts",
     briefing: "AI Briefing",
     settings: "Settings",
   },
@@ -60,9 +60,9 @@ export const pageText: Record<Locale, Record<ViewId, PageText>> = {
       title: "포트폴리오",
       subtitle: "보유 자산을 등록하고 산업 신호와 연결합니다.",
     },
-    kakao: {
-      title: "카카오 알림",
-      subtitle: "카카오 로그인과 채널 알림 흐름을 관리합니다.",
+    Email: {
+      title: "이메일 알림",
+      subtitle: "이메일 로그인과 채널 알림 흐름을 관리합니다.",
     },
     briefing: {
       title: "AI 브리핑",
@@ -94,9 +94,9 @@ export const pageText: Record<Locale, Record<ViewId, PageText>> = {
       title: "Portfolio",
       subtitle: "Register assets and map them to industry signals.",
     },
-    kakao: {
-      title: "Kakao Alerts",
-      subtitle: "Manage Kakao auth and channel notification flows.",
+    Email: {
+      title: "Email Alerts",
+      subtitle: "Manage Email auth and channel notification flows.",
     },
     briefing: {
       title: "AI Briefing",
@@ -113,8 +113,8 @@ export const uiText = {
   ko: {
     searchPlaceholder: "뉴스, 산업, 종목 검색",
     searchEmpty: "검색 결과가 없습니다.",
-    kakaoCta: "카카오 채널 연결",
-    loginCta: "카카오 로그인",
+    EmailCta: "이메일 채널 연결",
+    loginCta: "이메일 로그인",
     status: "데모 데이터",
     language: "EN",
     addAsset: "자산 등록",
@@ -124,8 +124,8 @@ export const uiText = {
   en: {
     searchPlaceholder: "Search news, sectors, assets",
     searchEmpty: "No matching result.",
-    kakaoCta: "Connect Kakao Channel",
-    loginCta: "Kakao Login",
+    EmailCta: "Connect Email Channel",
+    loginCta: "Email Login",
     status: "Demo Data",
     language: "KO",
     addAsset: "Add Asset",

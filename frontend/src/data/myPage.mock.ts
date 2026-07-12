@@ -7,7 +7,7 @@ export const myPageMock: MyPageResponse = {
     joinedAt: "2025.02.10",
     lastLoginAt: "2025.05.24 09:31 (KST)",
     language: "한국어",
-    alertChannel: "이메일 · 카카오 승인 대기",
+    alertChannel: "이메일 · 이메일 승인 대기",
     channelConnected: true,
   },
   metrics: [
@@ -18,7 +18,6 @@ export const myPageMock: MyPageResponse = {
   ],
   alertSettings: [
     { id: "email", icon: "✉", title: "이메일 레터", description: "중요 신호와 브리핑을 이메일로 받아요", enabled: true },
-    { id: "kakao", icon: "☆", title: "카카오 알림", description: "채널 승인 후 카카오톡으로 받아요", enabled: false },
     { id: "daily-briefing", icon: "☆", title: "일일 AI 브리핑", description: "매일 아침 AI 브리핑 리포트를 받아요", enabled: true },
     { id: "red-signal", icon: "◇", title: "RED 신호 알림", description: "시장 위험 신호 감지 시 즉시 알려드려요", enabled: true, emphasis: true },
     { id: "portfolio-news", icon: "◇", title: "내 포트폴리오 관련 뉴스", description: "보유 자산 관련 주요 뉴스를 받아요", enabled: true },
@@ -27,8 +26,6 @@ export const myPageMock: MyPageResponse = {
   interests: ["반도체", "AI", "정책/규제", "전기차", "에너지", "바이오"],
   connections: [
     { id: "email", icon: "MAIL", label: "이메일 레터", status: "connected", statusLabel: "수신 준비" },
-    { id: "kakao", icon: "TALK", label: "카카오 채널", status: "normal", statusLabel: "승인 대기" },
-    { id: "n8n", icon: "n8n", label: "n8n Webhook", status: "connected", statusLabel: "연결됨" },
     { id: "api", icon: "FL", label: "FinLightAI API", status: "connected", statusLabel: "연결됨" },
     { id: "news", icon: "▤", label: "뉴스 수집기", status: "normal", statusLabel: "정상" },
   ],
@@ -41,7 +38,6 @@ export const myPageMock: MyPageResponse = {
   ],
   shortcuts: [
     { id: "portfolio", icon: "▰", title: "포트폴리오 관리", description: "자산 현황 및 성과" },
-    { id: "kakao", icon: "TALK", title: "카카오 알림 설정", description: "알림 채널 관리" },
     { id: "guard", icon: "◆", title: "뉴스 가드 보기", description: "주의 신호 확인" },
     { id: "industry", icon: "▥", title: "산업 영향도 보기", description: "산업 트렌드 분석" },
   ],

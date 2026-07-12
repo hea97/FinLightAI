@@ -58,7 +58,7 @@ function relatedStocksByIndustry(id: string) {
   const map: Record<string, string[]> = {
     semiconductor: ["삼성전자", "SK하이닉스", "NVIDIA", "TSMC"],
     finance: ["KB금융", "신한지주", "미래에셋증권"],
-    it: ["NAVER", "카카오", "Microsoft"],
+    it: ["NAVER", "이메일", "Microsoft"],
     auto: ["현대차", "기아", "현대모비스"],
     energy: ["한국전력", "두산에너빌리티", "LS"],
     bio: ["삼성바이오", "셀트리온", "유한양행"],

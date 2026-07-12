@@ -3,15 +3,7 @@ import type { SettingsResponse } from "../types/settings";
 export const settingsMock: SettingsResponse = {
   statusCards: [
     { id: "data", icon: "☁", title: "데이터 수집 상태", value: "정상", description: "모든 데이터 소스가 정상 작동 중", tone: "normal" },
-    { id: "email", icon: "✉", title: "이메일 레터", value: "수신 가능", description: "카카오 승인 전 기본 알림 채널", tone: "connected" },
-    {
-      id: "kakao",
-      icon: "♢",
-      title: "카카오톡 채널 수신 방식",
-      value: "승인 대기",
-      description: "승인 완료 전에는 이메일 레터로 먼저 알림을 받을 수 있습니다.",
-      tone: "warning",
-    },
+    { id: "email", icon: "✉", title: "이메일 레터", value: "수신 가능", description: "이메일 승인 전 기본 알림 채널", tone: "connected" },
     { id: "guard", icon: "◇", title: "뉴스 가드 필터", value: "엄격", description: "저신뢰 뉴스 차단 수준: 높음", tone: "strict" },
     { id: "api", icon: "</>", title: "API 연동", value: "7 / 10 연결", description: "일부 API가 비활성화되어 있습니다.", tone: "warning" },
   ],
@@ -37,11 +29,6 @@ export const settingsMock: SettingsResponse = {
     { id: "daily-briefing", label: "일일 AI 브리핑", description: "하루 한 번 핵심 뉴스 요약 제공", enabled: true },
     { id: "weekly-report", label: "주간 리포트", description: "주간 시장 요약 리포트 발송", enabled: true },
   ],
-  kakaoChannel: {
-    botName: "FinLightAI 카카오 채널 봇",
-    statusLabel: "추가됨",
-    description: "카카오톡에서 FinLightAI 채널 봇을 추가하면 주요 시장 상태 알림을 받아볼 수 있습니다.",
-  },
   apiConnections: [
     { id: "gdelt", name: "GDELT DOC 2.0 API", connected: true },
     { id: "guardian", name: "The Guardian API", connected: true },
@@ -59,6 +46,5 @@ export const settingsMock: SettingsResponse = {
   misc: {
     searchLogRetention: "180일",
     sessionTimeout: "30분",
-    kakaoNotice: "카카오 알림은 직접 연결형 푸시가 아니라, FinLightAI 카카오 채널 봇 추가 후 카카오톡 채널을 통해 발송됩니다.",
   },
 };
