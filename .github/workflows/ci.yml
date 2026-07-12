@@ -60,6 +60,10 @@ jobs:
         working-directory: frontend
       - run: npm run test:e2e
         working-directory: frontend
+      - run: npm run test:e2e -- exhibition-demo.spec.ts
+        working-directory: frontend
+        env:
+          VITE_EXHIBITION_DEMO_MODE: "true"
 
   docker:
     runs-on: ubuntu-latest

@@ -77,7 +77,8 @@ export interface NewsGuardViewModel {
   quickFilters: QuickFilter[];
   providerHealth: ProviderHealth[];
   articles: NewsArticle[];
-  dataSource?: "real" | "mixed" | "seed_fallback";
+  dataSource?: "real" | "mixed" | "seed_fallback" | "exhibition_demo";
+  isDemo?: boolean;
   providers?: string[];
   isFallback?: boolean;
   lastUpdated?: string;

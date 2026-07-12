@@ -4,9 +4,11 @@ import { fileURLToPath } from "node:url";
 
 const frontendDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(frontendDir, "..");
+const isExhibitionDemoE2E = process.env.VITE_EXHIBITION_DEMO_MODE === "true";
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: isExhibitionDemoE2E ? [] : "**/exhibition-demo.spec.ts",
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
   use: {
@@ -34,6 +36,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         VITE_API_BASE_URL: "http://localhost:8011",
+        VITE_EXHIBITION_DEMO_MODE: process.env.VITE_EXHIBITION_DEMO_MODE ?? "false",
       },
     },
   ],
