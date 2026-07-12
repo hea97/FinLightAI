@@ -1,8 +1,8 @@
 # FinLightAI 전체 기획서
 
 작성일: 2026-05-29
-최종 업데이트: 2026-07-09
-문서 상태: 실제 API, Google OAuth, 이메일 알림 MVP 범위 반영
+최종 업데이트: 2026-07-12
+문서 상태: 2026-07-13 작품 전시용 이메일 알림 MVP 범위 반영
 
 ## 1. 한 줄 정의
 
@@ -21,7 +21,7 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 
 ```text
 공개 페이지 확인
--> Google 로그인
+-> Google OAuth
 -> 관심 시장/산업 온보딩
 -> AI 브리핑
 -> 뉴스 가드/산업 근거 확인
@@ -40,13 +40,13 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 | 산업 영향도 | 구현 | 산업 일치 뉴스만 근거로 사용 |
 | 포트폴리오 CRUD | 구현 | 로그인 사용자별 DB 저장 |
 | 마이페이지/설정 | 구현 | 사용자별 조회 및 변경 |
-| Google OAuth | 구현 | 운영 Google/Render 설정 필요 |
+| Google OAuth | 구현 | 코드 준비 완료, Google Cloud Console/Render/Vercel 운영 설정 필요 |
+| 자체 회원가입 | 전시 제외 | 비밀번호/이메일 인증 기반 정식 계정 시스템은 전시 이후 과제 |
 | 이메일 레터 구독 | 구현 | modal, API, 사용자별 DB 저장 |
 | 이메일 확인/수신 거부 | 구현 | double opt-in, unsubscribe API, 로컬 테스트 통과 |
 | 이메일 실제 발송 | 구현, 운영 검증 필요 | Resend/SMTP adapter, provider 환경 검증 필요 |
 | 일일 요약/즉시 알림 | 구현, 운영 검증 필요 | script와 dispatch 흐름, 배포 smoke test 필요 |
-| 카카오 알림 규칙 | 구현, 외부 발송 제외 | 규칙/preview/준비 상태만 제공 |
-| 카카오 챗봇 + n8n | 향후 확장 | 카카오 승인 후 별도 운영 기능 |
+| 카카오/n8n | 전시 제외 | 화면, 메뉴, 문구에서 제거 |
 
 ## 5. 핵심 기능 정책
 
@@ -79,25 +79,23 @@ FinLightAI는 금융 뉴스의 신뢰도와 시장 반응을 분석해 시장 �
 
 ### 인증과 온보딩
 
-- MVP 로그인은 Google OAuth다.
+- 전시 로그인은 Google OAuth 코드 준비 완료 상태를 기준으로 한다.
+- 사용자가 Google Cloud Console origin/callback, Render 환경 변수, Vercel `VITE_API_BASE_URL`을 설정한 뒤 production smoke test를 수행한다.
+- 자체 회원가입/비밀번호/이메일 인증/비밀번호 재설정까지 포함한 정식 계정 시스템은 전시 이후 과제로 둔다.
 - 요청 scope는 `openid`, `email`, `profile`로 제한한다.
 - callback 성공 후 httpOnly 세션 쿠키를 발급한다.
 - 관심 시장, 산업, 알림 여부를 사용자 preference에 저장한다.
-- 카카오 OAuth는 사업자 요건 때문에 후순위다.
+- 카카오 OAuth는 전시 범위에서 제거한다.
 
-### 카카오 알림
+### 전시 제외 항목
 
-- 현재 화면과 규칙 저장 API는 구현됐다.
-- 실제 카카오 채널 발송과 n8n 운영 workflow는 2026-07-08 MVP 범위에서 제외한다.
-- 발표와 문서에서는 `카카오는 향후 확장, 현재 MVP는 이메일 알림`으로 표현을 통일한다.
-- 메시지는 투자 행동 유도가 아니라 상태, 근거, 대시보드 CTA로 구성한다.
-- 알림 채널 범위는 MVP에서 `이메일`로 한정하고, 카카오는 규칙/preview/향후 연동 안내만 제공한다.
-- 카카오 OAuth는 MVP 로그인 경로가 아니며, 실제 사용자 인증은 Google OAuth로 설명한다.
-- 카카오 관련 화면은 완료 기능이 아니라 향후 확장 계획과 상태 확인 화면으로만 소개한다.
+- 카카오 알림, 카카오 OAuth, 카카오 채널, 챗봇, n8n workflow는 전시 버전에서 제거한다.
+- 웹페이지 메뉴, 카드, mock 데이터, 문구에서 카카오/n8n 표현을 숨긴다.
+- 발표 자료에도 카카오 흐름도와 카카오 운영 계획을 넣지 않는다.
 
 ### 이메일 레터
 
-- 카카오 채널 승인 전 MVP 기본 알림 채널로 사용한다.
+- 이메일을 MVP의 유일한 알림 채널로 사용한다.
 - 사용자는 modal에서 이메일과 수신 동의를 제출한다.
 - `GET/PUT /api/email-subscription`으로 사용자별 구독 상태를 조회·저장한다.
 - 구독 완료 상태는 헤더, 포트폴리오, 마이페이지, 설정, 로그인 화면에 일관되게 표시한다.
@@ -161,9 +159,9 @@ POST              /api/notifications/dispatch
 POST              /api/notifications/email-events
 GET/PATCH         /api/mypage
 GET/PUT           /api/settings
-GET               /api/kakao-alert
-PATCH             /api/kakao-alert/rules/{rule_id}
 ```
+
+레거시 backend에는 카카오 알림 endpoint가 남아 있지만, 2026-07-13 전시 화면과 발표 범위에서는 노출하지 않는다.
 
 ## 8. 배포 계획
 
@@ -175,21 +173,20 @@ PATCH             /api/kakao-alert/rules/{rule_id}
 
 ## 9. 다음 마일스톤
 
-1. 실제 Vercel/Render 주소 확정 및 환경 변수 설정
-2. Google OAuth Consent Screen/Client 등록
-3. 배포 로그인과 사용자별 API smoke test
-4. 데이터 refresh scheduler 구성
-5. 이메일 provider 환경 변수와 발신 도메인 검증
-6. 이메일 구독/확인/수신 거부/일일 요약/RED-YELLOW 알림 smoke test
-7. DB migration 적용과 CI 도입
-8. 발송 실패 재시도와 suppression list 운영 정책 정리
-9. 카카오 채널 + n8n 연동 착수
+1. 실제 Vercel production frontend URL을 확정한다.
+2. 실제 Render production backend URL을 확정한다.
+3. Google Cloud Console에 origin과 callback을 등록한다.
+4. Render에 OAuth, 세션, 이메일 provider 환경 변수를 입력하고 재배포한다.
+5. Vercel에 `VITE_API_BASE_URL`을 입력하고 재배포한다.
+6. OAuth login/callback/me/logout smoke test를 끝낸다.
+7. 이메일 구독/확인/수신 거부/일일 요약/RED-YELLOW 알림 smoke test를 끝낸다.
+8. 로컬 백업 데모, 핵심 화면 스크린샷, 3분 발표 동선을 준비한다.
 
 ## 10. 발표 및 보고서 문구
 
 발표 PPT의 기능 상태 문구는 아래 한 문장으로 통일한다.
 
-> 이메일 알림 MVP 구현, 카카오는 향후 확장
+> FinLightAI는 시장 신호와 뉴스 위험도를 분석하고, 사용자가 이메일로 일일 요약과 주요 위험 신호를 받을 수 있는 금융 정보 모니터링 서비스입니다.
 
 발표에서 구현 완료로 말할 수 있는 범위:
 
@@ -203,9 +200,22 @@ PATCH             /api/kakao-alert/rules/{rule_id}
 - Render/Vercel 실제 URL 기반 OAuth callback, CORS, cookie smoke test
 - Resend 또는 SMTP 실제 발신 도메인 검증과 테스트 메일 수신
 - provider webhook signature와 bounce/complaint 운영 검증
+- 자체 회원가입 풀 구현
 - 카카오 채널, n8n workflow, 실제 카카오 메시지 발송
 
-## 11. 최신 검증
+## 11. 전시 전 남은 운영 작업
+
+| 범위 | 담당 | 판단 |
+|---|---|---|
+| Google Cloud Console origin/callback 등록 | 사용자 | 실제 production URL 확정 후 진행 |
+| Render OAuth/세션/email provider 환경 변수 입력 | 사용자 | secret 값은 저장소에 기록하지 않음 |
+| Vercel `VITE_API_BASE_URL` 입력 | 사용자 | production backend origin으로 설정 |
+| production OAuth와 이메일 smoke test | 사용자/Codex 지원 | 배포 후 실제 환경에서 확인 |
+| 자체 회원가입/비밀번호 로그인 구현 | 전시 이후 | 전시 전에는 범위에서 제외 |
+
+오늘은 새 기능보다 이메일-only UI와 문서 정합성, 배포 smoke test, 백업 데모 준비에 집중한다.
+
+## 12. 최신 검증
 
 - 2026-07-08: 이메일 알림 MVP TODO 기준으로 제품 범위를 이메일 우선으로 재정렬
 - 2026-07-09: backend `python -m pytest` 78개 통과

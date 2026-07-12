@@ -1,9 +1,9 @@
 # 소프트웨어 요구사항 명세서 (SRS)
 
 **프로젝트명**: FinLightAI
-**버전**: v4.2
-**최종 업데이트**: 2026-07-09
-**상태**: 실제 API, Google OAuth, 이메일 알림 MVP 범위 기준
+**버전**: v4.3
+**최종 업데이트**: 2026-07-12
+**상태**: 2026-07-13 작품 전시용 이메일 알림 MVP 기준
 
 ## 1. 목적과 범위
 
@@ -22,7 +22,7 @@ provider 수집
 
 | 역할 | 권한 |
 |---|---|
-| 비로그인 사용자 | 공개 페이지와 기본 대시보드 조회, Google 로그인 시작 |
+| 비로그인 사용자 | 공개 페이지와 기본 대시보드 조회, Google OAuth 시작 |
 | 로그인 사용자 | 온보딩, 포트폴리오, 마이페이지, 설정, 알림 규칙 관리 |
 | 운영자 | 환경 변수, 데이터 refresh, provider와 배포 상태 관리 |
 
@@ -36,10 +36,9 @@ provider 수집
 | R04 | 산업 영향도 | 산업 점수와 해당 산업에 일치하는 근거 뉴스를 제공한다. | 구현 |
 | R05 | 포트폴리오 | 관심 자산을 생성, 조회, 수정, 삭제한다. | 구현 |
 | R06 | 사용자 설정 | 마이페이지, preference, 설정을 사용자별 저장한다. | 구현 |
-| R07 | Google 인증 | login, callback, me, logout과 세션 쿠키를 제공한다. | 구현 |
+| R07 | 인증 | Google OAuth login/callback/me/logout과 세션 쿠키를 제공한다. | 구현, 운영 설정 필요 |
 | R08 | 온보딩 | 관심 시장, 산업, 알림 여부를 저장한다. | 구현 |
-| R09 | 카카오 규칙 | 알림 규칙을 조회하고 preview/준비 상태를 제공한다. | 구현, 외부 발송 제외 |
-| R10 | 카카오 발송 | n8n과 카카오 채널을 통해 메시지를 발송한다. | 향후 확장 |
+| R09 | 카카오/n8n | 카카오와 n8n 관련 화면, 문구, 발송을 전시 버전에서 제거한다. | 전시 제외 |
 | R11 | 데이터 갱신 | 요청 처리와 분리된 명령으로 파이프라인을 갱신한다. | 구현 |
 | R12 | 운영 배포 | Vercel/Render/PostgreSQL 환경에서 전체 흐름을 검증한다. | 검증 필요 |
 | R13 | 이메일 구독 | 이메일과 수신 동의를 사용자별 저장하고 상태를 조회한다. | 구현 |
@@ -91,12 +90,13 @@ provider 수집
   - `GET /api/auth/me`
   - `POST /api/auth/logout`
   - `GET/PUT /api/onboarding/preferences`
-- Google scope는 `openid`, `email`, `profile`만 요청한다.
-- callback의 state를 검증하고 사용자/provider 식별자를 저장한다.
+- Google OAuth를 사용할 경우 scope는 `openid`, `email`, `profile`만 요청한다.
+- Google OAuth를 사용할 경우 callback의 state를 검증하고 사용자/provider 식별자를 저장한다.
+- production에서는 Google Cloud Console origin/callback, Render 환경 변수, Vercel `VITE_API_BASE_URL` 설정 후 smoke test를 수행한다.
 - 세션은 서명된 httpOnly 쿠키를 사용한다.
 - production 쿠키는 `Secure`, `SameSite=None`이어야 한다.
 - `X-User-ID` 개발 fallback은 production에서 거부한다.
-- 카카오 OAuth는 현재 MVP 인증 방식이 아니다.
+- 카카오 OAuth와 자체 회원가입 풀 구현은 전시 범위가 아니다.
 
 ### 4.6 마이페이지와 설정
 
@@ -104,13 +104,11 @@ provider 수집
 - 프로필, 관심 산업, 알림/표시/데이터 설정을 사용자별 저장한다.
 - 저장 성공, 실패, 로딩 상태를 UI에 제공한다.
 
-### 4.7 카카오 알림
+### 4.7 전시 제외: 카카오/n8n
 
-- API: `GET /api/kakao-alert`, `PATCH /api/kakao-alert/rules/{rule_id}`
-- 알림 규칙 저장과 메시지 preview를 제공한다.
-- 실제 카카오 채널 발송과 n8n 운영 workflow는 이번 MVP 범위에서 제외한다.
-- UI와 문서는 `카카오는 향후 확장, 현재 MVP는 이메일 알림`으로 표현한다.
-- 메시지에는 상태, 근거, 갱신 시각, 투자 추천 아님 고지를 포함한다.
+- 전시 버전에서는 카카오 알림, 카카오 OAuth, 카카오 채널, 챗봇, n8n workflow를 노출하지 않는다.
+- 프론트 메뉴, 카드, mock 데이터, 발표 자료, 기획 문구에서 `카카오`, `n8n`, `챗봇`, `카카오 메시지` 표현을 제거한다.
+- 알림 채널은 이메일 하나로 제한한다.
 
 ### 4.8 이메일 레터
 
@@ -123,7 +121,7 @@ provider 수집
 - 이메일 주소는 trim 후 소문자로 정규화한다.
 - 형식이 잘못된 이메일은 `422`로 거부한다.
 - 구독 상태, 이메일, 동의 시각을 인증 사용자 기준으로 저장한다.
-- 활성 구독은 마이페이지와 알림 화면의 기본 전달 채널로 표시한다.
+- 활성 구독은 마이페이지와 알림 화면의 유일한 전달 채널로 표시한다.
 - 구독 신청 시 24시간 만료 double opt-in 토큰을 생성하고 확인 메일을 발송한다.
 - 확인 완료 전 상태는 `pending`, 확인 완료 후 상태는 `active`로 관리한다.
 - 수신 거부 링크를 모든 발송 본문에 포함하고, 수신 거부 후 상태를 `unsubscribed`로 변경한다.
@@ -182,7 +180,7 @@ fallbackUsed
 - 프론트엔드는 Vercel, 백엔드는 Render 구성을 우선한다.
 - `VITE_API_BASE_URL`은 실제 백엔드 origin을 가리켜야 한다.
 - CORS는 실제 프론트 origin만 허용하고 credentials를 활성화한다.
-- Google redirect URI는 백엔드 callback과 정확히 일치해야 한다.
+- Google OAuth를 사용할 경우 redirect URI는 백엔드 callback과 정확히 일치해야 한다.
 - 배포 후 로그인, callback, me, logout과 사용자별 CRUD를 smoke test한다.
 - 데이터 refresh는 scheduler에서 명시적 명령으로 실행한다.
 - 이메일 provider 환경 변수와 발신 도메인을 설정한다.
@@ -191,7 +189,9 @@ fallbackUsed
 
 ## 9. 알려진 제약
 
-- 카카오 채널 실제 발송과 n8n 운영 workflow는 MVP 범위에서 제외됐으며, 발표와 제품 문서에서는 `카카오는 향후 확장`으로 표현한다.
+- 카카오 채널 실제 발송과 n8n 운영 workflow는 전시 범위에서 제거한다.
+- Google OAuth 콘솔, Render, Vercel 운영 설정은 전시 전 사용자가 완료해야 한다.
+- 자체 회원가입/비밀번호 로그인 풀 구현은 전시 전에는 범위가 크며 제외한다.
 - Guardian/Finnhub는 credential 준비 후 추가한다.
 - 거래일 계산은 exchange calendar 도입 전까지 제한이 있다.
 - 무료 provider의 rate limit과 일시 장애가 데이터 최신성에 영향을 줄 수 있다.
@@ -207,3 +207,4 @@ fallbackUsed
 - 2026-07-09 기준 신규 및 기존 SQLite DB에서 Alembic `upgrade head` 통과, `email_subscriptions`와 `notification_deliveries` 생성 확인
 - 2026-07-09 기준 frontend TypeScript 검사와 Vite production build 통과
 - 2026-07-09 기준 추가 검증 대상: 실제 provider 발송, 배포 smoke test, provider webhook, PostgreSQL 운영 DB migration 적용
+- 2026-07-12 기준 전시 전 추가 검증 대상: Google OAuth production 설정, 이메일-only production smoke test, 로컬 백업 데모
