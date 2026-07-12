@@ -13,7 +13,7 @@ export type ProviderStatus =
   | "partial";
 
 export interface ProviderHealth {
-  provider: "GDELT" | "NewsAPI" | "Guardian" | "Finnhub" | "BBC RSS";
+  provider: "GDELT" | "NewsAPI" | "Guardian" | "Finnhub" | "BBC RSS" | "Exhibition Demo";
   status: ProviderStatus;
   message: string;
   lastCheckedAt?: string;

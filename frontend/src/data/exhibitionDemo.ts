@@ -85,9 +85,7 @@ export const exhibitionDemoNewsGuard: NewsGuardViewModel = {
     { id: "portfolio", label: "Portfolio", count: 3 },
   ],
   providerHealth: [
-    { provider: "GDELT", status: "disabled", message: "전시 모드에서는 실제 provider를 호출하지 않습니다.", lastCheckedAt: "2026-07-13 09:00 KST" },
-    { provider: "NewsAPI", status: "disabled", message: "Exhibition Demo sample only", lastCheckedAt: "2026-07-13 09:00 KST" },
-    { provider: "BBC RSS", status: "disabled", message: "Exhibition Demo sample only", lastCheckedAt: "2026-07-13 09:00 KST" },
+    { provider: "Exhibition Demo", status: "connected", message: "전시용 샘플 데이터", lastCheckedAt: "2026-07-13 09:00 KST" },
   ],
   articles: [
     {
@@ -187,6 +185,38 @@ export const exhibitionDemoNewsGuard: NewsGuardViewModel = {
       reasons: ["일부 수치 미확정", "샘플 데이터"],
       qualityStatus: "verified",
     },
+    {
+      id: "demo-news-7",
+      title: "전시 샘플: AI 서버 수요 전망 상향",
+      source: "전시용 샘플",
+      provider: "Exhibition Demo",
+      publishedAgo: "4시간 전",
+      summary: "AI 서버 수요 기대가 신뢰 뉴스로 분류되는 흐름을 보여주는 전시용 기사입니다.",
+      reliabilityLevel: "trusted",
+      reliabilityScore: 82,
+      impactScore: 69,
+      sentimentScore: 0.31,
+      industries: ["AI", "Semiconductor"],
+      tags: ["AI 서버", "수요"],
+      reasons: ["전시용 샘플 출처", "관련 산업 매핑"],
+      qualityStatus: "verified",
+    },
+    {
+      id: "demo-news-8",
+      title: "전시 샘플: 정책 발표 전 반도체 변동성 확대",
+      source: "전시용 샘플",
+      provider: "Exhibition Demo",
+      publishedAgo: "5시간 전",
+      summary: "정책 발표 전 변동성 확대를 주의 상태로 분류하는 전시용 기사입니다.",
+      reliabilityLevel: "watch",
+      reliabilityScore: 63,
+      impactScore: 58,
+      sentimentScore: -0.09,
+      industries: ["Policy", "Semiconductor"],
+      tags: ["정책", "변동성"],
+      reasons: ["발표 전 정보", "샘플 데이터"],
+      qualityStatus: "verified",
+    },
   ],
 };
 
@@ -202,9 +232,9 @@ export const exhibitionDemoIndustryImpact: IndustryImpactResponse = {
   ...exhibitionDemoMetadata,
   industries: [
     { id: "ai", name: "AI", score: 72, tone: "caution", toneLabel: "YELLOW", newsCount: 4, icon: "AI" },
-    { id: "semiconductor", name: "Semiconductor", score: 64, tone: "caution", toneLabel: "YELLOW", newsCount: 4, icon: "CHIP" },
+    { id: "semiconductor", name: "Semiconductor", score: 64, tone: "caution", toneLabel: "YELLOW", newsCount: 5, icon: "CHIP" },
     { id: "robotics", name: "Robotics", score: 58, tone: "positive", toneLabel: "GREEN", newsCount: 2, icon: "BOT" },
-    { id: "policy", name: "Policy", score: 79, tone: "negative", toneLabel: "RED", newsCount: 2, icon: "LAW" },
+    { id: "policy", name: "Policy", score: 79, tone: "negative", toneLabel: "RED", newsCount: 3, icon: "LAW" },
   ],
   details: {
     ai: {
@@ -336,7 +366,7 @@ export const exhibitionDemoMyPage: MyPageResponse = {
   ],
   guide: {
     title: "전시용 데모 사용자",
-    body: "backend DB 또는 Google OAuth session을 생성하지 않는 frontend-only demo user 상태입니다.",
+    body: "실제 계정이나 메일 구독 상태가 아닌 전시용 데모 사용자입니다. backend DB 또는 Google OAuth session을 생성하지 않는 frontend-only demo user 상태입니다.",
     ctaLabel: "데모 화면 확인",
   },
 };
