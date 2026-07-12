@@ -107,10 +107,165 @@ type PublicPath = "/about" | "/login" | "/signup" | "/privacy" | "/terms";
 const publicNavItems: { href: PublicPath; label: string }[] = [
   { href: "/about", label: "About" },
   { href: "/login", label: "Login" },
-  { href: "/signup", label: "Sign up" },
+  { href: "/signup", label: "Demo" },
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
 ];
+
+function ExhibitionPublicPage({ path }: { path: string }) {
+  const normalizedPath = (path === "/signup" ? "/signup" : path) as PublicPath;
+  const isAuthPage = normalizedPath === "/login" || normalizedPath === "/signup";
+  const titleByPath: Record<PublicPath, string> = {
+    "/about": "FinLightAI",
+    "/login": "전시 데모 로그인",
+    "/signup": "전시 데모 안내",
+    "/privacy": "개인정보처리방침",
+    "/terms": "서비스 약관",
+  };
+
+  return (
+    <main className="public-shell">
+      <nav className="public-nav" aria-label="Public pages">
+        <a className="public-brand" href="/about">FL FinLightAI</a>
+        <div>
+          {publicNavItems.map((item) => (
+            <a aria-current={normalizedPath === item.href ? "page" : undefined} href={item.href} key={item.href}>{item.label}</a>
+          ))}
+          <a href="/">Dashboard</a>
+        </div>
+      </nav>
+
+      <section className="public-hero">
+        <p className="public-eyebrow">Email-only exhibition MVP</p>
+        <h1>{titleByPath[normalizedPath] ?? "FinLightAI"}</h1>
+        <p>
+          FinLightAI는 실제 뉴스, 출처 신뢰도, 시장 반응 데이터를 결합해 시장 상태 신호를 보여주는 정보 서비스입니다.
+          투자 추천이나 매수, 매도 지시가 아닙니다.
+        </p>
+        {isAuthPage ? (
+          <div className="public-actions">
+            <a href="/">전시용 데모 시작하기</a>
+            <a href="/privacy">개인정보처리방침</a>
+            <a href="/terms">서비스 약관</a>
+          </div>
+        ) : null}
+      </section>
+
+      {normalizedPath === "/about" && <ExhibitionAboutPublicContent />}
+      {normalizedPath === "/login" && <ExhibitionAuthPublicContent mode="login" />}
+      {normalizedPath === "/signup" && <ExhibitionAuthPublicContent mode="signup" />}
+      {normalizedPath === "/privacy" && <ExhibitionPrivacyPublicContent />}
+      {normalizedPath === "/terms" && <ExhibitionTermsPublicContent />}
+    </main>
+  );
+}
+
+function ExhibitionAboutPublicContent() {
+  return (
+    <section className="public-grid">
+      {[
+        ["전시 인증", "환경변수로 제한되는 전시용 데모 로그인으로 포트폴리오, 설정, 이메일 알림 흐름을 체험합니다."],
+        ["Google OAuth", "코드는 구현되어 있으며 Google Cloud Console 운영 credential 연결 후 운영 로그인으로 사용할 예정입니다."],
+        ["이메일 알림", "전시 버전의 유일한 알림 채널은 이메일이며 RED/YELLOW 주요 위험 신호와 일일 요약을 다룹니다."],
+      ].map(([title, body]) => (
+        <article className="public-card" key={title}>
+          <h2>{title}</h2>
+          <p>{body}</p>
+        </article>
+      ))}
+      <article className="public-card public-wide">
+        <h2>중요 고지</h2>
+        <p>
+          FinLightAI의 신호와 이메일 알림은 투자 추천이나 매수, 매도 지시가 아니라 참고용 시장 상태 정보입니다.
+          데이터는 지연되거나 부정확할 수 있으며 사용자는 정보를 독립적으로 확인해야 합니다.
+        </p>
+      </article>
+    </section>
+  );
+}
+
+function ExhibitionAuthPublicContent({ mode }: { mode: "login" | "signup" }) {
+  return (
+    <section className="public-card public-wide">
+      <h2>{mode === "login" ? "전시 인증 안내" : "정식 회원가입 제외 안내"}</h2>
+      <p>
+        2026-07-13 전시 버전은 별도 회원가입 없이 환경변수로 제한되는 전시용 데모 로그인을 사용합니다.
+        Google OAuth 코드는 구현되어 있지만 Google Cloud Console 운영 credential 연결 전까지는 운영 로그인으로 제공하지 않습니다.
+      </p>
+      <ul className="public-list">
+        <li>전시 데모 계정으로 포트폴리오, 설정, 이메일 알림 기능을 체험할 수 있습니다.</li>
+        <li>전시용 데모 계정 데이터는 다른 시연 사용자와 공유될 수 있습니다.</li>
+        <li>정식 회원가입, 비밀번호 저장, 비밀번호 재설정은 전시 범위에서 제외합니다.</li>
+        <li>민감한 개인정보나 실제 자산 정보는 입력하지 마세요.</li>
+      </ul>
+    </section>
+  );
+}
+
+function ExhibitionPrivacyPublicContent() {
+  return (
+    <section className="public-card public-wide">
+      <h2>수집하는 정보</h2>
+      <p>
+        전시 버전은 데모 사용자 ID에 연결된 관심 시장, 관심 산업, 포트폴리오 입력값, 설정,
+        이메일 알림 구독 상태를 저장할 수 있습니다. Google OAuth 운영 연결 후에는 최소 범위의
+        Google 프로필 정보가 로그인과 계정 식별에 사용될 수 있습니다.
+      </p>
+      <h2>이용 목적</h2>
+      <p>
+        이 정보는 전시 데모 로그인, 대시보드 개인화, 온보딩 preferences, 이메일 알림 설정,
+        포트폴리오 기반 화면 표시를 위해 사용됩니다.
+      </p>
+      <h2>데모 계정 주의</h2>
+      <p>
+        전시용 데모 계정의 데이터는 다른 시연 사용자와 공유될 수 있으므로 민감한 개인정보,
+        실제 자산 정보, 실제 이메일 수신에 부적절한 정보를 입력하지 마세요.
+      </p>
+      <h2>외부 서비스</h2>
+      <p>
+        서비스는 Vercel frontend hosting, Render backend hosting, Google OAuth 운영 연결,
+        이메일 provider를 사용할 수 있습니다. FinLightAI는 개인정보를 판매하지 않습니다.
+      </p>
+      <h2>보관 및 삭제</h2>
+      <p>
+        사용자는 프로젝트 연락 채널을 통해 계정 관련 데이터 삭제를 요청할 수 있습니다.
+        셀프서비스 삭제 기능은 MVP 이후 범위입니다.
+      </p>
+      <h2>문의</h2>
+      <p>Contact: project owner via the FinLightAI GitHub repository.</p>
+      <p className="public-updated">Effective date: 2026-07-12</p>
+    </section>
+  );
+}
+
+function ExhibitionTermsPublicContent() {
+  return (
+    <section className="public-card public-wide">
+      <h2>서비스 목적</h2>
+      <p>
+        FinLightAI는 뉴스, 신뢰도 점검, 산업 맥락, 시장 반응 데이터를 결합해 시장 상태 정보를 제공합니다.
+      </p>
+      <h2>전시 데모 계정</h2>
+      <p>
+        전시 데모 계정은 시연용이며 다른 시연 사용자와 데이터가 공유될 수 있습니다.
+        민감한 개인정보, 실제 자산 정보, 실제 운영 목적의 데이터를 입력하지 마세요.
+      </p>
+      <h2>금융 정보 면책</h2>
+      <p>
+        FinLightAI는 투자자문 서비스가 아니며 증권 매수, 매도, 보유를 추천하지 않습니다.
+        사용자는 자신의 투자 결정에 대한 책임을 집니다.
+      </p>
+      <h2>인증 상태</h2>
+      <p>
+        Google OAuth 코드는 구현 완료 상태이지만 운영 콘솔 연결 전입니다.
+        전시 인증은 환경변수로 제한되는 데모 로그인이며 정식 회원가입은 전시 범위에서 제외됩니다.
+      </p>
+      <h2>문의</h2>
+      <p>Contact: project owner via the FinLightAI GitHub repository.</p>
+      <p className="public-updated">Effective date: 2026-07-12</p>
+    </section>
+  );
+}
 
 function PublicPage({ path }: { path: string }) {
   const normalizedPath = (path === "/signup" ? "/signup" : path) as PublicPath;
@@ -327,7 +482,7 @@ function App() {
 
   const publicPath = window.location.pathname;
   if (["/about", "/login", "/signup", "/privacy", "/terms"].includes(publicPath)) {
-    return <PublicPage path={publicPath} />;
+    return <ExhibitionPublicPage path={publicPath} />;
   }
 
   return (
@@ -388,14 +543,14 @@ function App() {
           </button>
           <button className="user-menu" type="button" onClick={() => setView("mypage")}>
             <span className="avatar">{authState.user?.nickname?.slice(0, 1).toUpperCase() ?? "U"}</span>
-            {authState.user?.nickname ?? "Google login"}
+            {authState.user?.nickname ?? "Demo login"}
           </button>
           {authState.authenticated ? (
             <button className="icon-button" type="button" onClick={handleLogout} aria-label="로그아웃">
               OUT
             </button>
           ) : (
-            <button className="icon-button" type="button" onClick={() => setView("login")} aria-label="Google 로그인">
+            <button className="icon-button" type="button" onClick={() => setView("login")} aria-label="전시 데모 로그인">
               IN
             </button>
           )}
