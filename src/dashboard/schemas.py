@@ -248,6 +248,10 @@ class AuthMeResponse(ApiModel):
     user: AuthUser | None = None
 
 
+class DemoLoginRequest(ApiModel):
+    access_code: str | None = Field(default=None, alias="accessCode")
+
+
 class UserPreferenceResponse(ApiModel):
     user_id: str = Field(alias="userId")
     interested_markets: list[str] = Field(alias="interestedMarkets")
