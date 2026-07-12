@@ -39,7 +39,7 @@ FinLightAI는 단순히 뉴스를 모아 보여주는 서비스가 아니라, �
 - 뉴스 감성만으로 신호를 만들지 않고 가격, 거래량, 변동성 데이터를 함께 반영한다.
 - API 실패나 데이터 부족 상태를 숨기지 않고 사용자에게 명확히 표시한다.
 - 이메일 알림도 투자 지시가 아니라 시장 상태 요약과 리스크 알림으로 제한한다.
-- 카카오 채널과 n8n은 향후 확장 범위로 두고, MVP에서는 실제 카카오 발송 완료처럼 표현하지 않는다.
+- 전시 MVP에서는 카카오 채널과 n8n을 화면과 발표에서 제거하고, 알림 채널을 이메일 하나로 고정한다.
 - API 키, Webhook URL, 인증 정보는 화면과 로그에 전체 값이 노출되지 않도록 마스킹한다.
 
 ## 4. 주요 사용자
@@ -64,7 +64,6 @@ FinLightAI의 핵심 사용자는 다음과 같다.
 - RED/YELLOW/GREEN 시장 신호 생성
 - FastAPI 기반 웹 대시보드
 - 이메일 구독, double opt-in, 수신 거부, 일일 요약, RED/YELLOW 즉시 알림
-- 카카오 알림 규칙 preview와 향후 n8n 확장 계획
 - 사용자가 직접 입력하는 자산 포트폴리오 관리
 - 차단 뉴스 감사 로그와 신뢰도 판별 기준 문서화
 - 백테스트와 ML 고도화를 위한 기반 구조
@@ -232,7 +231,7 @@ MVP 단계에서는 사용자가 직접 보유 자산을 입력하는 방식으�
 
 ### 6-8. 이메일 알림 MVP
 
-이메일은 카카오 채널 승인 전 MVP 기본 알림 채널로 사용한다.
+이메일은 전시 MVP의 유일한 알림 채널로 사용한다.
 
 구독과 발송 흐름은 다음과 같다.
 
@@ -268,6 +267,15 @@ flowchart TD
 실제 운영 전에는 Resend 또는 SMTP provider 설정, 발신 도메인 검증,
 webhook signature 검증, 발송 실패 재시도 정책을 보완해야 한다.
 
+보고서에는 이메일 알림 MVP를 다음 구조로 설명한다.
+
+- Double opt-in: 사용자가 이메일과 수신 동의를 제출하면 구독 상태를 `pending`으로 저장하고, 24시간 만료 확인 토큰을 발급한다. 사용자가 `GET /api/email-subscription/confirm` 링크를 열면 토큰 hash와 만료 시각을 검증한 뒤 상태를 `active`로 바꾸고 동의 시각을 기록한다.
+- Unsubscribe: 모든 발송 본문에는 사용자와 이메일에 묶인 수신 거부 토큰 링크를 포함한다. 사용자가 `GET /api/email-subscription/unsubscribe` 링크를 열면 상태를 `unsubscribed`로 바꾸고 이후 dispatch 대상에서 제외한다.
+- 발송 이력: `notification_deliveries`는 사용자, 채널, 알림 종류, 수신자, dedupe key, provider, provider message ID, 오류 메시지, 중복 횟수를 저장한다. 성공/실패뿐 아니라 provider webhook의 bounce/complaint/delay 상태까지 추적할 수 있게 설계했다.
+- 중복 방지: 일일 요약은 KST 기준 날짜별 key를 사용하고, 즉시 알림은 사용자별 `event_key + ticker + trade_date` 성격의 dedupe key를 사용한다. 같은 key가 다시 들어오면 새 메일을 보내지 않고 기존 delivery의 duplicate count를 증가시킨다.
+
+발표 PPT 문구는 `이메일 알림 기반 금융 정보 모니터링 MVP`로 통일한다. 카카오 채널과 n8n은 전시 발표와 웹 화면에서 제거하고, 실제 운영 알림 채널은 이메일 MVP로만 설명한다.
+
 ## 7. 시스템 구조
 
 현재 프로젝트 구조는 다음 역할을 기준으로 구성한다.
@@ -281,7 +289,7 @@ scripts/                설정 및 파이프라인 실행 스크립트
 src/collector/          뉴스, 주가, 신뢰도 관련 수집기
 src/processor/          필터링, 감성 분석, 시장 반응, 이벤트 점수
 src/signal/             RED/YELLOW/GREEN 신호 생성
-src/notifier/           Email 알림과 향후 카카오/n8n 확장
+src/notifier/           Email 알림
 src/dashboard/          FastAPI 대시보드와 API 라우트
 src/ml/                 학습, 예측, 백테스트 후보 기능
 tests/                  단위 테스트
@@ -294,7 +302,7 @@ tests/                  단위 테스트
 | `collector` | 외부 뉴스와 시장 데이터를 수집한다. |
 | `processor` | 뉴스 필터링, 감성 분석, 시장 반응 계산을 수행한다. |
 | `signal` | 이벤트 점수를 기반으로 신호등 상태를 생성한다. |
-| `notifier` | Email MVP 알림을 발송하고, 향후 카카오/n8n 확장을 담당한다. |
+| `notifier` | Email MVP 알림을 발송한다. |
 | `dashboard` | 웹 화면과 API 엔드포인트를 제공한다. |
 | `database` | 뉴스, 신호, 포트폴리오, 감사 로그를 저장한다. |
 | `ml` | 향후 예측 모델, 백테스트, 모델 평가를 담당한다. |
@@ -314,7 +322,6 @@ tests/                  단위 테스트
 | pykrx | 한국 주식 가격 데이터 | 불필요 | 없음 |
 | Resend Email | MVP 이메일 알림 | 필요 | `EMAIL_PROVIDER`, `RESEND_API_KEY`, `SMTP_FROM`, `EMAIL_WEBHOOK_SECRET` |
 | SMTP Email | 대체 이메일 provider | 필요 | `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` |
-| Kakao/n8n | 향후 카카오 알림 확장 | 필요 | `KAKAO_CHANNEL_ID`, `N8N_KAKAO_WEBHOOK_URL`, `N8N_WEBHOOK_TOKEN` |
 | PostgreSQL | 데이터 저장 | 필요 | `DATABASE_URL` |
 
 ## 9. 데이터 저장 방향
@@ -471,7 +478,6 @@ MVP에서 가장 먼저 완성해야 할 기능은 다음과 같다.
 
 후순위 기능은 다음과 같다.
 
-- 카카오/n8n 실제 발송
 - 증권사 계좌 자동 연동
 - 고급 ML 예측 모델
 - 정교한 백테스트 리포트

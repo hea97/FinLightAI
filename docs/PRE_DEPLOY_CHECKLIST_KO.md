@@ -100,18 +100,43 @@ Invoke-RestMethod "$api/api/signals"
 - 주요 API: HTTP 200
 - Render 로그에 DB 연결 오류가 없어야 한다.
 
+자동 점검은 아래 스크립트로 실행할 수 있다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/check_deploy_smoke.ps1 `
+  -ApiBaseUrl "https://your-render-api.onrender.com" `
+  -FrontendOrigin "https://your-vercel-app.vercel.app"
+```
+
+이 스크립트는 `/health/live`, `/health/ready`, 주요 공개 API, CORS preflight,
+Google OAuth 시작 redirect를 확인한다.
+
 ## 6. 이메일 구독 smoke test
 
-실제로 받을 수 있는 테스트 메일 주소를 사용한다.
+운영 환경의 `APP_ENV=production`에서는 `X-User-ID` 개발 헤더를 사용할 수 없다.
+먼저 Vercel 프론트에서 Google OAuth 로그인을 완료하고, 브라우저 개발자 도구에서
+Render API host의 `finlight_session` HttpOnly 쿠키가 생성됐는지 확인한다.
+
+쿠키 속성 기대값:
+
+- Host: Render API host
+- `HttpOnly`
+- `Secure`
+- `SameSite=None`
+- `Path=/`
+
+그 다음 프론트 UI에서 실제로 받을 수 있는 테스트 메일 주소로 이메일 구독을 저장한다.
+터미널에서 확인하려면 브라우저의 `Cookie` 요청 헤더 값을 안전하게 복사해 일회성으로
+사용한다. 이 값은 secret으로 취급하고 커밋하지 않는다.
 
 ```powershell
 $api = "https://your-render-api.onrender.com"
-$userId = "smoke-email-$(Get-Date -Format yyyyMMddHHmmss)"
 $email = "your-test-inbox@example.com"
+$sessionCookie = "finlight_session=..."
 
 Invoke-RestMethod "$api/api/email-subscription" `
   -Method Put `
-  -Headers @{ "X-User-ID" = $userId } `
+  -Headers @{ Cookie = $sessionCookie } `
   -ContentType "application/json" `
   -Body (@{
     email = $email
@@ -126,6 +151,16 @@ Invoke-RestMethod "$api/api/email-subscription" `
 - 응답 `status`가 `pending`
 - 테스트 메일함에 double opt-in 확인 메일 도착
 - Render 또는 Resend 로그에 발송 성공 이력 기록
+
+스크립트로 함께 실행하려면 아래처럼 세션 쿠키와 테스트 메일을 추가한다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/check_deploy_smoke.ps1 `
+  -ApiBaseUrl "https://your-render-api.onrender.com" `
+  -FrontendOrigin "https://your-vercel-app.vercel.app" `
+  -SessionCookie "finlight_session=..." `
+  -TestEmail "your-test-inbox@example.com"
+```
 
 ## 7. 확인 링크 smoke test
 
@@ -169,6 +204,17 @@ Invoke-RestMethod "$api/api/notifications/dispatch" `
 - 테스트 메일함에 일일 요약 메일 도착
 - 메일 본문에 수신 거부 링크 포함
 
+스크립트에서 dispatch까지 확인하려면 `-NotificationSecret`을 추가한다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/check_deploy_smoke.ps1 `
+  -ApiBaseUrl "https://your-render-api.onrender.com" `
+  -FrontendOrigin "https://your-vercel-app.vercel.app" `
+  -SessionCookie "finlight_session=..." `
+  -TestEmail "your-test-inbox@example.com" `
+  -NotificationSecret "your-render-NOTIFICATION_SECRET"
+```
+
 ## 9. 수신 거부 smoke test
 
 일일 요약 메일의 수신 거부 링크를 연다.
@@ -195,7 +241,12 @@ Invoke-RestMethod "https://your-render-api.onrender.com/api/email-subscription/u
 - PostgreSQL 마이그레이션과 연결 확인 완료
 - `/health/live` HTTP 200
 - `/health/ready` HTTP 200
+- CORS 응답이 실제 Vercel origin과 `Access-Control-Allow-Credentials: true`를 반환
+- Google OAuth login/callback/me/logout smoke test 통과
+- `finlight_session` cookie가 API host에 `HttpOnly`, `Secure`, `SameSite=None`, `Path=/`로 생성됨
 - 이메일 구독 `pending` 생성 확인
 - 확인 링크로 `active` 전환 확인
 - 일일 요약 발송 확인
+- `notification_deliveries`에 발송 성공/실패 이력과 중복 호출 이력이 남는지 확인
 - 수신 거부 링크로 `unsubscribed` 전환 확인
+- 수신 거부 사용자가 후속 dispatch 발송 대상에서 제외되는지 확인

@@ -120,8 +120,6 @@ The React dashboard uses these FastAPI endpoints:
 - `GET /api/industry-impact`
 - `GET|POST /api/portfolio`
 - `PATCH|DELETE /api/portfolio/{asset_id}`
-- `GET /api/kakao-alert`
-- `PATCH /api/kakao-alert/rules/{rule_id}`
 - `GET/PUT /api/email-subscription`
 - `GET /api/email-subscription/confirm`
 - `GET /api/email-subscription/unsubscribe`
@@ -130,7 +128,7 @@ The React dashboard uses these FastAPI endpoints:
 - `GET|PATCH /api/mypage`
 - `GET|PUT /api/settings`
 
-Portfolio, alert, profile, and settings data are scoped by the `X-User-ID` header. This is a local integration bridge, not production authentication. Replace it with verified Kakao OAuth/session identity before deployment.
+Portfolio, email alert, profile, and settings data are scoped by the signed session cookie in production. The `X-User-ID` header remains a local development bridge and must be disabled for production traffic. Google OAuth is implemented, but the production Google Cloud Console, Render, and Vercel settings must be completed before the exhibition smoke test.
 
 ## Project Layout
 
@@ -142,7 +140,7 @@ scripts/                Setup and pipeline entrypoints
 src/collector/          News, stock, and reliability collection
 src/processor/          Filtering, sentiment, market reaction, event scoring
 src/signal/             RED/YELLOW/GREEN signal generation
-src/notifier/           Discord and email notifications
+src/notifier/           Email notifications
 src/dashboard/          FastAPI dashboard and API routes
 src/ml/                 Training, prediction, and backtesting placeholders
 tests/                  Focused unit tests

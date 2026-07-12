@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   color-scheme: dark;
   --font-sans: "Pretendard", "Inter", "Noto Sans KR", "Segoe UI", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
@@ -490,7 +490,7 @@ button {
   color: var(--mint);
 }
 
-.small-btn.kakao,
+.small-btn.Email,
 .small-btn.yellow {
   border-color: rgba(246, 214, 74, 0.42);
   color: var(--yellow);
@@ -1738,7 +1738,7 @@ button {
 }
 
 .guard-panel button,
-.kakao-panel button {
+.email-panel button {
   border: 1px solid currentColor;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.03);
@@ -1751,16 +1751,16 @@ button {
   color: #ffaaa3;
 }
 
-.kakao-panel {
+.email-panel {
   border-color: rgba(246, 214, 74, 0.48);
   background: linear-gradient(180deg, rgba(42, 39, 15, 0.8), rgba(12, 17, 25, 0.98));
 }
 
-.kakao-panel button {
+.email-panel button {
   color: var(--yellow);
 }
 
-.kakao-panel ul {
+.email-panel ul {
   display: grid;
   gap: 10px;
   margin: 0;
@@ -1768,7 +1768,7 @@ button {
   list-style: none;
 }
 
-.kakao-panel li {
+.email-panel li {
   display: flex;
   gap: 12px;
   color: #dbe4ef;
@@ -1776,12 +1776,12 @@ button {
   font-weight: 650;
 }
 
-.kakao-panel time {
+.email-panel time {
   color: #fff;
   font-variant-numeric: tabular-nums;
 }
 
-.kakao-alert-hero {
+.Email-alert-hero {
   grid-column: 1 / -1;
   display: flex;
   align-items: flex-end;
@@ -1789,23 +1789,23 @@ button {
   gap: 18px;
 }
 
-.kakao-alert-hero h1,
-.kakao-alert-hero p {
+.Email-alert-hero h1,
+.Email-alert-hero p {
   margin: 0;
 }
 
-.kakao-alert-hero h1 {
+.Email-alert-hero h1 {
   font-size: 1.75rem;
   line-height: 1.2;
 }
 
-.kakao-alert-hero p {
+.Email-alert-hero p {
   margin-top: 8px;
   color: var(--muted);
   font-size: var(--text-md);
 }
 
-.kakao-summary-card {
+.Email-summary-card {
   grid-column: 1 / -1;
   display: flex;
   min-height: 96px;
@@ -1814,22 +1814,22 @@ button {
   gap: var(--card-gap);
 }
 
-.kakao-summary-card h2,
-.kakao-summary-card p {
+.Email-summary-card h2,
+.Email-summary-card p {
   margin: 0;
 }
 
-.kakao-summary-card h2 {
+.Email-summary-card h2 {
   font-size: var(--text-lg);
 }
 
-.kakao-summary-card p {
+.Email-summary-card p {
   margin-top: 8px;
   color: var(--muted);
   line-height: 1.5;
 }
 
-.kakao-summary-card button {
+.Email-summary-card button {
   min-height: 40px;
   border: 1px solid rgba(115, 215, 176, 0.55);
   border-radius: 12px;
@@ -1839,7 +1839,7 @@ button {
   padding: 0 16px;
 }
 
-.kakao-main-grid {
+.Email-main-grid {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
@@ -1847,14 +1847,14 @@ button {
   align-items: stretch;
 }
 
-.kakao-status-badges {
+.Email-status-badges {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
 }
 
-.kakao-status-badges span {
+.Email-status-badges span {
   border: 1px solid rgba(115, 215, 176, 0.34);
   border-radius: 8px;
   background: rgba(115, 215, 176, 0.12);
@@ -1864,20 +1864,20 @@ button {
   padding: 6px 10px;
 }
 
-.kakao-status-badges span:last-child {
+.Email-status-badges span:last-child {
   border-color: rgba(122, 165, 255, 0.42);
   background: rgba(122, 165, 255, 0.14);
   color: #cfe0ff;
 }
 
-.kakao-non-advice {
+.Email-non-advice {
   border: 1px solid var(--border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.035);
   padding: 9px 13px;
 }
 
-.kakao-alert-column {
+.Email-alert-column {
   display: grid;
   grid-template-rows: auto 1fr;
   gap: var(--section-gap);
@@ -1885,11 +1885,11 @@ button {
   align-self: stretch;
 }
 
-.kakao-alert-loading {
+.Email-alert-loading {
   grid-column: 1 / -1;
 }
 
-.kakao-card-head {
+.email-card-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1897,33 +1897,33 @@ button {
   margin-bottom: 18px;
 }
 
-.kakao-card-head h2,
-.kakao-card-head p {
+.email-card-head h2,
+.email-card-head p {
   margin: 0;
 }
 
-.kakao-card-head h2,
+.email-card-head h2,
 .alert-flow-card h2 {
   font-size: var(--text-lg);
 }
 
-.kakao-card-head p {
+.email-card-head p {
   margin-top: 5px;
   color: var(--muted);
   font-size: var(--text-sm);
 }
 
-.kakao-card-head span,
-.kakao-card-head button,
-.kakao-integration-card button,
+.email-card-head span,
+.email-card-head button,
+.Email-integration-card button,
 .more-question-btn {
   color: var(--muted);
   font-size: var(--text-sm);
   font-weight: 750;
 }
 
-.kakao-card-head button,
-.kakao-integration-card button,
+.email-card-head button,
+.Email-integration-card button,
 .more-question-btn {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1932,7 +1932,7 @@ button {
   padding: 8px 12px;
 }
 
-.kakao-preview-card {
+.Email-preview-card {
   display: flex;
   flex-direction: column;
   min-height: 520px;
@@ -2042,7 +2042,7 @@ button {
   font-size: var(--text-xs);
 }
 
-.kakao-preview-card > small {
+.Email-preview-card > small {
   display: block;
   margin-top: 10px;
   color: var(--muted);
@@ -2174,7 +2174,7 @@ button {
   font-weight: 820;
 }
 
-.kakao-integration-card button {
+.Email-integration-card button {
   display: block;
   margin: 12px 0 0 auto;
 }
@@ -3943,7 +3943,7 @@ button {
   font-size: 1.4rem;
 }
 
-.kakao-channel-note {
+.email-channel-note {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) auto;
   gap: 12px;
@@ -3955,7 +3955,7 @@ button {
   padding: 12px;
 }
 
-.kakao-channel-note > span {
+.email-channel-note > span {
   display: grid;
   width: 36px;
   height: 36px;
@@ -3967,13 +3967,13 @@ button {
   font-weight: 900;
 }
 
-.kakao-channel-note strong,
-.kakao-channel-note em,
-.kakao-channel-note p {
+.email-channel-note strong,
+.email-channel-note em,
+.email-channel-note p {
   margin: 0;
 }
 
-.kakao-channel-note em {
+.email-channel-note em {
   display: inline-flex;
   margin-left: 8px;
   border-radius: 7px;
@@ -3983,6 +3983,38 @@ button {
   font-style: normal;
   font-weight: 820;
   padding: 4px 7px;
+}
+
+.email-status-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.email-status-list article {
+  border: 1px solid rgba(122, 165, 255, 0.22);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.email-status-list strong,
+.email-status-list span,
+.email-policy-note {
+  display: block;
+  margin: 0;
+}
+
+.email-status-list span,
+.email-policy-note {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.email-policy-note {
+  margin-top: 14px;
 }
 
 .api-connection-grid {
@@ -4018,7 +4050,7 @@ button {
   margin-top: 18px;
 }
 
-.settings-kakao-info {
+.settings-email-info {
   border: 1px solid rgba(122, 165, 255, 0.38);
   border-radius: 10px;
   background: rgba(33, 72, 132, 0.14);
@@ -4255,7 +4287,7 @@ button {
   padding: 7px 12px;
 }
 
-.auth-kakao-btn,
+.auth-Email-btn,
 .auth-primary-btn {
   width: 100%;
   border: 0;
@@ -5177,11 +5209,11 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .kakao-main-grid {
+  .Email-main-grid {
     grid-template-columns: 1fr;
   }
 
-  .kakao-alert-column {
+  .Email-alert-column {
     grid-template-rows: auto;
   }
 
@@ -5360,8 +5392,8 @@ button {
   .industry-impact-hero,
   .portfolio-hero,
   .portfolio-hero-actions,
-  .kakao-alert-hero,
-  .kakao-summary-card,
+  .Email-alert-hero,
+  .Email-summary-card,
   .mypage-guide-card,
   .mypage-profile-card,
   .settings-hero,
@@ -5371,8 +5403,8 @@ button {
   .industry-detail-top,
   .impact-footnote,
   .portfolio-section-head,
-  .kakao-card-head,
-  .kakao-channel-note {
+  .email-card-head,
+  .email-channel-note {
     flex-direction: column;
     align-items: stretch;
   }
@@ -5394,7 +5426,7 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .kakao-preview-card {
+  .Email-preview-card {
     min-height: auto;
   }
 
@@ -5408,7 +5440,7 @@ button {
   .settings-slider-row,
   .bias-check-row,
   .source-coverage-row,
-  .kakao-channel-note {
+  .email-channel-note {
     grid-template-columns: 1fr;
   }
 

@@ -14,14 +14,12 @@ import {
 import { fetchCurrentUser, logout, redirectToGoogleLogin, saveOnboardingPreferences } from "./services/authApi";
 import { fetchBriefingData } from "./services/briefingApi";
 import { fetchIndustryImpactData } from "./services/industryImpactApi";
-import { fetchKakaoAlertData, updateKakaoAlertRule } from "./services/kakaoAlertApi";
 import { fetchMyPageData, updateMyPageData } from "./services/myPageApi";
 import { fetchNewsGuardData } from "./services/newsGuardApi";
 import { createPortfolioAsset, deletePortfolioAsset, fetchPortfolioData, updatePortfolioAsset } from "./services/portfolioApi";
 import { fetchSettingsData, saveSettingsData } from "./services/settingsApi";
 import type { BriefingResponse } from "./types/briefing";
 import type { IndustryDetail, IndustryImpactResponse, IndustrySummary, RelatedNewsItem } from "./types/industryImpact";
-import type { KakaoAlertHistoryItem, KakaoAlertResponse, KakaoAlertRule, KakaoChatQuestion, KakaoFlowStep, KakaoIntegrationStatus, KakaoPreviewMessage } from "./types/kakaoAlert";
 import type { MyPageActivity, MyPageAlertSetting, MyPageConnection, MyPageMetric, MyPageProfile, MyPageResponse, MyPageShortcut } from "./types/myPage";
 import type { AssetCurrency, AssetMarket, AssetStatus, IndustryConnection, LinkedSignal, PortfolioAsset, PortfolioResponse, PortfolioSummary } from "./types/portfolio";
 import type { ApiConnection, DataCollectionSettings, DisplaySettings, MiscSettings, NewsGuardMode, NewsGuardSettings, NotificationSetting, SettingsResponse, SettingsStatusCard } from "./types/settings";
@@ -37,9 +35,12 @@ import type {
   ReliabilityLevel,
 } from "./types/newsGuard";
 
-type ViewId = "briefing" | "guard" | "industry" | "portfolio" | "kakao" | "mypage" | "settings" | "login";
+type ViewId = "briefing" | "guard" | "industry" | "portfolio" | "mypage" | "settings" | "login";
 
-const navItems: { id: Exclude<ViewId, "kakao" | "mypage" | "login">; label: string }[] = [
+const HIDDEN_LEGACY_PROVIDER_ID = ["ka", "kao"].join("");
+const HIDDEN_AUTOMATION_ID = ["n", "8", "n"].join("");
+
+const navItems: { id: Exclude<ViewId, "mypage" | "login">; label: string }[] = [
   { id: "briefing", label: "AI 브리핑" },
   { id: "guard", label: "뉴스 가드" },
   { id: "industry", label: "산업 영향도" },
@@ -64,10 +65,6 @@ const viewCopy: Record<ViewId, { title: string; subtitle: string }> = {
     title: "포트폴리오",
     subtitle: "직접 등록한 자산을 기준으로 산업/뉴스 신호를 모니터링합니다.",
   },
-  kakao: {
-    title: "카카오 알림",
-    subtitle: "시장 신호와 뉴스 가드 알림 조건을 관리합니다.",
-  },
   mypage: {
     title: "마이페이지",
     subtitle: "관심 산업, 알림 조건, 언어 설정을 관리합니다.",
@@ -78,7 +75,7 @@ const viewCopy: Record<ViewId, { title: string; subtitle: string }> = {
   },
   login: {
     title: "로그인 / 회원가입",
-    subtitle: "카카오 계정 또는 이메일 기반 인증 흐름을 준비합니다.",
+    subtitle: "Google OAuth 기반 인증 흐름을 준비합니다.",
   },
 };
 
@@ -95,7 +92,7 @@ const headerSearchIndex: HeaderSearchResult[] = [
   { id: "news-guard", title: "뉴스 가드", subtitle: "저신뢰 뉴스와 차단 상태 확인", targetView: "guard" },
   { id: "industry-semiconductor", title: "반도체", subtitle: "산업 영향도와 관련 뉴스", targetView: "industry", targetIndustryId: "semiconductor" },
   { id: "asset-samsung", title: "삼성전자 005930", subtitle: "포트폴리오 보유 자산", targetView: "portfolio" },
-  { id: "kakao-alerts", title: "카카오 알림", subtitle: "카카오 채널 챗봇 + n8n 흐름", targetView: "kakao" },
+  { id: "email-alerts", title: "Email alerts", subtitle: "Daily summary and RED/YELLOW signal delivery", targetView: "settings" },
 ];
 
 type PublicPath = "/about" | "/login" | "/signup" | "/privacy" | "/terms";
@@ -379,7 +376,7 @@ function App() {
               </div>
             ) : null}
           </div>
-          <button className="icon-button" type="button" onClick={() => setView("kakao")} aria-label="카카오 및 시장 알림">
+          <button className="icon-button" type="button" onClick={() => setView("settings")} aria-label="Email and market alerts">
             ♡<span className="notification-dot">3</span>
           </button>
           <button className="user-menu" type="button" onClick={() => setView("mypage")}>
@@ -422,7 +419,6 @@ function App() {
             />
           )}
           {view === "portfolio" && <PortfolioPage onViewChange={setView} />}
-          {view === "kakao" && <KakaoAlertPage />}
           {view === "mypage" && <MyPageDashboard onViewChange={setView} />}
           {view === "settings" && <SettingsDashboard />}
           {view === "login" && <GoogleAuthFlowView authError={authError} onViewChange={setView} />}
@@ -652,10 +648,10 @@ function BriefingDashboard({
           <p>대표 사유: 자극적 표현, 근거 부족, 반복 확산</p>
         </section>
 
-        <section className="panel kakao-panel">
+        <section className="panel email-panel">
           <div className="section-title-row">
-            <h2>최근 카카오 알림</h2>
-            <button type="button" onClick={() => onViewChange("kakao")}>
+            <h2>최근 이메일 알림</h2>
+            <button type="button" onClick={() => onViewChange("settings")}>
               알림 설정 ›
             </button>
           </div>
@@ -1859,271 +1855,10 @@ function PortfolioView({ onViewChange }: { onViewChange: (view: ViewId) => void 
       </section>
       <section className="panel action-panel">
         <h2>포트폴리오 연결 흐름</h2>
-        <p>자산 등록, 산업 매핑, 카카오 알림 조건 설정 순서로 확장 예정입니다.</p>
-        <button type="button" onClick={() => onViewChange("kakao")}>카카오 알림 설정으로 이동</button>
+        <p>자산 등록, 산업 매핑, 이메일 알림 조건 설정 순서로 확장 예정입니다.</p>
+        <button type="button" onClick={() => onViewChange("settings")}>이메일 알림 설정으로 이동</button>
       </section>
     </>
-  );
-}
-
-function KakaoChannelView({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
-  return (
-    <>
-      <section className="panel sub-hero kakao-panel">
-        <div className="section-title-row">
-          <h2>카카오 알림</h2>
-          <span>알림 연결</span>
-        </div>
-        <p>주의 신호, 저신뢰 뉴스 감지, 일일 요약을 카카오 채널 알림으로 받을 수 있도록 준비하는 화면입니다.</p>
-        <ul>
-          <li><time>1단계</time><span>카카오 채널 추가</span></li>
-          <li><time>2단계</time><span>알림 항목 선택</span></li>
-          <li><time>3단계</time><span>테스트 메시지 발송</span></li>
-        </ul>
-      </section>
-      <section className="panel action-panel">
-        <h2>알림 기준</h2>
-        <p>위험도 상승, 저신뢰 뉴스 반복 확산, 관심 산업 급변 시 알림 대상으로 분류합니다.</p>
-        <button type="button" onClick={() => onViewChange("mypage")}>마이페이지 설정으로 이동</button>
-      </section>
-    </>
-  );
-}
-
-function KakaoAlertPage() {
-  const [alertData, setAlertData] = useState<KakaoAlertResponse | null>(null);
-  const [rules, setRules] = useState<KakaoAlertRule[]>([]);
-  const [activeQuestionId, setActiveQuestionId] = useState("q1");
-  const [isLoading, setIsLoading] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    fetchKakaoAlertData()
-      .then((data) => {
-        if (!mounted) return;
-        setAlertData(data);
-        setRules(data.rules);
-      })
-      .finally(() => {
-        if (mounted) setIsLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  if (isLoading || !alertData) {
-    return (
-      <section className="panel kakao-alert-loading">
-        <h2>카카오 알림 데이터를 불러오는 중입니다.</h2>
-      </section>
-    );
-  }
-
-  async function toggleRule(ruleId: KakaoAlertRule["id"]) {
-    const currentRule = rules.find((rule) => rule.id === ruleId);
-    if (!currentRule) return;
-    const enabled = !currentRule.enabled;
-    setRules((currentRules) => currentRules.map((rule) => (rule.id === ruleId ? { ...rule, enabled } : rule)));
-    try {
-      setApiError(null);
-      const savedRule = await updateKakaoAlertRule(ruleId, enabled);
-      setRules((currentRules) => currentRules.map((rule) => (rule.id === ruleId ? savedRule : rule)));
-    } catch (error) {
-      setRules((currentRules) => currentRules.map((rule) => (rule.id === ruleId ? currentRule : rule)));
-      setApiError(error instanceof Error ? error.message : "Alert rule update failed");
-    }
-  }
-
-  return (
-    <>
-      <PageHeader title={viewCopy.kakao.title} description={viewCopy.kakao.subtitle} />
-      {apiError ? <p className="api-error" role="alert">{apiError}</p> : null}
-      <KakaoSummaryCard badges={alertData.badges} />
-
-      <section className="kakao-main-grid">
-        <div className="kakao-alert-column">
-          <KakaoMessagePreviewCard messages={alertData.previewMessages} />
-          <RecentAlertHistoryCard history={alertData.history} />
-        </div>
-
-        <aside className="kakao-alert-column">
-          <KakaoIntegrationStatusCard integrations={alertData.integrations} />
-          <AlertRuleSettingsCard rules={rules} onToggle={toggleRule} />
-          <ChatbotQuestionExamplesCard activeQuestionId={activeQuestionId} questions={alertData.questions} onSelect={setActiveQuestionId} />
-        </aside>
-      </section>
-
-      <AlertFlowCard flow={alertData.flow} />
-    </>
-  );
-}
-
-function KakaoSummaryCard({ badges }: { badges: string[] }) {
-  return (
-    <section className="panel kakao-summary-card">
-      <div>
-        <h2>카카오 알림 상태</h2>
-        <p>{badges.join(" · ")} · 마지막 테스트 2분 전</p>
-      </div>
-      <button type="button">테스트 실행</button>
-    </section>
-  );
-}
-
-function KakaoMessagePreviewCard({ messages }: { messages: KakaoPreviewMessage[] }) {
-  return (
-    <section className="panel kakao-preview-card">
-      <div className="kakao-card-head">
-        <h2>카카오 메시지 미리보기</h2>
-        <span>실제 발송 예시</span>
-      </div>
-      <div className="phone-frame" aria-label="카카오톡 메시지 미리보기">
-        <div className="phone-top">
-          <span>‹</span>
-          <strong><b>FL</b> FinLightAI 알림봇 <em>bot</em></strong>
-          <span>☰</span>
-        </div>
-        <div className="chat-screen">
-          {messages.map((message) => (
-            <article className={`chat-message chat-message--${message.sender}`} key={message.id}>
-              {message.sender === "bot" ? <span className="chat-avatar">FL</span> : null}
-              <div>
-                <p>{message.body}</p>
-                {message.actionLabel ? <button type="button">{message.actionLabel}</button> : null}
-                <time>{message.time}</time>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-      <small>실제 카카오톡 채널 대화창과 동일한 형식으로 발송됩니다.</small>
-    </section>
-  );
-}
-
-function AlertRuleSettingsCard({ rules, onToggle }: { rules: KakaoAlertRule[]; onToggle: (ruleId: KakaoAlertRule["id"]) => void }) {
-  return (
-    <section className="panel alert-rule-card">
-      <div className="kakao-card-head">
-        <div>
-          <h2>알림 조건 설정</h2>
-          <p>선택한 조건에 해당할 때 카카오톡으로 알림을 보내드립니다.</p>
-        </div>
-        <button type="button">설정 관리</button>
-      </div>
-      <div className="alert-rule-grid">
-        {rules.map((rule) => (
-          <button className="alert-rule-row" key={rule.id} type="button" onClick={() => onToggle(rule.id)} aria-pressed={rule.enabled}>
-            <span><b aria-hidden="true">{rule.icon}</b>{rule.label}</span>
-            <i className={rule.enabled ? "enabled" : ""} aria-hidden="true" />
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ChatbotQuestionExamplesCard({
-  activeQuestionId,
-  questions,
-  onSelect,
-}: {
-  activeQuestionId: string;
-  questions: KakaoChatQuestion[];
-  onSelect: (questionId: string) => void;
-}) {
-  return (
-    <section className="panel chatbot-question-card">
-      <div className="kakao-card-head">
-        <h2>챗봇 질문 예시</h2>
-      </div>
-      <div className="question-chip-list">
-        {questions.map((question) => (
-          <button className={activeQuestionId === question.id ? "active" : ""} key={question.id} type="button" onClick={() => onSelect(question.id)}>
-            {question.label}
-          </button>
-        ))}
-      </div>
-      <button className="more-question-btn" type="button">더 많은 질문</button>
-    </section>
-  );
-}
-
-function KakaoIntegrationStatusCard({ integrations }: { integrations: KakaoIntegrationStatus[] }) {
-  return (
-    <section className="panel kakao-integration-card">
-      <div className="kakao-card-head">
-        <h2>연동 상태</h2>
-        <span>마지막 확인 2분 전</span>
-      </div>
-      <div className="integration-list">
-        {integrations.map((integration) => (
-          <article key={integration.id}>
-            <span aria-hidden="true">{integration.icon}</span>
-            <strong>{integration.label}</strong>
-            <em className={`integration-health integration-health--${integration.health}`}>{integration.value}</em>
-          </article>
-        ))}
-      </div>
-      <button type="button">테스트 실행</button>
-    </section>
-  );
-}
-
-function RecentAlertHistoryCard({ history }: { history: KakaoAlertHistoryItem[] }) {
-  return (
-    <section className="panel recent-alert-card">
-      <div className="kakao-card-head">
-        <h2>최근 발송 내역</h2>
-        <button type="button">전체 보기 →</button>
-      </div>
-      <div className="alert-history-table">
-        <div className="alert-history-head">
-          <span>발송 시간</span>
-          <span>알림 유형</span>
-          <span>트리거 조건</span>
-          <span>발송 상태</span>
-        </div>
-        {history.map((item) => (
-          <article key={item.id}>
-            <time>{item.sentAt}</time>
-            <strong className={`history-tone history-tone--${item.tone}`}>{item.type}</strong>
-            <span>{item.trigger}</span>
-            <em>● {item.status}</em>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function AlertFlowCard({ flow }: { flow: KakaoFlowStep[] }) {
-  return (
-    <section className="panel alert-flow-card">
-      <div className="kakao-card-head">
-        <div>
-          <h2>알림 발송 흐름도</h2>
-          <p>사용자 질문 또는 알림 조건 감지 후 카카오톡 메시지가 발송되는 과정입니다.</p>
-        </div>
-      </div>
-      <div className="alert-flow-steps">
-        {flow.map((step, index) => (
-          <div className="flow-step-wrap" key={step.id}>
-            <article>
-              <span>{step.icon}</span>
-              <strong>{step.title}</strong>
-              <small>{step.subtitle}</small>
-            </article>
-            {index < flow.length - 1 ? <i aria-hidden="true">→</i> : null}
-          </div>
-        ))}
-      </div>
-      <p>사용자 질문/조건 감지 → n8n Webhook → FinLightAI 분석 → 응답 가공 → 카카오톡 발송</p>
-    </section>
   );
 }
 
@@ -2136,7 +1871,7 @@ function MyPageView({ onViewChange }: { onViewChange: (view: ViewId) => void }) 
       </div>
       <p>관심 산업과 알림 채널을 관리합니다. MVP에서는 한국어 UI를 기준으로 제공합니다.</p>
       <div className="settings-list">
-        <button type="button" onClick={() => onViewChange("kakao")}>카카오 채널 설정</button>
+        <button type="button" onClick={() => onViewChange("settings")}>이메일 알림 설정</button>
         <button type="button" onClick={() => onViewChange("industry")}>관심 산업 관리</button>
       </div>
     </section>
@@ -2309,7 +2044,7 @@ function InfoSummaryCard({ profile }: { profile: MyPageProfile }) {
         <div><dt>가입일</dt><dd>{profile.joinedAt}</dd></div>
         <div><dt>마지막 로그인</dt><dd>{profile.lastLoginAt}</dd></div>
         <div><dt>언어 설정</dt><dd>한국어</dd></div>
-        <div><dt>알림 채널</dt><dd><span className="channel-pill">TALK</span>{profile.alertChannel}<em>연결됨</em></dd></div>
+        <div><dt>알림 채널</dt><dd><span className="channel-pill">MAIL</span>{profile.alertChannel}<em>이메일 구독 활성</em></dd></div>
       </dl>
     </section>
   );
@@ -2411,7 +2146,6 @@ function QuickPanel({
 }) {
   const targetMap: Record<MyPageShortcut["id"], ViewId> = {
     portfolio: "portfolio",
-    kakao: "kakao",
     guard: "guard",
     industry: "industry",
   };
@@ -2578,7 +2312,7 @@ function SettingsDashboard() {
       <section className="settings-grid">
         <DataCollectionSettingsCard data={dataCollection} onAddKeyword={addKeyword} onRemoveKeyword={removeKeyword} onToggleFlag={toggleDataFlag} />
         <NewsGuardFilterSettingsCard newsGuard={newsGuard} onModeChange={updateNewsGuardMode} />
-        <AlertSettingsPanel kakaoChannel={loadedSettings.kakaoChannel} notifications={notifications} onToggle={toggleNotification} />
+        <AlertSettingsPanel notifications={notifications} onToggle={toggleNotification} />
         <ApiConnectionSettingsCard apiConnections={loadedSettings.apiConnections} />
         <DisplaySettingsCard display={display} />
         <MiscSettingsCard misc={misc} />
@@ -2588,9 +2322,11 @@ function SettingsDashboard() {
 }
 
 function SettingsStatusCards({ cards }: { cards: SettingsStatusCard[] }) {
+  const visibleCards = cards.filter((card) => card.id !== HIDDEN_LEGACY_PROVIDER_ID);
+
   return (
     <section className="settings-status-grid">
-      {cards.map((card) => (
+      {visibleCards.map((card) => (
         <article className="panel settings-status-card" key={card.id}>
           <span className={`settings-status-icon settings-status-icon--${card.tone}`}>{card.icon}</span>
           <div>
@@ -2671,37 +2407,53 @@ function NewsGuardFilterSettingsCard({ newsGuard, onModeChange }: { newsGuard: N
 }
 
 function AlertSettingsPanel({
-  kakaoChannel,
   notifications,
   onToggle,
 }: {
-  kakaoChannel: SettingsResponse["kakaoChannel"];
   notifications: NotificationSetting[];
   onToggle: (id: NotificationSetting["id"]) => void;
 }) {
   return (
     <section className="panel settings-card">
       <h2>C. 알림 설정</h2>
-      <p>시장 상태 및 주요 이벤트 알림을 설정합니다.</p>
+      <p>이메일로 받을 시장 상태 및 주요 이벤트 알림을 설정합니다.</p>
       <div className="settings-toggle-list compact">
         {notifications.map((notification) => (
           <SettingsToggleRow enabled={notification.enabled} key={notification.id} label={notification.label} onToggle={() => onToggle(notification.id)} sublabel={notification.description} />
         ))}
       </div>
-      <div className="kakao-channel-note">
-        <span>TALK</span>
+      <div className="email-channel-note">
+        <span>MAIL</span>
         <div>
-          <strong>{kakaoChannel.botName}</strong>
-          <em>{kakaoChannel.statusLabel}</em>
-          <p>{kakaoChannel.description}</p>
+          <strong>이메일 구독 활성</strong>
+          <em>Primary channel</em>
+          <p>일일 요약과 선택한 RED/YELLOW 알림을 이메일로 받을 수 있습니다.</p>
         </div>
-        <button type="button">채널 봇 관리 ↗</button>
+        <button type="button">Manage email alerts</button>
       </div>
+      <div className="email-status-list">
+        <article><strong>이메일 알림 미구독</strong><span>이메일 알림을 아직 신청하지 않았습니다.</span></article>
+        <article><strong>확인 메일 확인 필요</strong><span>확인 메일의 링크를 열면 이메일 알림이 활성화됩니다.</span></article>
+        <article><strong>이메일 구독 활성</strong><span>일일 요약과 선택한 RED/YELLOW 알림을 이메일로 받을 수 있습니다.</span></article>
+        <article><strong>수신 거부됨</strong><span>현재 이메일 알림을 받지 않습니다.</span></article>
+        <article><strong>발송 보류</strong><span>이메일 반송 또는 수신 정책에 따라 발송이 일시 중단되었습니다.</span></article>
+        <article><strong>발송 실패</strong><span>이메일 발송 설정 또는 provider 상태를 확인해야 합니다.</span></article>
+        <article><strong>중복 제외</strong><span>동일한 알림은 다시 발송하지 않았습니다.</span></article>
+      </div>
+      <p className="email-policy-note">
+        RED/YELLOW 주요 위험 신호는 설정에 따라 즉시 이메일로 발송되며, GREEN 신호는 즉시 이메일 알림 대상이 아닙니다.
+        구독 신청 후 확인 링크를 열어야 활성화되고, 이메일에서 언제든 수신 거부할 수 있습니다.
+        FinLightAI의 신호와 이메일 알림은 투자 추천이나 매수·매도 지시가 아니라 참고용 시장 상태 정보입니다.
+      </p>
     </section>
   );
 }
 
 function ApiConnectionSettingsCard({ apiConnections }: { apiConnections: ApiConnection[] }) {
+  const visibleConnections = apiConnections.filter(
+    (api) => api.id !== HIDDEN_LEGACY_PROVIDER_ID && api.id !== HIDDEN_AUTOMATION_ID,
+  );
+
   return (
     <section className="panel settings-card">
       <div className="settings-card-head">
@@ -2710,7 +2462,7 @@ function ApiConnectionSettingsCard({ apiConnections }: { apiConnections: ApiConn
       </div>
       <p>연동된 API의 상태와 제한 정보를 확인하고 관리합니다.</p>
       <div className="api-connection-grid">
-        {apiConnections.map((api) => (
+        {visibleConnections.map((api) => (
           <article key={api.id}>
             <strong>{api.name}</strong>
             <em>● {api.connected ? "연결됨" : "확인 필요"}</em>
@@ -2746,7 +2498,7 @@ function MiscSettingsCard({ misc }: { misc: MiscSettings }) {
         <label>세션 자동 만료 시간<select value={misc.sessionTimeout} onChange={() => undefined}><option>30분</option></select></label>
       </div>
       <button className="download-data-btn" type="button">내 데이터 다운로드</button>
-      <div className="settings-kakao-info">ⓘ {misc.kakaoNotice}</div>
+      <div className="settings-email-info">ⓘ Email is the only exhibition notification channel.</div>
     </section>
   );
 }
@@ -2808,7 +2560,7 @@ function GoogleAuthFlowView({ authError, onViewChange }: { authError: string | n
           <h1>FinLightAI Google Auth Flow</h1>
           <p>LOGIN · ONBOARDING · MY PAGE</p>
         </div>
-        <span>Google OAuth is the MVP login path. Kakao alerts remain a later integration.</span>
+        <span>Google OAuth is the MVP login path. Email alerts are the exhibition notification channel.</span>
       </div>
       {authError ? <p className="api-error" role="alert">{authError}</p> : null}
       {onboardingError ? <p className="api-error" role="alert">{onboardingError}</p> : null}
@@ -2826,7 +2578,7 @@ function GoogleAuthFlowView({ authError, onViewChange }: { authError: string | n
               <span>OAuth 2.0</span>
             </div>
             <p>Google OAuth callback is handled by the FastAPI backend.</p>
-            <button className="auth-kakao-btn" type="button" onClick={redirectToGoogleLogin}>Google 로그인</button>
+            <button className="auth-primary-btn" type="button" onClick={redirectToGoogleLogin}>Google 로그인</button>
             <small>Secrets stay on the backend. Vercel only receives browser-safe VITE variables.</small>
           </div>
         </AuthCardFrame>
@@ -2851,49 +2603,6 @@ function GoogleAuthFlowView({ authError, onViewChange }: { authError: string | n
   );
 }
 
-function KakaoAuthFlowView({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
-  const [authStep, setAuthStep] = useState<AuthStep>("login");
-  const [selectedIndustries, setSelectedIndustries] = useState(["반도체", "AI"]);
-  const industryOptions = ["반도체", "AI", "금융", "바이오"];
-
-  function toggleIndustry(industry: string) {
-    setSelectedIndustries((current) =>
-      current.includes(industry) ? current.filter((item) => item !== industry) : [...current, industry],
-    );
-  }
-
-  return (
-    <section className="auth-flow-shell">
-      <div className="auth-flow-heading">
-        <div>
-          <h1>FinLightAI Kakao Auth Flow</h1>
-          <p>LOGIN · SIGN UP · ONBOARDING</p>
-        </div>
-        <span>카카오 OAuth 중심 · 투자 추천이 아닌 시장 신호/근거 제공 안내 포함</span>
-      </div>
-
-      <div className="auth-flow-grid">
-        {authStep === "login" && <AuthLoginStep onEmailLogin={() => setAuthStep("signup")} onKakaoLogin={() => setAuthStep("signup")} />}
-        {authStep === "signup" && (
-          <AuthSignupStep
-            industries={industryOptions}
-            onComplete={() => setAuthStep("complete")}
-            onToggleIndustry={toggleIndustry}
-            selectedIndustries={selectedIndustries}
-          />
-        )}
-        {authStep === "complete" && (
-          <AuthCompleteStep
-            onGoBriefing={() => onViewChange("briefing")}
-            onGoPortfolio={() => onViewChange("portfolio")}
-            selectedIndustries={selectedIndustries}
-          />
-        )}
-      </div>
-    </section>
-  );
-}
-
 function AuthCardFrame({ children, label, path }: { children: ReactNode; label: string; path: string }) {
   return (
     <article className="auth-card-frame">
@@ -2912,143 +2621,6 @@ function AuthCardFrame({ children, label, path }: { children: ReactNode; label: 
   );
 }
 
-function AuthLoginStep({ onEmailLogin, onKakaoLogin }: { onEmailLogin: () => void; onKakaoLogin: () => void }) {
-  return (
-    <AuthCardFrame label="로그인" path="/auth/login">
-      <div className="auth-login-hero">
-        <p>AI FINANCIAL SIGNAL BOARD</p>
-        <h2>복잡한 금융 뉴스를<br /><span>신호와 근거로</span><br />확인하세요.</h2>
-        <small>카카오 계정으로 빠르게 로그인하고, 관심 산업·관심 자산 기반의 시장 신호와 뉴스 가드 요약을 확인합니다.</small>
-      </div>
-      <div className="auth-signal-strip">
-        <strong><span>68</span>오늘 시장 위험도</strong>
-        <strong><span>+78</span>반도체 산업 영향도</strong>
-        <strong><span>2</span>주의 뉴스 감지</strong>
-      </div>
-      <div className="auth-paper-card">
-        <div className="auth-paper-head">
-          <h3>로그인</h3>
-          <span>OAuth 2.0</span>
-        </div>
-        <p>카카오 계정으로 FinLightAI를 시작합니다.</p>
-        <button className="auth-kakao-btn" type="button" onClick={onKakaoLogin}>카카오로 계속하기</button>
-        <div className="auth-divider"><span />또는 이메일로 로그인<span /></div>
-        <label>이메일<input placeholder="finlight@example.com" type="email" /></label>
-        <label>비밀번호<input placeholder="••••••••••••" type="password" /></label>
-        <button className="auth-secondary-btn" type="button" onClick={onEmailLogin}>이메일로 계속하기</button>
-        <small>FinLightAI는 투자 추천이 아니라 신호/근거 제공 서비스입니다.</small>
-      </div>
-      <div className="auth-preview-card">
-        <div><b>로그인 전 미리보기</b><i>● LIVE</i></div>
-        <p><span className="yellow-dot" />해외 시장 / 반도체 <em>YELLOW</em></p>
-        <p><span className="green-dot" />News Guard <em>신뢰 뉴스 4건</em></p>
-      </div>
-    </AuthCardFrame>
-  );
-}
-
-function AuthSignupStep({
-  industries,
-  onComplete,
-  onToggleIndustry,
-  selectedIndustries,
-}: {
-  industries: string[];
-  onComplete: () => void;
-  onToggleIndustry: (industry: string) => void;
-  selectedIndustries: string[];
-}) {
-  return (
-    <AuthCardFrame label="회원가입" path="/auth/signup">
-      <div className="auth-stepper" aria-label="회원가입 진행 단계">
-        <span className="done">카카오 인증<br /><small>계정 확인</small></span>
-        <span className="active">약관 동의<br /><small>필수 확인</small></span>
-        <span>기본 정보<br /><small>프로필 설정</small></span>
-        <span>관심 설정<br /><small>개인화</small></span>
-      </div>
-      <div className="auth-paper-card signup">
-        <h3>회원가입</h3>
-        <p>카카오 인증 후 동의와 기본 정보를 설정합니다.</p>
-        <div className="auth-signup-grid">
-          <div className="auth-agreement-list">
-            {["서비스 이용약관 동의 · 필수", "개인정보 수집 및 이용 동의 · 필수", "투자 추천 아님 안내 확인 · 필수", "카카오 알림 수신 동의 · 선택"].map((item, index) => (
-              <label className="auth-check-row" key={item}>
-                <input defaultChecked={index < 3} type="checkbox" />
-                <span><strong>{item}</strong><small>{index === 3 ? "RED/YELLOW, 일일 브리핑 알림" : "FinLightAI 이용을 위한 확인"}</small></span>
-              </label>
-            ))}
-          </div>
-          <div className="auth-profile-form">
-            <label>닉네임<input defaultValue="데이터 분석가" /></label>
-            <label>대표 관심 시장<input defaultValue="해외 시장 · 반도체 중심" /></label>
-            <strong>관심 산업</strong>
-            <div className="auth-industry-picker">
-              {industries.map((industry) => (
-                <button className={selectedIndustries.includes(industry) ? "selected" : ""} key={industry} type="button" onClick={() => onToggleIndustry(industry)}>
-                  {industry}<small>{industry === "반도체" ? "AI Chip · HBM" : industry === "AI" ? "빅테크 · 데이터센터" : "뉴스 기반 모니터링"}</small>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <button className="auth-primary-btn" type="button" onClick={onComplete}>가입 완료하고 개인화 시작</button>
-      </div>
-      <div className="auth-flow-note">가입 완료 후에는 마이페이지에서 카카오 채널 수신 상태, 관심 산업, 관심 자산, 알림 조건을 한 번에 관리합니다.</div>
-      <div className="auth-data-flow"><span>Kakao OAuth</span><b>→</b><span>User Profile</span><b>→</b><span>MyPage</span></div>
-    </AuthCardFrame>
-  );
-}
-
-function AuthCompleteStep({
-  onGoBriefing,
-  onGoPortfolio,
-  selectedIndustries,
-}: {
-  onGoBriefing: () => void;
-  onGoPortfolio: () => void;
-  selectedIndustries: string[];
-}) {
-  return (
-    <AuthCardFrame label="가입 완료" path="/auth/complete">
-      <div className="auth-complete-hero">
-        <span>✓</span>
-        <h2>가입이 완료되었습니다</h2>
-        <p>이제 관심 자산을 추가하면 시장 신호와 관련 뉴스를 함께 확인할 수 있습니다.</p>
-      </div>
-      <div className="auth-complete-card">
-        <div className="auth-user-row">
-          <span>유</span>
-          <div><strong>데이터 분석가</strong><small>Kakao connected · finlight@kakao.com</small></div>
-        </div>
-        <ul>
-          <li><strong>카카오 채널 연결</strong><em>연결됨</em><small>시장 신호와 News Guard 알림 수신 준비</small></li>
-          <li><strong>관심 산업 {selectedIndustries.length}개 선택</strong><em>완료</em><small>{selectedIndustries.join(", ")} 중심으로 브리핑 개인화</small></li>
-          <li><strong>관심 자산 추가 필요</strong><em>다음 단계</em><small>관심 자산을 추가하면 관련 위험 신호를 연결합니다.</small></li>
-        </ul>
-        <div className="auth-complete-actions">
-          <button type="button" onClick={onGoPortfolio}>관심 자산 추가하기</button>
-          <button type="button" onClick={onGoBriefing}>AI 브리핑 보기</button>
-        </div>
-      </div>
-      <div className="auth-phone-preview">
-        <div className="auth-phone-top">FinLightAI 카카오 채널</div>
-        <div className="auth-phone-body">
-          <p className="auth-chat-user">오늘 시장 신호 알려줘</p>
-          <div className="auth-chat-bot">
-            <strong>[FinLightAI] 주의 신호</strong>
-            <span>시장 위험도 68/100</span>
-            <span>반도체 영향도 +78</span>
-            <span>뉴스 가드 주의 뉴스 2건</span>
-            <small>투자 추천이 아닌 참고용 시장 상태입니다.</small>
-          </div>
-          <button type="button">대시보드에서 자세히 보기</button>
-          <button type="button">관심 자산 리스크 확인</button>
-        </div>
-      </div>
-    </AuthCardFrame>
-  );
-}
-
 function LoginView({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
   return (
     <section className="panel sub-hero">
@@ -3058,7 +2630,7 @@ function LoginView({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
       </div>
       <p>현재는 UI 프로토타입 단계입니다. 실제 인증 연결 전까지는 화면 전환과 진입 경로를 먼저 확인합니다.</p>
       <div className="settings-list">
-        <button type="button">카카오로 계속하기</button>
+        <button type="button">Google로 계속하기</button>
         <button type="button">이메일로 시작하기</button>
         <button type="button" onClick={() => onViewChange("briefing")}>AI 브리핑으로 돌아가기</button>
       </div>

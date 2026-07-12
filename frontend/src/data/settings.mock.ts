@@ -2,18 +2,10 @@ import type { SettingsResponse } from "../types/settings";
 
 export const settingsMock: SettingsResponse = {
   statusCards: [
-    { id: "data", icon: "☁", title: "데이터 수집 상태", value: "정상", description: "모든 데이터 소스가 정상 작동 중", tone: "normal" },
-    { id: "email", icon: "✉", title: "이메일 레터", value: "수신 가능", description: "카카오 승인 전 기본 알림 채널", tone: "connected" },
-    {
-      id: "kakao",
-      icon: "♢",
-      title: "카카오톡 채널 수신 방식",
-      value: "승인 대기",
-      description: "승인 완료 전에는 이메일 레터로 먼저 알림을 받을 수 있습니다.",
-      tone: "warning",
-    },
-    { id: "guard", icon: "◇", title: "뉴스 가드 필터", value: "엄격", description: "저신뢰 뉴스 차단 수준: 높음", tone: "strict" },
-    { id: "api", icon: "</>", title: "API 연동", value: "7 / 10 연결", description: "일부 API가 비활성화되어 있습니다.", tone: "warning" },
+    { id: "data", icon: "DATA", title: "데이터 수집 상태", value: "정상", description: "뉴스와 시장 데이터 수집이 작동 중입니다.", tone: "normal" },
+    { id: "email", icon: "MAIL", title: "이메일 알림", value: "구독 활성", description: "일일 요약과 RED/YELLOW 알림을 이메일로 받을 수 있습니다.", tone: "connected" },
+    { id: "guard", icon: "NEWS", title: "뉴스 가드 필터", value: "엄격", description: "저신뢰 뉴스 차단 수준: 높음", tone: "strict" },
+    { id: "api", icon: "API", title: "API 연동", value: "6 / 6 연결", description: "전시 화면에 필요한 API 상태를 확인합니다.", tone: "normal" },
   ],
   dataCollection: {
     newsInterval: "15분",
@@ -31,17 +23,12 @@ export const settingsMock: SettingsResponse = {
     mode: "strict",
   },
   notifications: [
-    { id: "major-event", label: "주요 이벤트 알림", description: "FRED, 기업공시, 실적 등", enabled: true },
-    { id: "yellow-signal", label: "YELLOW 신호 알림", description: "YELLOW 신호 발생 시", enabled: true },
-    { id: "portfolio-risk", label: "포트폴리오 리스크 알림", description: "보유 자산 리스크 관련 경고", enabled: true },
-    { id: "daily-briefing", label: "일일 AI 브리핑", description: "하루 한 번 핵심 뉴스 요약 제공", enabled: true },
-    { id: "weekly-report", label: "주간 리포트", description: "주간 시장 요약 리포트 발송", enabled: true },
+    { id: "major-event", label: "주요 이벤트 이메일", description: "중요 시장 이벤트 발생 시 이메일로 알립니다.", enabled: true },
+    { id: "yellow-signal", label: "YELLOW 신호 이메일", description: "주의 신호 발생 시 이메일로 알립니다.", enabled: true },
+    { id: "portfolio-risk", label: "포트폴리오 위험 이메일", description: "보유 자산 관련 위험 신호를 이메일로 받습니다.", enabled: true },
+    { id: "daily-briefing", label: "일일 시장 요약", description: "매일 한 번 시장 요약 이메일을 제공합니다.", enabled: true },
+    { id: "weekly-report", label: "주간 리포트", description: "주간 시장 요약 리포트를 이메일로 발송합니다.", enabled: true },
   ],
-  kakaoChannel: {
-    botName: "FinLightAI 카카오 채널 봇",
-    statusLabel: "추가됨",
-    description: "카카오톡에서 FinLightAI 채널 봇을 추가하면 주요 시장 상태 알림을 받아볼 수 있습니다.",
-  },
   apiConnections: [
     { id: "gdelt", name: "GDELT DOC 2.0 API", connected: true },
     { id: "guardian", name: "The Guardian API", connected: true },
@@ -59,6 +46,5 @@ export const settingsMock: SettingsResponse = {
   misc: {
     searchLogRetention: "180일",
     sessionTimeout: "30분",
-    kakaoNotice: "카카오 알림은 직접 연결형 푸시가 아니라, FinLightAI 카카오 채널 봇 추가 후 카카오톡 채널을 통해 발송됩니다.",
   },
 };
