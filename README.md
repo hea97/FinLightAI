@@ -4,6 +4,13 @@ AI, policy, and semiconductor news are filtered for reliability, combined with m
 
 This project is an analysis and alerting platform, not an investment recommendation system.
 
+## Exhibition authentication status
+
+- Google OAuth code: implemented, production Google Cloud Console is not connected yet.
+- Exhibition authentication: environment-gated demo login with `POST /api/auth/demo`.
+- Full self-service signup, password storage, and password reset are outside the exhibition scope.
+- The exhibition notification channel is email only.
+
 ## Quick Start
 
 ```powershell
@@ -128,7 +135,7 @@ The React dashboard uses these FastAPI endpoints:
 - `GET|PATCH /api/mypage`
 - `GET|PUT /api/settings`
 
-Portfolio, email alert, profile, and settings data are scoped by the signed session cookie in production. The `X-User-ID` header remains a local development bridge and must be disabled for production traffic. Google OAuth is implemented, but the production Google Cloud Console, Render, and Vercel settings must be completed before the exhibition smoke test.
+Portfolio, email alert, profile, and settings data are scoped by the signed session cookie in production. The `X-User-ID` header remains a local development bridge and must be disabled for production traffic. For the exhibition, demo login is the fallback authentication path and is controlled by backend environment variables. Google OAuth is implemented, but the production Google Cloud Console, Render, and Vercel settings must be completed before post-exhibition OAuth smoke testing.
 
 ## Project Layout
 

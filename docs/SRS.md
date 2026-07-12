@@ -1,5 +1,13 @@
 # 소프트웨어 요구사항 명세서 (SRS)
 
+## 2026-07-12 전시 인증 결정
+
+- Google OAuth 코드: 구현 완료, 운영 콘솔 미연결
+- 전시 인증: 환경변수로 제한되는 `POST /api/auth/demo` 데모 로그인
+- 정식 회원가입: 전시 범위 제외
+- `/api/auth/google/login`, `/api/auth/google/callback`, `/api/auth/me`, `/api/auth/logout`는 유지한다.
+- production `X-User-ID` fallback은 활성화하지 않는다.
+
 **프로젝트명**: FinLightAI
 **버전**: v4.3
 **최종 업데이트**: 2026-07-12

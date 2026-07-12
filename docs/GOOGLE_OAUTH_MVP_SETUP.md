@@ -1,6 +1,13 @@
 # Google OAuth MVP setup
 
-Google OAuth is the primary MVP login method for FinLightAI. Kakao OAuth and Kakao channel alerts are deferred until business app and channel setup are ready.
+This document is retained as the post-exhibition production Google OAuth connection guide.
+
+2026-07-13 exhibition authentication uses an environment-gated demo login fallback because Google Cloud Console production OAuth credentials are not connected yet.
+
+- Google OAuth code: implemented, production console not connected.
+- Exhibition authentication: `POST /api/auth/demo` gated by `EXHIBITION_DEMO_LOGIN_ENABLED`.
+- Full signup/password account flows: outside the exhibition scope.
+- Exhibition notification channel: email only.
 
 ## Deployment URL contract
 
@@ -84,6 +91,7 @@ profile
 | Variable | Required | Sensitive | Purpose |
 |---|---:|---:|---|
 | `VITE_API_BASE_URL` | Yes | No | Backend API origin used by browser requests |
+| `VITE_EXHIBITION_DEMO_LOGIN_ENABLED` | Exhibition only | No | Display-only flag for the demo login CTA |
 
 ### Production value format
 
@@ -103,6 +111,7 @@ Vercel:
 
 ```env
 VITE_API_BASE_URL=https://<render-production-domain>
+VITE_EXHIBITION_DEMO_LOGIN_ENABLED=true
 ```
 
 ### Configuration cautions
