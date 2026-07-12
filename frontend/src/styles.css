@@ -5649,6 +5649,14 @@ button {
   text-transform: uppercase;
 }
 
+.pipeline-status .demo-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(244, 211, 79, 0.16);
+  color: var(--yellow-text);
+  font-weight: 900;
+}
+
 .pipeline-status--mixed strong,
 .pipeline-status--seed_fallback strong,
 .pipeline-status--mock strong,

@@ -11,6 +11,17 @@ import {
   type NewsImpact,
   type Tone,
 } from "./data/mockData";
+import { DEMO_STORAGE_KEYS, isExhibitionDemoMode } from "./config/demoMode";
+import {
+  exhibitionDemoBriefing,
+  exhibitionDemoIndustryImpact,
+  exhibitionDemoMetadata,
+  exhibitionDemoMyPage,
+  exhibitionDemoPortfolio,
+  exhibitionDemoSettings,
+  exhibitionDemoUser,
+  getExhibitionDemoNewsGuard,
+} from "./data/exhibitionDemo";
 import {
   fetchCurrentUser,
   isExhibitionDemoLoginVisible,
@@ -440,6 +451,12 @@ function App() {
   }, [searchQuery]);
 
   useEffect(() => {
+    if (isExhibitionDemoMode) {
+      setAuthState(exhibitionDemoUser);
+      setAuthError(null);
+      return;
+    }
+
     let ignore = false;
     fetchCurrentUser()
       .then((payload) => {
@@ -470,6 +487,14 @@ function App() {
   }
 
   async function handleLogout() {
+    if (isExhibitionDemoMode) {
+      window.localStorage.removeItem(DEMO_STORAGE_KEYS.portfolio);
+      window.localStorage.removeItem(DEMO_STORAGE_KEYS.settings);
+      setAuthState(exhibitionDemoUser);
+      setView("briefing");
+      return;
+    }
+
     try {
       setAuthError(null);
       await logout();
@@ -636,6 +661,7 @@ type PipelineMetadataView = {
   dataSource?: string;
   providers?: string[];
   isFallback?: boolean;
+  isDemo?: boolean;
   lastUpdated?: string;
   warnings?: string[];
 };
@@ -645,18 +671,39 @@ function PipelineStatusBar({ metadata }: { metadata: PipelineMetadataView | null
   const warnings = metadata?.warnings ?? (metadata ? [] : ["API data unavailable; mock data is not displayed as live data"]);
   const providers = metadata?.providers?.length ? metadata.providers.join(", ") : "not connected";
   const updated = metadata?.lastUpdated ?? "not available";
+  const isDemo = metadata?.isDemo || source === "exhibition_demo";
 
   return (
     <section className={`pipeline-status pipeline-status--${source}`} aria-label="데이터 파이프라인 상태">
       <div>
         <strong>{source}</strong>
+        {isDemo ? <span className="demo-badge">전시용 데모</span> : null}
         {metadata?.isFallback ? <span>fallback active · 대체 데이터 표시 중</span> : null}
         <span>providers: {providers}</span>
         <time>{updated}</time>
       </div>
+      {isDemo ? (
+        <p>
+          사전전시용 데모 데이터입니다. 실시간 API가 아닌 미리 구성한 샘플 데이터를 표시하고 있습니다.
+          FinLightAI의 신호와 샘플 데이터는 투자 추천이나 매수/매도 지시가 아닌 서비스 시연 정보입니다.
+        </p>
+      ) : null}
       {warnings.map((warning) => <p key={warning}>{warning}</p>)}
     </section>
   );
+}
+
+function readDemoStorage<T>(key: string, fallback: T): T {
+  try {
+    const stored = window.localStorage.getItem(key);
+    return stored ? (JSON.parse(stored) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeDemoStorage<T>(key: string, value: T) {
+  window.localStorage.setItem(key, JSON.stringify(value));
 }
 
 function DataState({
@@ -700,6 +747,12 @@ function BriefingDashboard({
   const [briefingFailed, setBriefingFailed] = useState(false);
 
   useEffect(() => {
+    if (isExhibitionDemoMode) {
+      setBriefingData(exhibitionDemoBriefing);
+      setBriefingFailed(false);
+      return;
+    }
+
     let mounted = true;
     fetchBriefingData()
       .then((data) => {
@@ -970,6 +1023,13 @@ function NewsGuardPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isExhibitionDemoMode) {
+      setData(getExhibitionDemoNewsGuard(filter));
+      setIsLoading(false);
+      setLoadError(null);
+      return;
+    }
+
     let ignore = false;
 
     async function load() {
@@ -1319,6 +1379,18 @@ function IndustryImpactPage({
   useEffect(() => {
     let mounted = true;
 
+    if (isExhibitionDemoMode) {
+      setIndustryData(exhibitionDemoIndustryImpact);
+      if (!exhibitionDemoIndustryImpact.details[activeIndustryId]) {
+        setActiveIndustryId(exhibitionDemoIndustryImpact.industries[0]?.id ?? "ai");
+      }
+      setLoadError(null);
+      setIsLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
     setIsLoading(true);
     setLoadError(null);
     fetchIndustryImpactData()
@@ -1613,6 +1685,16 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
   useEffect(() => {
     let mounted = true;
 
+    if (isExhibitionDemoMode) {
+      const data = readDemoStorage(DEMO_STORAGE_KEYS.portfolio, exhibitionDemoPortfolio);
+      setPortfolioData(data);
+      setAssets(data.assets);
+      setIsLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
     fetchPortfolioData()
       .then((data) => {
         if (!mounted) return;
@@ -1665,6 +1747,20 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
     const nextAsset = draftToAsset(draft, editingAssetId);
     const { id: _id, relatedNewsCount: _related, cautionNewsCount: _caution, updatedAt: _updated, ...payload } = nextAsset;
 
+    if (isExhibitionDemoMode) {
+      setAssets((currentAssets) => {
+        const nextAssets = editingAssetId
+          ? currentAssets.map((asset) => (asset.id === editingAssetId ? nextAsset : asset))
+          : [nextAsset, ...currentAssets];
+        if (portfolioData) {
+          writeDemoStorage(DEMO_STORAGE_KEYS.portfolio, { ...portfolioData, assets: nextAssets });
+        }
+        return nextAssets;
+      });
+      closeForm();
+      return;
+    }
+
     try {
       setApiError(null);
       const savedAsset = editingAssetId
@@ -1684,6 +1780,18 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
 
   async function confirmDeleteAsset() {
     if (!deleteTargetId) return;
+    if (isExhibitionDemoMode) {
+      setAssets((currentAssets) => {
+        const nextAssets = currentAssets.filter((asset) => asset.id !== deleteTargetId);
+        if (portfolioData) {
+          writeDemoStorage(DEMO_STORAGE_KEYS.portfolio, { ...portfolioData, assets: nextAssets });
+        }
+        return nextAssets;
+      });
+      setDeleteTargetId(null);
+      return;
+    }
+
     try {
       setApiError(null);
       await deletePortfolioAsset(deleteTargetId);
@@ -1706,6 +1814,10 @@ function PortfolioPage({ onViewChange }: { onViewChange: (view: ViewId) => void 
           </div>
         )}
       />
+      {isExhibitionDemoMode ? <PipelineStatusBar metadata={exhibitionDemoMetadata} /> : null}
+      {isExhibitionDemoMode ? (
+        <p className="mock-disclosure">표시된 보유 수량, 가격, 수익은 실제 계좌 데이터가 아닌 전시용 예시입니다.</p>
+      ) : null}
       {apiError ? <p className="api-error" role="alert">{apiError}</p> : null}
 
       <PortfolioSummaryCards summary={summary} />
@@ -2119,6 +2231,16 @@ function MyPageDashboard({
   useEffect(() => {
     let mounted = true;
 
+    if (isExhibitionDemoMode) {
+      setMyPageData(exhibitionDemoMyPage);
+      setAlertSettings(exhibitionDemoMyPage.alertSettings);
+      setInterests(exhibitionDemoMyPage.interests);
+      setIsLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
     fetchMyPageData()
       .then((data) => {
         if (!mounted) return;
@@ -2166,6 +2288,7 @@ function MyPageDashboard({
     const previous = alertSettings;
     const next = previous.map((item) => (item.id === alertId ? { ...item, enabled: !item.enabled } : item));
     setAlertSettings(next);
+    if (isExhibitionDemoMode) return;
     try {
       setApiError(null);
       const saved = await updateMyPageData({ alertSettings: next });
@@ -2179,6 +2302,7 @@ function MyPageDashboard({
   async function persistInterests(next: string[]) {
     const previous = interests;
     setInterests(next);
+    if (isExhibitionDemoMode) return;
     try {
       setApiError(null);
       const saved = await updateMyPageData({ interests: next });
@@ -2201,6 +2325,7 @@ function MyPageDashboard({
   return (
     <>
       <PageHeader title={viewCopy.mypage.title} description={viewCopy.mypage.subtitle} />
+      {isExhibitionDemoMode ? <PipelineStatusBar metadata={exhibitionDemoMetadata} /> : null}
       {apiError ? <p className="api-error" role="alert">{apiError}</p> : null}
       <GuideCard body={myPageData.guide.body} ctaLabel={myPageData.guide.ctaLabel} title={myPageData.guide.title} />
       <section className="mypage-top-row">
@@ -2444,6 +2569,20 @@ function SettingsDashboard() {
   useEffect(() => {
     let mounted = true;
 
+    if (isExhibitionDemoMode) {
+      const data = readDemoStorage(DEMO_STORAGE_KEYS.settings, exhibitionDemoSettings);
+      setSettingsData(data);
+      setDataCollection(data.dataCollection);
+      setNewsGuard(data.newsGuard);
+      setNotifications(data.notifications);
+      setDisplay(data.display);
+      setMisc(data.misc);
+      setIsLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
     fetchSettingsData()
       .then((data) => {
         if (!mounted) return;
@@ -2474,6 +2613,18 @@ function SettingsDashboard() {
   const loadedSettings = settingsData;
 
   function resetSettings() {
+    if (isExhibitionDemoMode) {
+      window.localStorage.removeItem(DEMO_STORAGE_KEYS.settings);
+      setSettingsData(exhibitionDemoSettings);
+      setDataCollection(exhibitionDemoSettings.dataCollection);
+      setNewsGuard(exhibitionDemoSettings.newsGuard);
+      setNotifications(exhibitionDemoSettings.notifications);
+      setDisplay(exhibitionDemoSettings.display);
+      setMisc(exhibitionDemoSettings.misc);
+      setSaveStatus("전시용 데이터 초기화");
+      return;
+    }
+
     setDataCollection(loadedSettings.dataCollection);
     setNewsGuard(loadedSettings.newsGuard);
     setNotifications(loadedSettings.notifications);
@@ -2504,6 +2655,14 @@ function SettingsDashboard() {
 
   async function saveSettings() {
     if (!dataCollection || !newsGuard || !display || !misc) return;
+    if (isExhibitionDemoMode) {
+      const saved = { ...loadedSettings, dataCollection, newsGuard, notifications, display, misc };
+      writeDemoStorage(DEMO_STORAGE_KEYS.settings, saved);
+      setSettingsData(saved);
+      setSaveStatus("전시용 설정은 브라우저에 저장되었습니다.");
+      return;
+    }
+
     try {
       setSaveStatus("Saving...");
       const saved = await saveSettingsData({ dataCollection, newsGuard, notifications, display, misc });
@@ -2532,6 +2691,7 @@ function SettingsDashboard() {
           </div>
         )}
       />
+      {isExhibitionDemoMode ? <PipelineStatusBar metadata={exhibitionDemoMetadata} /> : null}
       <SettingsStatusCards cards={loadedSettings.statusCards} />
       <section className="settings-grid">
         <DataCollectionSettingsCard data={dataCollection} onAddKeyword={addKeyword} onRemoveKeyword={removeKeyword} onToggleFlag={toggleDataFlag} />

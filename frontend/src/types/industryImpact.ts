@@ -42,7 +42,8 @@ export interface IndustryDetail {
 export interface IndustryImpactResponse {
   industries: IndustrySummary[];
   details: Record<string, IndustryDetail>;
-  dataSource?: "real" | "mixed" | "seed_fallback";
+  dataSource?: "real" | "mixed" | "seed_fallback" | "exhibition_demo";
+  isDemo?: boolean;
   providers?: string[];
   isFallback?: boolean;
   lastUpdated?: string;
