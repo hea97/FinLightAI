@@ -6,7 +6,6 @@ export type ViewId =
   | "industry"
   | "guard"
   | "portfolio"
-  | "Email"
   | "briefing"
   | "settings";
 
@@ -22,7 +21,6 @@ export const navLabels: Record<Locale, Record<ViewId, string>> = {
     industry: "산업 영향도",
     guard: "뉴스 가드",
     portfolio: "포트폴리오",
-    Email: "이메일 알림",
     briefing: "AI 브리핑",
     settings: "설정",
   },
@@ -32,7 +30,6 @@ export const navLabels: Record<Locale, Record<ViewId, string>> = {
     industry: "Industry Impact",
     guard: "News Guard",
     portfolio: "Portfolio",
-    Email: "Email Alerts",
     briefing: "AI Briefing",
     settings: "Settings",
   },
@@ -46,7 +43,7 @@ export const pageText: Record<Locale, Record<ViewId, PageText>> = {
     },
     market: {
       title: "시장 신호",
-      subtitle: "국내, 해외, 관심 산업별로 위험 지표와 주요 변수를 분리합니다.",
+      subtitle: "국내, 해외, 관심 산업별 위험 지표와 주요 변화를 분리합니다.",
     },
     industry: {
       title: "산업 영향도",
@@ -60,17 +57,13 @@ export const pageText: Record<Locale, Record<ViewId, PageText>> = {
       title: "포트폴리오",
       subtitle: "보유 자산을 등록하고 산업 신호와 연결합니다.",
     },
-    Email: {
-      title: "이메일 알림",
-      subtitle: "이메일 로그인과 채널 알림 흐름을 관리합니다.",
-    },
     briefing: {
       title: "AI 브리핑",
       subtitle: "오늘의 핵심 신호를 짧은 실행 메모로 정리합니다.",
     },
     settings: {
       title: "설정",
-      subtitle: "언어, 알림 기준, 관심 산업을 조정합니다.",
+      subtitle: "이메일 알림, 언어, 관심 산업을 조정합니다.",
     },
   },
   en: {
@@ -94,17 +87,13 @@ export const pageText: Record<Locale, Record<ViewId, PageText>> = {
       title: "Portfolio",
       subtitle: "Register assets and map them to industry signals.",
     },
-    Email: {
-      title: "Email Alerts",
-      subtitle: "Manage Email auth and channel notification flows.",
-    },
     briefing: {
       title: "AI Briefing",
       subtitle: "Turn market signals into short action notes.",
     },
     settings: {
       title: "Settings",
-      subtitle: "Tune language, alert thresholds, and watched sectors.",
+      subtitle: "Tune email alerts, language, and watched sectors.",
     },
   },
 };
@@ -113,9 +102,9 @@ export const uiText = {
   ko: {
     searchPlaceholder: "뉴스, 산업, 종목 검색",
     searchEmpty: "검색 결과가 없습니다.",
-    EmailCta: "이메일 채널 연결",
-    loginCta: "이메일 로그인",
-    status: "데모 데이터",
+    emailCta: "이메일 알림 설정",
+    loginCta: "Google 로그인",
+    status: "전시 데이터",
     language: "EN",
     addAsset: "자산 등록",
     closeForm: "닫기",
@@ -124,9 +113,9 @@ export const uiText = {
   en: {
     searchPlaceholder: "Search news, sectors, assets",
     searchEmpty: "No matching result.",
-    EmailCta: "Connect Email Channel",
-    loginCta: "Email Login",
-    status: "Demo Data",
+    emailCta: "Email alert settings",
+    loginCta: "Google Login",
+    status: "Exhibition Data",
     language: "KO",
     addAsset: "Add Asset",
     closeForm: "Close",

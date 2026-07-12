@@ -133,7 +133,7 @@ export const marketData: Record<MarketTab, MarketViewData> = {
   watchIndustry: {
     title: "관심 산업은 반도체와 IT가 긍정적이고, 항공과 금융은 주의가 필요합니다.",
     description:
-      "관심 산업별 뉴스 영향도와 신뢰도 차이가 크므로 업종별 근거 확인이 우선입니다. 알림 조건은 이메일 채널 전송 대상으로 관리됩니다.",
+      "관심 산업별 뉴스 영향도와 신뢰도 차이가 크므로 업종별 근거 확인이 우선입니다. 알림 조건은 이메일 전송 대상으로 관리됩니다.",
     risk: 61,
     updatedAt: "2026.06.23 09:30 KST",
     briefing: [
@@ -146,7 +146,7 @@ export const marketData: Record<MarketTab, MarketViewData> = {
       { label: "항공", value: "-58", note: "유가와 환율 부담", tone: "negative" },
       { label: "금융", value: "-45", note: "금리 발언 주의", tone: "warning" },
       { label: "바이오", value: "+21", note: "임상 뉴스 확인", tone: "positive" },
-      { label: "알림 조건", value: "5개", note: "이메일 채널 대기", tone: "blue" },
+      { label: "알림 조건", value: "5개", note: "확인 메일 확인 필요", tone: "blue" },
     ],
     news: [
       { title: "AI 반도체 수요 증가 전망", impact: 78, trust: "신뢰 보통", sector: "반도체" },

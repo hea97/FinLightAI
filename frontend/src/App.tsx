@@ -648,7 +648,7 @@ function BriefingDashboard({
           <p>대표 사유: 자극적 표현, 근거 부족, 반복 확산</p>
         </section>
 
-        <section className="panel Email-panel">
+        <section className="panel email-panel">
           <div className="section-title-row">
             <h2>최근 이메일 알림</h2>
             <button type="button" onClick={() => onViewChange("settings")}>
@@ -2044,7 +2044,7 @@ function InfoSummaryCard({ profile }: { profile: MyPageProfile }) {
         <div><dt>가입일</dt><dd>{profile.joinedAt}</dd></div>
         <div><dt>마지막 로그인</dt><dd>{profile.lastLoginAt}</dd></div>
         <div><dt>언어 설정</dt><dd>한국어</dd></div>
-        <div><dt>알림 채널</dt><dd><span className="channel-pill">TALK</span>{profile.alertChannel}<em>연결됨</em></dd></div>
+        <div><dt>알림 채널</dt><dd><span className="channel-pill">MAIL</span>{profile.alertChannel}<em>이메일 구독 활성</em></dd></div>
       </dl>
     </section>
   );
@@ -2425,12 +2425,26 @@ function AlertSettingsPanel({
       <div className="email-channel-note">
         <span>MAIL</span>
         <div>
-          <strong>Email subscription</strong>
+          <strong>이메일 구독 활성</strong>
           <em>Primary channel</em>
-          <p>Daily summaries and selected RED/YELLOW signal alerts are delivered by email.</p>
+          <p>일일 요약과 선택한 RED/YELLOW 알림을 이메일로 받을 수 있습니다.</p>
         </div>
         <button type="button">Manage email alerts</button>
       </div>
+      <div className="email-status-list">
+        <article><strong>이메일 알림 미구독</strong><span>이메일 알림을 아직 신청하지 않았습니다.</span></article>
+        <article><strong>확인 메일 확인 필요</strong><span>확인 메일의 링크를 열면 이메일 알림이 활성화됩니다.</span></article>
+        <article><strong>이메일 구독 활성</strong><span>일일 요약과 선택한 RED/YELLOW 알림을 이메일로 받을 수 있습니다.</span></article>
+        <article><strong>수신 거부됨</strong><span>현재 이메일 알림을 받지 않습니다.</span></article>
+        <article><strong>발송 보류</strong><span>이메일 반송 또는 수신 정책에 따라 발송이 일시 중단되었습니다.</span></article>
+        <article><strong>발송 실패</strong><span>이메일 발송 설정 또는 provider 상태를 확인해야 합니다.</span></article>
+        <article><strong>중복 제외</strong><span>동일한 알림은 다시 발송하지 않았습니다.</span></article>
+      </div>
+      <p className="email-policy-note">
+        RED/YELLOW 주요 위험 신호는 설정에 따라 즉시 이메일로 발송되며, GREEN 신호는 즉시 이메일 알림 대상이 아닙니다.
+        구독 신청 후 확인 링크를 열어야 활성화되고, 이메일에서 언제든 수신 거부할 수 있습니다.
+        FinLightAI의 신호와 이메일 알림은 투자 추천이나 매수·매도 지시가 아니라 참고용 시장 상태 정보입니다.
+      </p>
     </section>
   );
 }
