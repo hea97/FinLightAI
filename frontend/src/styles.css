@@ -5208,7 +5208,17 @@ button {
   color: var(--green);
 }
 
+.provider-row .connected {
+  color: var(--green);
+}
+
 .provider-row .partial {
+  color: var(--yellow);
+}
+
+.provider-row .fallback,
+.provider-row .timeout,
+.provider-row .rate_limited {
   color: var(--yellow);
 }
 
@@ -5216,7 +5226,8 @@ button {
   color: var(--muted);
 }
 
-.provider-row .failed {
+.provider-row .failed,
+.provider-row .error {
   color: var(--red);
 }
 
@@ -5640,7 +5651,8 @@ button {
 
 .pipeline-status--mixed strong,
 .pipeline-status--seed_fallback strong,
-.pipeline-status--mock strong {
+.pipeline-status--mock strong,
+.pipeline-status--unavailable strong {
   background: rgba(255, 190, 92, 0.14);
   color: var(--yellow-text);
 }

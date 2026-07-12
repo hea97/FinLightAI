@@ -641,16 +641,16 @@ type PipelineMetadataView = {
 };
 
 function PipelineStatusBar({ metadata }: { metadata: PipelineMetadataView | null }) {
-  const source = metadata?.dataSource ?? "mock";
-  const warnings = metadata?.warnings ?? (metadata ? [] : ["API data unavailable; labeled mock data is displayed"]);
-  const providers = metadata?.providers?.length ? metadata.providers.join(", ") : "mock";
+  const source = metadata?.dataSource ?? "unavailable";
+  const warnings = metadata?.warnings ?? (metadata ? [] : ["API data unavailable; mock data is not displayed as live data"]);
+  const providers = metadata?.providers?.length ? metadata.providers.join(", ") : "not connected";
   const updated = metadata?.lastUpdated ?? "not available";
 
   return (
     <section className={`pipeline-status pipeline-status--${source}`} aria-label="데이터 파이프라인 상태">
       <div>
         <strong>{source}</strong>
-        {metadata?.isFallback ? <span>fallback active</span> : null}
+        {metadata?.isFallback ? <span>fallback active · 대체 데이터 표시 중</span> : null}
         <span>providers: {providers}</span>
         <time>{updated}</time>
       </div>
@@ -995,12 +995,33 @@ function NewsGuardPage() {
   }, [filter]);
 
   if (isLoading && !data) {
-    return <main className="news-guard-page loading-state">뉴스 가드 데이터를 불러오는 중...</main>;
+    return (
+      <main className="news-guard-page">
+        <section className="news-guard-main">
+          <PageHeader title="뉴스 가드" description="뉴스 신뢰도를 검증하고 저신뢰 뉴스를 걸러냅니다." />
+          <DataState title="뉴스 가드 데이터 확인 중" message="API 응답을 기다리는 동안 mock 기사와 provider 상태는 표시하지 않습니다." tone="loading" />
+        </section>
+      </main>
+    );
   }
 
   if (!data) {
-    return <main className="news-guard-page loading-state">뉴스 가드 데이터를 표시할 수 없습니다.</main>;
+    return (
+      <main className="news-guard-page">
+        <section className="news-guard-main">
+          <PageHeader title="뉴스 가드" description="뉴스 신뢰도를 검증하고 저신뢰 뉴스를 걸러냅니다." />
+          <PipelineStatusBar metadata={null} />
+          <DataState
+            title="News Guard API 연결 실패"
+            message={loadError ? `API 연결 실패: ${loadError}` : "뉴스 가드 데이터를 가져오지 못해 mock 기사 수, 점수, provider 상태를 표시하지 않습니다."}
+            tone="error"
+          />
+        </section>
+      </main>
+    );
   }
+
+  const hasNewsGuardData = data.articles.length > 0 || data.stats.collectedNewsCount > 0;
 
   return (
     <main className="news-guard-page">
@@ -1008,7 +1029,7 @@ function NewsGuardPage() {
         <PageHeader title="뉴스 가드" description="뉴스 신뢰도를 검증하고 저신뢰 뉴스를 걸러냅니다." />
 
         <PipelineStatusBar metadata={data} />
-        <NewsGuardKpiGrid data={data} />
+        {hasNewsGuardData ? <NewsGuardKpiGrid data={data} /> : null}
 
         <section className="news-list-panel" aria-label="뉴스 가드 목록">
           <NewsFilterTabs value={filter} onChange={setFilter} />
@@ -1018,8 +1039,10 @@ function NewsGuardPage() {
           </div>
           {loadError ? <p className="api-error" role="alert">{loadError}</p> : null}
           <div className="news-guard-list">
-            {data.articles.length === 0 ? (
-              <DataState title="조건에 맞는 뉴스가 없습니다." message="필터를 바꾸거나 다음 데이터 갱신 후 다시 확인해 주세요." />
+            {!hasNewsGuardData ? (
+              <DataState title="분석 가능한 뉴스가 없습니다" message="API 응답에 기사와 집계가 없어 mock 기사 목록과 점수는 표시하지 않습니다." />
+            ) : data.articles.length === 0 ? (
+              <DataState title="조건에 맞는 뉴스가 없습니다." message="현재 필터에 맞는 실제 응답 기사가 없습니다." />
             ) : data.articles.map((article) => (
               <NewsGuardArticleCard article={article} key={article.id} />
             ))}
@@ -1028,7 +1051,7 @@ function NewsGuardPage() {
         </section>
       </section>
 
-      <RightInsightPanel data={data} />
+      {hasNewsGuardData ? <RightInsightPanel data={data} /> : null}
     </main>
   );
 }
@@ -1137,7 +1160,7 @@ function RightInsightPanel({ data }: { data: NewsGuardViewModel }) {
       <ReliabilityDonut distribution={data.distribution} />
       <BlockReasonList reasons={data.blockReasons} />
       <QuickFilterPanel filters={data.quickFilters} />
-      <ApiStatusCard providers={data.providerHealth} />
+      <ApiStatusCard providers={data.providerHealth} lastUpdated={data.lastUpdated} />
     </aside>
   );
 }
@@ -1197,7 +1220,7 @@ function QuickFilterPanel({ filters }: { filters: QuickFilter[] }) {
   );
 }
 
-function ApiStatusCard({ providers }: { providers: ProviderHealth[] }) {
+function ApiStatusCard({ providers, lastUpdated }: { providers: ProviderHealth[]; lastUpdated?: string }) {
   return (
     <section className="side-card">
       <div className="side-card-header">
@@ -1212,7 +1235,7 @@ function ApiStatusCard({ providers }: { providers: ProviderHealth[] }) {
           </div>
         ))}
       </div>
-      <p className="last-updated">마지막 업데이트: 2분 전</p>
+      <p className="last-updated">마지막 업데이트: {lastUpdated ?? "not available"}</p>
     </section>
   );
 }
@@ -1287,6 +1310,7 @@ function IndustryImpactPage({
   const [industryData, setIndustryData] = useState<IndustryImpactResponse | null>(null);
   const [activeIndustryId, setActiveIndustryId] = useState(selectedIndustryId);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveIndustryId(selectedIndustryId);
@@ -1295,13 +1319,20 @@ function IndustryImpactPage({
   useEffect(() => {
     let mounted = true;
 
+    setIsLoading(true);
+    setLoadError(null);
     fetchIndustryImpactData()
       .then((data) => {
         if (!mounted) return;
         setIndustryData(data);
-        if (!data.details[activeIndustryId]) {
+        if (!data.details[activeIndustryId] && data.industries.length > 0) {
           setActiveIndustryId(data.industries[0]?.id ?? "semiconductor");
         }
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        setIndustryData(null);
+        setLoadError(error instanceof Error ? error.message : "산업 영향도 데이터를 불러오지 못했습니다.");
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
@@ -1314,14 +1345,27 @@ function IndustryImpactPage({
 
   if (isLoading || !industryData) {
     return (
-      <section className="panel industry-impact-loading">
-        <h2>산업 영향도 데이터를 불러오는 중입니다.</h2>
-      </section>
+      <>
+        <PageHeader title={viewCopy.industry.title} description={viewCopy.industry.subtitle} />
+        {loadError ? <PipelineStatusBar metadata={null} /> : null}
+        <DataState
+          title={loadError ? "산업 영향도 API 연결 실패" : "산업 영향도 데이터 확인 중"}
+          message={
+            loadError
+              ? `API 연결 실패: ${loadError}. mock 산업 점수, 뉴스 수, 관련 종목은 표시하지 않습니다.`
+              : "API 응답을 기다리는 동안 mock 산업 점수와 종목은 표시하지 않습니다."
+          }
+          tone={loadError ? "error" : "loading"}
+        />
+      </>
     );
   }
 
-  const activeDetail = industryData.details[activeIndustryId] ?? Object.values(industryData.details)[0];
-  const activeSummary = industryData.industries.find((industry) => industry.id === activeDetail.industryId) ?? industryData.industries[0];
+  const hasIndustryData = industryData.industries.length > 0 && Object.keys(industryData.details).length > 0;
+  const activeDetail = industryData.details[activeIndustryId] ?? null;
+  const activeSummary = activeDetail
+    ? industryData.industries.find((industry) => industry.id === activeDetail.industryId) ?? null
+    : null;
 
   function handleSelectIndustry(industryId: string) {
     setActiveIndustryId(industryId);
@@ -1332,19 +1376,31 @@ function IndustryImpactPage({
     <>
       <PageHeader title={viewCopy.industry.title} description={viewCopy.industry.subtitle} />
       <PipelineStatusBar metadata={industryData} />
-      <IndustryImpactSummaryPanel detail={activeDetail} />
-      <section className="industry-impact-layout">
-        <IndustryImpactHeatmapPanel
-          activeIndustryId={activeDetail.industryId}
-          industries={industryData.industries}
-          lastUpdated={industryData.lastUpdated}
-          onIndustryClick={handleSelectIndustry}
-        />
-        <aside className="industry-impact-side">
-          <IndustryDetailPanel detail={activeDetail} summary={activeSummary} />
-          <IndustryNewsTopList news={activeDetail.topNews} />
-        </aside>
-      </section>
+      {!hasIndustryData ? (
+        <DataState title="산업 영향 분석 데이터가 없습니다" message="API 응답에 산업 점수와 상세 근거가 없어 mock score, YELLOW, 관련 종목을 표시하지 않습니다." />
+      ) : (
+        <>
+          {activeDetail ? <IndustryImpactSummaryPanel detail={activeDetail} /> : null}
+          <section className="industry-impact-layout">
+            <IndustryImpactHeatmapPanel
+              activeIndustryId={activeDetail?.industryId ?? activeIndustryId}
+              industries={industryData.industries}
+              lastUpdated={industryData.lastUpdated}
+              onIndustryClick={handleSelectIndustry}
+            />
+            <aside className="industry-impact-side">
+              {activeDetail && activeSummary ? (
+                <>
+                  <IndustryDetailPanel detail={activeDetail} summary={activeSummary} />
+                  <IndustryNewsTopList news={activeDetail.topNews} />
+                </>
+              ) : (
+                <DataState title="선택 산업 근거 데이터가 없습니다" message="선택한 산업에 연결된 상세 근거가 없어 다른 산업의 뉴스로 대체하지 않습니다." />
+              )}
+            </aside>
+          </section>
+        </>
+      )}
     </>
   );
 }
